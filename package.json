@@ -1,6 +1,6 @@
 {
   "name": "file-preview",
-  "version": "3.3.4",
+  "version": "3.3.5",
   "private": true,
   "description": "Offline, read-only file preview tool for Windows",
   "author": "File Preview",
