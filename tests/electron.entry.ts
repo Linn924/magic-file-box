@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import path from "node:path";
 import type { TestContext, Suite } from "./context";
 import immersive from "./suites/immersive";
+import nonpdfprinting from "./suites/nonpdfprinting";
 import printing from "../src/modules/pdf/tests/printing";
 import core from "./suites/core";
 import visual from "./suites/visual";
@@ -42,6 +43,7 @@ const suites: Record<string, Suite> = {
   bulk,
   immersive,
   printing,
+  nonpdfprinting,
   zoom,
   word,
   excel,

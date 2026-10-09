@@ -4,6 +4,8 @@ import type { PreviewProps } from "../types";
 import { usePreview } from "./usePreview";
 import { createSafeResizeObserver } from "../../composables/safeResizeObserver";
 import textModule from "./index";
+import {renderTextLine,textMatches} from './highlight';
+import {LineHeights} from './lineHeights';
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];
@@ -35,72 +37,52 @@ const vEnd = ref(VIRTUAL_THRESHOLD); // 初始先渲染前 N 行
 const padTop = ref(0);
 const padBottom = ref(0);
 
-/** 读取实际行高：优先取 DOM 真实值，fallback 到 zoom 比例估算 */
-function lineHeight(): number {
-  const el = textScroll.value?.querySelector<HTMLElement>(".text-line");
-  if (el && el.offsetHeight > 0) return el.offsetHeight;
-  return (14 * props.zoom) / 100 * 1.65;
+const estimatedHeight=()=>Math.floor((14*props.zoom/100)*1.65*64)/64;
+let heights=new LineHeights(lines.value.length,estimatedHeight());
+let virtualRevision=0,virtualDisposed=false;
+function contentPadding(root:HTMLElement){return parseFloat(getComputedStyle(root).paddingTop||'0')+parseFloat(getComputedStyle(root.querySelector('.text-code')||root).paddingTop||'0');}
+function windowAt(top:number){
+  const root=textScroll.value;if(!root)return;
+  const y=Math.max(0,top-contentPadding(root)),total=lines.value.length;
+  const start=Math.max(0,heights.at(y)-OVERSCAN),end=Math.min(total,heights.at(y+root.clientHeight)+1+OVERSCAN);
+  vStart.value=start;vEnd.value=Math.max(start+1,end);
+  padTop.value=heights.prefix(start);padBottom.value=Math.max(0,heights.prefix(total)-heights.prefix(vEnd.value));
 }
-
-function updateVirtual() {
-  if (!useVirtual.value) return;
-  const root = textScroll.value;
-  if (!root) return;
-  const lh = lineHeight();
-  const total = lines.value.length;
-  const viewH = root.clientHeight || 600;
-  const scrollY = root.scrollTop;
-
-  const firstVisible = Math.floor(scrollY / lh);
-  const lastVisible = Math.ceil((scrollY + viewH) / lh);
-
-  const start = Math.max(0, firstVisible - OVERSCAN);
-  const end = Math.min(total, lastVisible + OVERSCAN);
-
-  vStart.value = start;
-  vEnd.value = end;
-  padTop.value = start * lh;
-  padBottom.value = Math.max(0, (total - end) * lh);
+function updateVirtual(){
+  if(!useVirtual.value)return;
+  const root=textScroll.value;if(!root?.clientWidth||!root.clientHeight)return;
+  const revision=++virtualRevision,model=heights,before=root.scrollTop;
+  const boundary=root.getBoundingClientRect();
+  const visible=Array.from(root.querySelectorAll<HTMLElement>('.text-line')).find(line=>{const r=line.getBoundingClientRect();return r.bottom>boundary.top&&r.top<boundary.bottom;});
+  const anchor=visible?Number(visible.dataset.line)-1:model.at(Math.max(0,before-contentPadding(root))),offset=model.prefix(anchor);
+  let changed=false;
+  for(const line of root.querySelectorAll<HTMLElement>('.text-line'))changed=model.set(Number(line.dataset.line)-1,line.getBoundingClientRect().height)||changed;
+  const target=before+model.prefix(anchor)-offset;windowAt(target);
+  if(changed)void nextTick().then(()=>{if(!virtualDisposed&&revision===virtualRevision&&heights===model)root.scrollTop=target;});
 }
-
-// 当切换虚拟/非虚拟或 lines 变化时重置
-watch(useVirtual, async (on) => {
-  if (!on) {
-    vStart.value = 0;
-    vEnd.value = 0;
-    padTop.value = 0;
-    padBottom.value = 0;
-  } else {
-    await nextTick();
-    updateVirtual();
-  }
+watch([vStart,vEnd],()=>{void nextTick().then(updateVirtual);},{flush:'post'});
+watch(useVirtual,async on=>{
+  if(!on){vStart.value=0;vEnd.value=0;padTop.value=0;padBottom.value=0;}
+  else {heights=new LineHeights(lines.value.length,estimatedHeight());await nextTick();updateVirtual();}
 });
-
-watch(lines, async () => {
-  if (!useVirtual.value) return;
-  // 编码切换后重置到顶部
-  if (textScroll.value) textScroll.value.scrollTop = 0;
-  vStart.value = 0;
-  await nextTick();
-  updateVirtual();
+watch(lines,async()=>{
+  heights=new LineHeights(lines.value.length,estimatedHeight());
+  if(!useVirtual.value)return;
+  if(textScroll.value)textScroll.value.scrollTop=0;vStart.value=0;
+  await nextTick();updateVirtual();
 });
-
-// zoom 变化时重算（行高改变）
-watch(() => props.zoom, async () => {
-  if (!useVirtual.value) return;
-  await nextTick();
-  updateVirtual();
+watch(()=>props.zoom,async(value,old)=>{
+  if(!useVirtual.value)return;
+  const root=textScroll.value;if(!root)return;
+  const padding=contentPadding(root),anchor=heights.at(Math.max(0,root.scrollTop-padding)),offset=root.scrollTop-padding-heights.prefix(anchor);
+  heights=heights.scaled(value/old,estimatedHeight());
+  const target=padding+heights.prefix(anchor)+offset*value/old;windowAt(target);
+  await nextTick();if(!virtualDisposed){root.scrollTop=target;updateVirtual();}
 });
-
-let resizeObs: ResizeObserver | undefined;
-onMounted(() => {
-  if (useVirtual.value) updateVirtual();
-  resizeObs = createSafeResizeObserver(() => updateVirtual());
-  if (textScroll.value) resizeObs.observe(textScroll.value);
-});
-onBeforeUnmount(() => {
-  resizeObs?.disconnect();
-});
+watch([showLines,query],()=>{void nextTick().then(updateVirtual);});
+let resizeObs:ResizeObserver|undefined;
+onMounted(()=>{updateVirtual();resizeObs=createSafeResizeObserver(updateVirtual);if(textScroll.value)resizeObs.observe(textScroll.value);});
+onBeforeUnmount(()=>{virtualDisposed=true;virtualRevision++;resizeObs?.disconnect();});
 
 /** 当前视口内实际渲染的行（小文件为全部，大文件为虚拟窗口） */
 const virtualLines = computed(() => {
@@ -113,80 +95,12 @@ const hitCount = computed(() => {
   if (!q) return 0;
   // 始终基于全量 lines 统计，不受虚拟化影响
   return lines.value.reduce(
-    (n, line) => n + (line.toLowerCase().includes(q) ? 1 : 0),
+    (n, line) => n + (textMatches(line,query.value).length ? 1 : 0),
     0,
   );
 });
 const isCode = computed(() => textModule.extensions.includes(props.file.ext));
-function esc(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-}
-function highlightLine(line: string) {
-  if (!isCode.value) return esc(line);
-  const ext = props.file.ext;
-  if (ext === "json") {
-    return esc(line)
-      .replace(/(\"(?:\\.|[^\"\\])*\")(\s*:)?/g, (_m, str, colon) =>
-        colon
-          ? `<span class="tok-key">${str}</span>${colon}`
-          : `<span class="tok-str">${str}</span>`,
-      )
-      .replace(/\b(true|false|null)\b/g, '<span class="tok-kw">$1</span>')
-      .replace(/\b(-?\d+(?:\.\d+)?)\b/g, '<span class="tok-num">$1</span>');
-  }
-  if (ext === "xml")
-    return esc(line)
-      .replace(/(&lt;\/?)([\w:.-]+)/g, '$1<span class="tok-key">$2</span>')
-      .replace(/(\"(?:[^\"]*)\")/g, '<span class="tok-str">$1</span>');
-  if (ext === "js" || ext === "ts")
-    return esc(line)
-      .replace(/(\/\/.*$)/g, '<span class="tok-cmt">$1</span>')
-      .replace(
-        /\b(const|let|var|function|return|if|else|for|while|class|import|export|from|async|await|type|interface|new|try|catch|typeof)\b/g,
-        '<span class="tok-kw">$1</span>',
-      )
-      .replace(/(\"(?:\\.|[^\"\\])*\"|'(?:\\.|[^'\\])*'|`(?:\\.|[^`\\])*`)/g, '<span class="tok-str">$1</span>')
-      .replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="tok-num">$1</span>');
-  if (ext === "css")
-    return esc(line)
-      .replace(/(\/\*[\s\S]*?\*\/|\/\/.*$)/g, '<span class="tok-cmt">$1</span>')
-      .replace(/([.#][\w-]+)/g, '<span class="tok-key">$1</span>')
-      .replace(/(#[0-9a-fA-F]{3,8})\b/g, '<span class="tok-num">$1</span>')
-      .replace(/(:\s*[\w-]+)/g, '<span class="tok-str">$1</span>');
-  if (ext === "toml")
-    return esc(line)
-      .replace(/(^\s*#.*$)/g, '<span class="tok-cmt">$1</span>')
-      .replace(/^(\s*\[\[?[^\]]+\]?\])/, '<span class="tok-key">$1</span>')
-      .replace(/^(\s*[\w.-]+)(\s*=)/, '$1<span class="tok-kw">$2</span>')
-      .replace(/("(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*')/g, '<span class="tok-str">$1</span>')
-      .replace(/(:\s*|\s*=\s*)(true|false)\b/gi, '$1<span class="tok-kw">$2</span>')
-      .replace(/\b(-?\d+(?:\.\d+)?)\b/g, '<span class="tok-num">$1</span>');
-  if (ext === "ini")
-    return esc(line)
-      .replace(/(^\s*[#;].*$)/g, '<span class="tok-cmt">$1</span>')
-      .replace(/^(\s*\[[^\]]+\])/, '<span class="tok-key">$1</span>')
-      .replace(/^(\s*[\w.-]+)(\s*=)/, '$1<span class="tok-kw">$2</span>');
-  if (ext === "yaml" || ext === "yml")
-    return esc(line)
-      .replace(/(^\s*#.*$)/g, '<span class="tok-cmt">$1</span>')
-      .replace(/^(\s*-?\s*)([\w.-]+)(:)/, '$1<span class="tok-key">$2</span>$3')
-      .replace(/(:\s*)(true|false|null)\b/gi, '$1<span class="tok-kw">$2</span>');
-  if (ext === "log")
-    return esc(line).replace(
-      /\b(ERROR|WARN|WARNING|INFO|DEBUG|TRACE)\b/g,
-      '<span class="tok-kw">$1</span>',
-    );
-  return esc(line);
-}
-function markSearch(line: string) {
-  const q = query.value.trim();
-  if (!q) return highlightLine(line);
-  const escaped = q.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  return highlightLine(line).replace(
-    new RegExp(escaped, "gi"),
-    (m) => `<mark class="text-hit">${m}</mark>`,
-  );
-}
+function markSearch(line:string) {return renderTextLine(line,isCode.value?props.file.ext:'',query.value);}
 const showHtml = computed(
   () => props.file.ext === "md" && !showSearch.value,
 );
@@ -277,7 +191,7 @@ const showHtml = computed(
           <span v-if="showLines" class="line-no" aria-hidden="true">{{
             vStart + i + 1
           }}</span>
-          <code class="line-body" v-html="markSearch(line) || '&nbsp;'"></code>
+          <code class="line-body" v-html="markSearch(line)"></code>
         </div>
         <!-- 虚拟滚动下方占位 -->
         <div

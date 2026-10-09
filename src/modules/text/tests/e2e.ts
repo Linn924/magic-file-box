@@ -1,6 +1,30 @@
+import assert from 'node:assert/strict';
+import {writeFileSync} from 'node:fs';
 import type { Suite } from "../../../../tests/context";
 const suite: Suite = async (c) => {
-  const text = await c.open("text.txt");
+  const source='const item = "quoted 42"; // return 7\nspan class <node> &lt;';
+  writeFileSync(c.fixture('audit-highlight.js'),source);
+  const audit=await c.open('audit-highlight.js');
+  assert.equal(await c.evaluate(audit,"[...document.querySelectorAll('.line-body')].map(el=>el.textContent).join('\\n')"),source,'syntax highlighting must preserve exact source text');
+  await c.click(audit,'.text-search-toggle');
+  for(const query of ['span','class','<node>','&lt;','quoted 42']){
+    await c.evaluate(audit,`(()=>{const i=document.querySelector('.text-search-input');i.value=${JSON.stringify(query)};i.dispatchEvent(new Event('input',{bubbles:true}))})()`);
+    assert.equal(await c.evaluate(audit,"[...document.querySelectorAll('.line-body')].map(el=>el.textContent).join('\\n')"),source,'search must never rewrite HTML tags or entities');
+    await c.check(audit,'literal text search '+query,"!!document.querySelector('.text-hit')");
+  }
+  c.close(audit);
+    const longName='audit-long-lines.txt';writeFileSync(c.fixture(longName),['long '+('x'.repeat(12000)),...Array.from({length:5000},(_,i)=>'row '+i+' END')].join('\n'));
+  const long=await c.open(longName);await c.check(long,'long text keeps rendered row count bounded',"document.querySelectorAll('.text-line').length<100");
+  await c.evaluate(long,"(()=>{const r=document.querySelector('.text-scroll');r.scrollTop=r.scrollHeight})()");await c.check(long,'long wrapped first line cannot hide final source line',"[...document.querySelectorAll('.line-body')].some(el=>el.textContent==='row 4999 END')");await c.evaluate(long,"(()=>{const z=document.querySelector('.zoom-control input');z.value='175';z.dispatchEvent(new Event('input',{bubbles:true}));z.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))})()");await c.pause(100);await c.evaluate(long,"(()=>{const r=document.querySelector('.text-scroll');r.scrollTop=r.scrollHeight})()");await c.check(long,'long text end remains reachable after software zoom',"[...document.querySelectorAll('.line-body')].some(el=>el.textContent==='row 4999 END')&&document.querySelectorAll('.text-line').length<100");c.close(long);
+    for(const [ext,source] of [['txt','a\n\nb'],['ts','const a: string = "42 span"; // class'],['css','.a { color: #aabbcc; content: "span"; }'],['xml','<node id="42">&amp;</node>'],['ini','[section]\nkey=42'],['toml','[table]\nkey="42"'],['yaml','value: true\n# comment'],['json','{"name":"span", "value":42}']] as const){
+    const name='audit-source-'+ext+'.'+ext;writeFileSync(c.fixture(name),source);const syntax=await c.open(name);
+    const expected=ext==='json'?JSON.stringify(JSON.parse(source),null,2):source;
+    assert.equal(await c.evaluate(syntax,"[...document.querySelectorAll('.line-body')].map(el=>el.textContent).join('\\n')"),expected,'source preserved for '+ext);c.close(syntax);
+  }
+  for(const [name,bytes,encoding] of [['audit-gbk.txt',Buffer.from('d6d0cec4','hex'),'gb18030'],['audit-le.txt',Buffer.concat([Buffer.from([255,254]),Buffer.from('中文','utf16le')]),'utf-16le'],['audit-be.txt',Buffer.concat([Buffer.from([254,255]),Buffer.from('中文','utf16le').swap16()]),'utf-16be']] as const){
+    writeFileSync(c.fixture(name),bytes);const encoded=await c.open(name);await c.check(encoded,'text encoding '+encoding,`document.querySelector('[aria-label=文本编码]').value==='${encoding}'&&document.querySelector('.line-body').textContent==='中文'`);c.close(encoded);
+  }
+    const text = await c.open("text.txt");
   await c.check(
     text,
     "text.txt",

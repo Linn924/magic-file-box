@@ -59,6 +59,7 @@
   white-space: nowrap;
 }
 .text-scroll {
+  overflow-anchor: none;
   overflow: auto;
   flex: 1;
   min-height: 0;
@@ -95,6 +96,7 @@
   font-size: 0.9em;
 }
 .line-body {
+  min-height: 1.65em;
   flex: 1;
   white-space: pre-wrap;
   overflow-wrap: anywhere;

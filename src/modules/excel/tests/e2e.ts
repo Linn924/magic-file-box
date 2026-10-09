@@ -83,7 +83,16 @@ const suite: Suite = async (c) => {
     "Excel locate cell B12",
     "document.body.textContent.includes('已定位 B12')",
   );
-  await c.check(
+  await c.evaluate(win,"(()=>{const z=document.querySelector('.zoom-control input');z.value='200';z.dispatchEvent(new Event('input',{bubbles:true}));z.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));})()");
+  await c.evaluate(win,"(()=>{const i=document.querySelector('.cell-locate-input');i.value='B150';i.dispatchEvent(new Event('input',{bubbles:true}));i.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))})()");
+  try {
+  await c.check(win,'Excel zoomed locate lands in actual visible cell',"(()=>{const r=document.querySelector('.table-wrap').getBoundingClientRect(),row=document.querySelector('tr[data-row=\"149\"]');if(!row)return false;const b=row.getBoundingClientRect();return b.top>=r.top&&b.top<r.bottom})()");
+  } catch(error){throw Error(String(error)+' '+JSON.stringify(await c.evaluate(win,"(()=>{const root=document.querySelector('.table-wrap'),row=document.querySelector('tr[data-row=\\\"149\\\"]');return {top:root.scrollTop,scale:document.querySelector('.sheet-surface').style.zoom,root:root.getBoundingClientRect().toJSON(),row:row?.getBoundingClientRect().toJSON(),first:document.querySelector('tbody tr[data-row]')?.dataset.row}})()")));}
+  await c.evaluate(win,"(()=>{const z=document.querySelector('.zoom-control input');z.value='100';z.dispatchEvent(new Event('input',{bubbles:true}));z.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));const i=document.querySelector('.freeze-num');i.value='2';i.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.table-wrap').scrollTop=5000;})()");
+  try {
+  await c.check(win,'extra frozen data rows remain visible after virtualization',"(()=>{const r=document.querySelector('.table-wrap').getBoundingClientRect(),rows=[document.querySelector('tr[data-row=\"0\"]'),document.querySelector('tr[data-row=\"1\"]')];return rows.every(row=>row&&row.getBoundingClientRect().top>=r.top&&row.getBoundingClientRect().bottom<=r.bottom)})()");
+  } catch(error){throw Error(String(error)+' '+JSON.stringify(await c.evaluate(win,"(()=>{const root=document.querySelector('.table-wrap');return {top:root.scrollTop,input:document.querySelector('.freeze-num').value,root:root.getBoundingClientRect().toJSON(),rows:[...document.querySelectorAll('tbody tr[data-row]')].slice(0,3).map(r=>({n:r.dataset.row,rect:r.getBoundingClientRect().toJSON(),position:getComputedStyle(r).position,top:getComputedStyle(r).top}))}})()")));}
+    await c.check(
     win,
     "Excel freeze toggles present",
     "document.querySelectorAll('.freeze-toggle').length>=4 && document.querySelectorAll('.freeze-num').length===2",

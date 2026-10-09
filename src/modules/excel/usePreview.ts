@@ -111,14 +111,15 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   function onScroll() {
     const el = scroll.value;
     if (!el) return;
-    scrollTop.value = el.scrollTop;
-    clientHeight.value = el.clientHeight;
+    const scale=props.zoom/100;
+    scrollTop.value = Math.max(0,el.scrollTop/scale-28);
+    clientHeight.value = el.clientHeight/scale;
     // Keep a generous loaded window so jump-to-page can still land.
-    const lastVisible = rowAtOffset(el.scrollTop + el.clientHeight);
+    const lastVisible = rowAtOffset(scrollTop.value + clientHeight.value);
     if (lastVisible + 200 > loadedRowCount.value)
       loadedRowCount.value = Math.min(rowCount.value, lastVisible + 400);
     const top = el.getBoundingClientRect().top;
-    const rows = Array.from(el.querySelectorAll<HTMLElement>("tbody tr"));
+    const rows = Array.from(el.querySelectorAll<HTMLElement>("tbody tr[data-row]")).filter(row=>Number(row.dataset.row)>=bodyStart.value);
     const first = rows.find((r) => r.getBoundingClientRect().bottom > top + 28);
     if (first) rowPage.value = Math.floor(Number(first.dataset.row) / pageRows);
   }
@@ -131,9 +132,9 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     loadedRowCount.value = Math.max(loadedRowCount.value, Math.min(rowCount.value, targetRow + pageRows));
     await nextTick();
     const y = rowOffsets.value[targetRow] || 0;
-    if (scroll.value) scroll.value.scrollTop = Math.max(0, y - 28);
-    scrollTop.value = scroll.value?.scrollTop || 0;
-    clientHeight.value = scroll.value?.clientHeight || 600;
+    if (scroll.value) scroll.value.scrollTop = Math.max(0, y * (props.zoom/100));
+    scrollTop.value = Math.max(0,(scroll.value?.scrollTop||0)/(props.zoom/100)-28);
+    clientHeight.value = (scroll.value?.clientHeight||600)/(props.zoom/100);
     rowPage.value = page - 1;
   }
   /** Jump to A1-style reference. Returns false if invalid. */
@@ -160,11 +161,11 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       let left = 46;
       for (let i = 0; i < col - startCol.value; i++)
         left += colWidth(startCol.value + i);
-      scroll.value.scrollTop = Math.max(0, y - 28);
-      scroll.value.scrollLeft = Math.max(0, left - 80);
+      scroll.value.scrollTop = Math.max(0, y * (props.zoom/100));
+      scroll.value.scrollLeft = Math.max(0, (left - 80)*(props.zoom/100));
     }
-    scrollTop.value = scroll.value?.scrollTop || 0;
-    clientHeight.value = scroll.value?.clientHeight || 600;
+    scrollTop.value = Math.max(0,(scroll.value?.scrollTop||0)/(props.zoom/100)-28);
+    clientHeight.value = (scroll.value?.clientHeight||600)/(props.zoom/100);
     rowPage.value = Math.floor(row / pageRows);
     return true;
   }
@@ -182,6 +183,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   watch(freezeCols, (v) => {
     freezeCols.value = clampFreeze(v);
   });
+  watch(()=>props.zoom,async()=>{await nextTick();onScroll();});
   const HEADER_H = 28;
   const ROW_HEAD_W = 46;
   const freezeTop = computed(() => {
@@ -351,43 +353,24 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     }
     return result;
   }
+  const frozenCount=computed(()=>Math.min(freezeRows.value,rowCount.value));
+  const bodyStart=computed(()=>Math.max(frozenCount.value,virtualStart.value));
+  const rowNumbers=computed(()=>[...Array.from({length:frozenCount.value},(_,i)=>i),...Array.from({length:Math.max(0,virtualEnd.value-bodyStart.value)},(_,i)=>bodyStart.value+i)].filter(r=>rowHeight(r)>0));
+  const firstBodyRow=computed(()=>rowNumbers.value.find(r=>r>=bodyStart.value)??-1);
   const merged = computed(() => {
-    const spans = new Map<
-      string,
-      { rows: number; cols: number; r: number; c: number } | null
-    >();
-    for (const m of sheet.value?.["!merges"] || []) {
-      const r0 = Math.max(m.s.r, virtualStart.value),
-        r1 = Math.min(m.e.r, virtualEnd.value - 1);
-      const c0 = Math.max(m.s.c, startCol.value),
-        c1 = Math.min(m.e.c, endCol.value - 1);
-      const visibleRows = Array.from(
-        { length: Math.max(0, r1 - r0 + 1) },
-        (_, i) => r0 + i,
-      ).filter((r) => rowHeight(r) > 0);
-      const visibleCols = columns.value.filter((c) => c >= c0 && c <= c1);
-      if (!visibleRows.length || !visibleCols.length) continue;
-      for (const r of visibleRows)
-        for (const c of visibleCols)
-          spans.set(
-            `${r}:${c}`,
-            r === visibleRows[0] && c === visibleCols[0]
-              ? {
-                  rows: visibleRows.length,
-                  cols: visibleCols.length,
-                  r: m.s.r,
-                  c: m.s.c,
-                }
-              : null,
-          );
+    const spans=new Map<string,{rows:number;cols:number;r:number;c:number}|null>();
+    const windows=frozenCount.value?[[0,frozenCount.value],[bodyStart.value,virtualEnd.value]]:[[bodyStart.value,virtualEnd.value]];
+    for(const m of sheet.value?.['!merges']||[])for(const [start,end] of windows){
+      const r0=Math.max(m.s.r,start),r1=Math.min(m.e.r,end-1),c0=Math.max(m.s.c,startCol.value),c1=Math.min(m.e.c,endCol.value-1);
+      const visibleRows=Array.from({length:Math.max(0,r1-r0+1)},(_,i)=>r0+i).filter(r=>rowHeight(r)>0);
+      const visibleCols=columns.value.filter(c=>c>=c0&&c<=c1);
+      if(!visibleRows.length||!visibleCols.length)continue;
+      for(const r of visibleRows)for(const c of visibleCols)spans.set(`${r}:${c}`,r===visibleRows[0]&&c===visibleCols[0]?{rows:visibleRows.length,cols:visibleCols.length,r:m.s.r,c:m.s.c}:null);
     }
     return spans;
   });
   const rows = computed(() =>
-    Array.from(
-      { length: Math.max(0, virtualEnd.value - virtualStart.value) },
-      (_, i) => virtualStart.value + i,
-    )
+    rowNumbers.value
       .filter((r) => rowHeight(r) > 0)
       .map((r) => ({
         r,
@@ -421,7 +404,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
         }),
       })),
   );
-  const padTop = computed(() => rowOffsets.value[virtualStart.value] || 0);
+  const padTop = computed(() => Math.max(0,(rowOffsets.value[bodyStart.value]||0)-(rowOffsets.value[frozenCount.value]||0)));
   const padBottom = computed(() =>
     Math.max(0, totalTableHeight.value - (rowOffsets.value[virtualEnd.value] || 0)),
   );
@@ -548,7 +531,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     startCol,
     endCol,
     endRow,
-    padTop,
+    padTop,firstBodyRow,
     padBottom,
     virtualStart,
     resizeColumn,

@@ -29,6 +29,8 @@ let pageElements: HTMLElement[] = [];
 const rendered = new Set<number>();
 /** 正在进行的懒渲染任务（0-based index → Promise） */
 const rendering = new Map<number, Promise<void>>();
+let renderQueue=Promise.resolve();
+let jumpRevision=0;
 
 const { current, sync, jump: jumpPages } = useContinuousPages(
   viewport,
@@ -80,7 +82,7 @@ function lazyRender(index: number): Promise<void> {
   const existing = rendering.get(index);
   if (existing) return existing;
 
-  const task = (async () => {
+  const task = renderQueue.then(async () => {
     if (disposed || !renderer) return;
     await renderer.render(index);
     if (disposed) return;
@@ -92,8 +94,9 @@ function lazyRender(index: number): Promise<void> {
     rendered.add(index);
     // 应用当前缩放
     applyFitToPage(placeholder, computeScale());
-    rendering.delete(index);
-  })();
+  }).catch(error=>{if(!disposed)emit('error',previewError(error,'演示文稿'));});
+  renderQueue=task;
+  void task.finally(()=>{if(rendering.get(index)===task)rendering.delete(index);}).catch(()=>{});
 
   rendering.set(index, task);
   return task;
@@ -117,14 +120,15 @@ function setupIntersectObserver() {
 
 /** 跳转到指定页（1-based），确保目标页已渲染后再滚动 */
 async function jump(value: number) {
-  const index = Math.max(0, Math.min(pageElements.length - 1, Math.floor(value) || 1) - 1);
+  const request=++jumpRevision;
+  const index = Math.max(0, Math.min(pageElements.length, Math.floor(value) || 1) - 1);
   // 强制渲染目标页（及相邻页），让滚动后画面不为空
   await Promise.all([
     lazyRender(index),
     index > 0 ? lazyRender(index - 1) : Promise.resolve(),
     index < pageElements.length - 1 ? lazyRender(index + 1) : Promise.resolve(),
   ]);
-  jumpPages(value);
+  if(!disposed&&request===jumpRevision)jumpPages(value);
 }
 
 onMounted(async () => {

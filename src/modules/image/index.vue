@@ -10,7 +10,7 @@ const emit = defineEmits<{
 const {
   pane,
   url,
-  style,
+  style,frameStyle,
   dimensions,
   loaded,
   rotate,
@@ -55,18 +55,20 @@ const {
       </span>
     </Teleport>
     <div class="image">
+      <div class="image-frame" :style="frameStyle">
       <img
         class="preview-content"
         :src="url"
         :alt="file.name"
-        :style="[style, { transform: `rotate(${rotate}deg)` }]"
+        :style="[style, { transform: `translate(-50%, -50%) rotate(${rotate}deg)` }]"
         @load="loaded"
         @error="emit('error', '无法解码图片，文件可能损坏或格式不受支持。')"
       />
+      </div>
     </div>
     <div class="pane-footer">
       {{ dimensions }}
-      <span>{{ originalPixels ? "100% 原始像素" : "适配窗口" }}</span>
+      <span>{{ fitLabel }}</span>
     </div>
   </section>
 </template>

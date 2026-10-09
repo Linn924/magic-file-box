@@ -16,6 +16,7 @@ const names = [
   "zoom",
   "immersive",
   "printing",
+  "nonpdfprinting",
   "bulk",
   "bench",
   "pdfperf",

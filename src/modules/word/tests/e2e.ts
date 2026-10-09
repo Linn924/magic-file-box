@@ -79,5 +79,11 @@ const suite: Suite = async (c) => {
     "document.querySelector('.word-host').shadowRoot.querySelectorAll('.column-resize-handle').length>0",
   );
   c.close(pages);
+  const tabs=(await c.program.openPaths([c.fixture('document.docx'),c.fixture('text.txt')],'tabs'))[0];await c.check(tabs,'Word tab resize ready',"!!document.querySelector('.word-host')?.shadowRoot?.querySelector('.column-resize-handle')");
+  await checkResize(c,tabs,"document.querySelector('.word-host').shadowRoot.querySelector('.column-resize-handle')","document.querySelector('.word-host').shadowRoot.querySelector('td').getBoundingClientRect().width");
+  const width=await c.evaluate<number>(tabs,"document.querySelector('.word-host').shadowRoot.querySelector('td').getBoundingClientRect().width");
+  await c.click(tabs,'.tab .tab-name','text.txt');await c.pause(2200);await c.click(tabs,'.tab .tab-name','document.docx');
+  await c.check(tabs,'Word temporary column width survives idle unload',`(()=>{const t=document.querySelector('.word-host')?.shadowRoot?.querySelector('td');return !!t&&Math.abs(t.getBoundingClientRect().width-${width})<2})()`);c.close(tabs);
+
 };
 export default suite;

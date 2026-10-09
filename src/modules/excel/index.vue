@@ -38,7 +38,7 @@ const {
   startCol,
   endCol,
   endRow,
-  padTop,
+  padTop,firstBodyRow,
   padBottom,
   resizeColumn,
   XLSX,
@@ -142,17 +142,9 @@ async function locate() {
             </tr>
           </thead>
           <tbody>
+            <template v-for="row in rows" :key="row.r">
+            <tr v-if="row.r===firstBodyRow && padTop>0" class="row-virtual-spacer" aria-hidden="true" :style="{height:padTop+'px'}"><td :colspan="columns.length+1"></td></tr>
             <tr
-              v-if="padTop > 0"
-              class="row-virtual-spacer"
-              aria-hidden="true"
-              :style="{ height: padTop + 'px' }"
-            >
-              <td :colspan="columns.length + 1"></td>
-            </tr>
-            <tr
-              v-for="row in rows"
-              :key="row.r"
               :data-row="row.r"
               :data-frozen="row.r < freezeRows ? '1' : undefined"
               :style="{
@@ -195,6 +187,7 @@ async function locate() {
                 ><template v-else>{{ cell.text }}</template>
               </td>
             </tr>
+            </template>
             <tr
               v-if="padBottom > 0"
               class="row-virtual-spacer"

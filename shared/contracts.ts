@@ -19,6 +19,7 @@ export interface PreviewFile {
     pdfNotes?: PdfTemporaryMark[];
     /** Session-only physical page and row progress; survives automatic regrouping. */
     pdfReading?: {page:number;fraction:number};
+    image?: {rotate:0|90|180|270;originalPixels:boolean};
     excel?: {
       sheet: string;
       columns: number;

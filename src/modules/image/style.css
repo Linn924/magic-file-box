@@ -2,8 +2,8 @@
   flex: 1;
   min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
   padding: 20px;
   overflow: auto;
   background-image:
@@ -58,3 +58,6 @@ html[data-theme="dark"] .image {
 html[data-theme="dark"] .image img {
   box-shadow: 0 2px 12px #0003;
 }
+
+.image-frame{position:relative;flex-shrink:0;margin:auto;overflow:hidden}
+.image-frame img{position:absolute;left:50%;top:50%;margin:0}

@@ -103,7 +103,7 @@
 .sheet-surface {
   position: relative;
   width: max-content;
-  overflow: hidden;
+  overflow: visible;
   min-width: 100%;
 }
 .spreadsheet {
