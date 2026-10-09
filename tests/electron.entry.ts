@@ -18,6 +18,7 @@ import image from "../src/modules/image/tests/e2e";
 import bench from "../src/modules/pdf/tests/bench";
 import pdfperf from "../src/modules/pdf/tests/performance";
 import pdfenhancements from '../src/modules/pdf/tests/enhancements';
+import pdfspread from '../src/modules/pdf/tests/spread';
 import pdfchain from '../src/modules/pdf/tests/chain';
 const profile = path.resolve("work/test-profiles/" + process.pid);
 mkdirSync(profile, { recursive: true });
@@ -52,6 +53,7 @@ const suites: Record<string, Suite> = {
   pdfperf,
   pdfchain,
   pdfenhancements,
+  pdfspread,
 };
 const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
 const selected =

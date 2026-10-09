@@ -4,7 +4,7 @@ import { createSafeResizeObserver } from "../../composables/safeResizeObserver";
 import { previewPixelRatio } from "./bitmap";
 import { acquireCachedPdf } from "./docCache";
 import { pdfWork } from "./workQueue";
-import { PageIndex } from './pageIndex';
+import { PdfRowIndex } from './rowIndex';
 import { cachedPageSize, rememberPageSize, pageSize } from './metadata';
 import { pdfResources } from './resources';
 import { allocatePdfCanvas, availablePdfPixels, releasePdfCanvas, prunePdfCanvases } from './canvasPool';
@@ -26,8 +26,7 @@ import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import type { PreviewProps, PreviewEmit } from "../types";
 
 const OVERSCAN = 2;
-/** Must match .pdf-page margin-bottom; virtual padding represents complete page slots. */
-const PAGE_GAP = 24;
+/** Must match .pdf-scroll padding; row heights/gaps are indexed in PdfRowIndex. */
 const SCROLL_PADDING = 26;
 
 export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermission?:(allowed:boolean,password?:string)=>void,presentation=ref(false)) {
@@ -36,7 +35,9 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
   const layout = ref(0);
   const textGeometry = ref(0);
   const pages = ref<Array<{ width: number; height: number }>>([]);
-  const current = ref(1);
+  const savedReading=props.file.view?.pdfReading;
+  const current = ref(savedReading?.page||1);
+  let navigationPage:number|undefined;
   let pdf: PDFDocumentProxy | undefined,
     observer: IntersectionObserver | undefined,
     resize: ResizeObserver | undefined;
@@ -60,7 +61,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
   let warmupController=new AbortController();
   const lifetime = new AbortController();
   let generation = new AbortController();
-  let positions = new PageIndex([]);
+  const positions = new PdfRowIndex();
   let lastGeometry='';
   const geometryKey=()=>[presentation.value,props.zoom,props.fitMode,rotate.value,scroll.value?.clientWidth,props.fitMode==='page'?scroll.value?.clientHeight:0].join(':');
   const ownedCanvases = new Set<HTMLCanvasElement>();
@@ -104,47 +105,70 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     return { width: width + "px", height: height + "px" };
   }
 
-  function offsetAt(index:number) { void layout.value;return positions.prefix(index); }
+  const isVisible=()=>!!scroll.value?.clientWidth&&!!scroll.value?.clientHeight;
+  const availableWidth=()=>Math.max(1,(scroll.value?.clientWidth||850)-2*SCROLL_PADDING);
+  function offsetAt(page:number) { void layout.value;return positions.offsetForPage(page); }
   function rebuildPositions() {
-    positions = new PageIndex(pages.value.map((_,i)=>pageCss(i).height+PAGE_GAP));
+    positions.rebuild(pages.value.map((_,i)=>pageCss(i)),availableWidth(),!presentation.value);
     layout.value++;
   }
-  function indexAtOffset(y: number) {
-    return positions.indexAt(y);
+  function anchor() {
+    const page=Math.max(0,current.value-1),row=positions.rows[positions.rowForPage(page)];
+    return {page,fraction:Math.max(0,Math.min(1,((scroll.value?.scrollTop||0)-offsetAt(page))/Math.max(1,row?.height||1)))};
+  }
+  function rememberReading() {
+    if(!pages.value.length||presentation.value||!isVisible())return;
+    props.file.view??={zoom:props.zoom,scroll:[]};
+    props.file.view.pdfReading={page:current.value,fraction:anchor().fraction};
+  }
+  function restoreAnchor(value:{page:number;fraction:number}) {
+    const root=scroll.value;if(!root||!pages.value.length||!isVisible())return;
+    current.value=Math.min(pages.value.length,value.page+1);
+    navigationPage=current.value-1;
+    const row=positions.rows[positions.rowForPage(current.value-1)];
+    root.scrollTop=presentation.value?0:offsetAt(current.value-1)+value.fraction*(row?.height||0);
+    updateVirtualWindow();rememberReading();
   }
   const virtualStart = ref(0);
   const virtualEnd = ref(1);
-  const padTop = computed(() => presentation.value?0:offsetAt(virtualStart.value));
+  const padTop = computed(() => {void layout.value;return presentation.value?0:positions.offset(virtualStart.value);});
   const padBottom = computed(() => {
-    if(presentation.value)return 0;
-    return Math.max(0, offsetAt(pages.value.length) - offsetAt(virtualEnd.value));
+    void layout.value;
+    return presentation.value?0:Math.max(0,positions.offset(positions.rows.length)-positions.offset(virtualEnd.value));
   });
-  const visiblePages = computed(() => {
-    if(presentation.value)return pages.value.length?[current.value-1]:[];
-    const out: number[] = [];
-    for (let i = virtualStart.value; i < virtualEnd.value; i++) out.push(i);
-    return out;
+  const visibleRows=computed(()=>{
+    void layout.value;
+    if(presentation.value){const page=current.value-1;return pages.value.length?[{pages:[page],...pageCss(page)}]:[];}
+    return positions.rows.slice(virtualStart.value,virtualEnd.value);
   });
+  const visiblePages=computed(()=>visibleRows.value.flatMap(row=>row.pages));
+  const pageLayout=computed(()=>{void layout.value;return presentation.value?'single':positions.mode;});
+  function rowDimensions(row:{width:number;height:number}) {return {width:row.width+'px',height:row.height+'px'};}
   function updateVirtualWindow() {
-    if(presentation.value)return;
-    const root = scroll.value;
-    const n = pages.value.length;
-    if (!root || !n) {
-      virtualStart.value = 0;
-      virtualEnd.value = Math.min(n, 1);
-      return;
+    if (presentation.value)return;
+    const root=scroll.value,n=positions.rows.length;
+    if(root&&!isVisible())return;
+    if(!root||!n){virtualStart.value=0;virtualEnd.value=Math.min(n,1);return;}
+    const y=Math.max(0,root.scrollTop-SCROLL_PADDING),h=root.clientHeight||700;
+    virtualStart.value=Math.max(0,positions.rowAt(y)-OVERSCAN);
+    virtualEnd.value=Math.min(n,positions.rowAt(y+h)+1+OVERSCAN);
+    const row=positions.rowAt(y+Math.min(100,h*0.2));
+    if(navigationPage!==undefined){
+      const targetRow=positions.rowForPage(navigationPage),target=positions.rows[targetRow],top=positions.offset(targetRow)+SCROLL_PADDING;
+      if(target&&top<root.scrollTop+h&&top+target.height>root.scrollTop){current.value=navigationPage+1;return;}
+      navigationPage=undefined;
     }
-    const y = Math.max(0, root.scrollTop - SCROLL_PADDING);
-    const h = root.clientHeight || 700;
-    virtualStart.value = Math.max(0, indexAtOffset(y) - OVERSCAN);
-    virtualEnd.value = Math.min(n, indexAtOffset(y + h) + 1 + OVERSCAN);
-    current.value = indexAtOffset(y + Math.min(100, h * 0.2)) + 1;
+    if(positions.rowForPage(current.value-1)!==row)current.value=positions.rows[row].pages[0]+1;
+  }
+  function releasePageFocus(){navigationPage=undefined;}
+  function focusPage(index:number) {
+    if(!presentation.value&&index>=0&&index<pages.value.length){navigationPage=index;current.value=index+1;rememberReading();}
   }
   function sync() {
     if (scrollFrame) return;
     scrollFrame = requestAnimationFrame(() => {
       scrollFrame = 0;
-      if (!disposed) {updateVirtualWindow();scheduleWarmup();}
+      if (!disposed&&isVisible()) {updateVirtualWindow();rememberReading();scheduleWarmup();}
     });
   }
   function scheduleWarmup() {
@@ -168,9 +192,10 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     const root = scroll.value;
     if (!root || !n) return;
     if(presentation.value){current.value=index+1;root.scrollTop=0;scheduleWarmup();return;}
+    navigationPage=index;
     root.scrollTop = Math.max(0, offsetAt(index));
     current.value = index + 1;
-    updateVirtualWindow();scheduleWarmup();
+    updateVirtualWindow();rememberReading();scheduleWarmup();
   }
 
   function updateSizes(updates:Array<{index:number;width:number;height:number}>) {
@@ -187,21 +212,17 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     );
     if (!updates.length) return;
     const root = scroll.value;
-    const beforeTop = root?.scrollTop;
-    const anchorPage = current.value - 1;
-    const anchorOffsetBefore = offsetAt(anchorPage);
+    const reading=anchor();
     for (const p of updates)
       pages.value[p.index] = { width: p.width, height: p.height };
-    for(const p of updates)positions.set(p.index,pageCss(p.index).height+PAGE_GAP);
+    positions.update(updates.map(p=>({index:p.index,...pageCss(p.index)})));
+    for(const p of updates)rendered.delete(p.index);
     layout.value++;
-    if (updates.some(p=>p.index>=virtualStart.value&&p.index<virtualEnd.value))
+    if (updates.some(p=>visiblePages.value.includes(p.index)))
       textGeometry.value++;
     await nextTick();
-    if (!disposed && root && beforeTop !== undefined) {
-      const anchorOffsetAfter = offsetAt(anchorPage);
-      root.scrollTop = beforeTop + (anchorOffsetAfter - anchorOffsetBefore);
-    }
-    updateVirtualWindow();
+    if(!disposed&&root)restoreAnchor(reading);
+
   }
 
   function pageEl(index: number) {
@@ -349,10 +370,11 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
   }
 
   async function refresh() {
-    if (disposed) return;
+    if (disposed||!isVisible()) return;
     if (refreshing) { refreshAgain = true; return; }
     refreshing = true;
     try {
+      const reading=anchor();
       generation.abort();generation=new AbortController();
       const geometry=geometryKey();
       if(geometry!==lastGeometry){lastGeometry=geometry;rebuildPositions();textGeometry.value++;}
@@ -365,7 +387,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
       // Keep current bitmaps on screen; render() replaces each page when ready.
       rendered.clear();
       await nextTick();
-      updateVirtualWindow();
+      restoreAnchor(reading);
       observe();
     } finally {
       refreshing = false;
@@ -374,7 +396,14 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
   }
 
   function scheduleRefresh() {
-    if (disposed) return;
+    if (disposed||!isVisible()) return;
+    // Commit row geometry immediately; only bitmap repaint is debounced.
+    // Delaying the index while CSS sizes already changed can undo a user's pan.
+    const geometry=geometryKey();
+    if(geometry!==lastGeometry){
+      const reading=anchor();lastGeometry=geometry;rebuildPositions();textGeometry.value++;
+      void nextTick().then(()=>{if(!disposed)restoreAnchor(reading);});
+    }
     clearTimeout(refreshTimer);
     // Keep existing pixels during continuous resize/zoom, redraw after settling.
     refreshTimer = setTimeout(() => { refreshTimer = undefined; void refresh(); }, 100);
@@ -430,10 +459,10 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
       rebuildPositions();
       lastGeometry=geometryKey();
       virtualStart.value = 0;
-      virtualEnd.value = Math.min(doc.numPages, 3);
+      virtualEnd.value = Math.min(positions.rows.length, 3);
       await nextTick();
-      updateVirtualWindow();
-      await render(virtualStart.value);
+      if(savedReading)restoreAnchor({page:savedReading.page-1,fraction:savedReading.fraction});else updateVirtualWindow();
+      await render(current.value-1);
       if(scroll.value)scroll.value.dataset.pdfStage='bootstrap-ready';
       if (disposed) return;
       observe();
@@ -445,6 +474,8 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
       if(tab&&!visibility){visibility=new MutationObserver(()=>{prunePdfCanvases();if(getComputedStyle(tab).display!=='none'){scheduleRefresh();scheduleWarmup();}});visibility.observe(tab,{attributes:true,attributeFilter:['style','class']});}
       scheduleWarmup();
       emit("ready");
+      await nextTick();
+      if(savedReading)restoreAnchor({page:savedReading.page-1,fraction:savedReading.fraction});
       await new Promise<void>((resolve) => setTimeout(resolve, 0));
       if (scanningSizes) return;
       scanningSizes = true;
@@ -487,7 +518,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
   }
 
   // Re-observe when virtual window slides.
-  watch([virtualStart, virtualEnd], async () => {
+  watch(visibleRows, async () => {
     await nextTick();
     if (!disposed && pdf) observe();
   });
@@ -529,7 +560,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     sync,
     jump,
     dimensions,
-    visiblePages,
+    visiblePages,visibleRows,pageLayout,rowDimensions,focusPage,releasePageFocus,
     padTop,
     padBottom,
     pdf: pdfRef,

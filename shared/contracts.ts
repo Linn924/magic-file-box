@@ -17,6 +17,8 @@ export interface PreviewFile {
     pdfPrintAllowed?: boolean;
     /** PDF marks exist only in the active in-memory preview session. */
     pdfNotes?: PdfTemporaryMark[];
+    /** Session-only physical page and row progress; survives automatic regrouping. */
+    pdfReading?: {page:number;fraction:number};
     excel?: {
       sheet: string;
       columns: number;

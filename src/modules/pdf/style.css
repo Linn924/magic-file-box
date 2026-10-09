@@ -16,6 +16,7 @@
   min-height: 0;
   overflow: auto;
   padding: 26px;
+  overflow-anchor: none;
   background: #e7ebf0;
 }
 .pdf-scroll canvas {
@@ -31,7 +32,7 @@
 .pdf-page {
   contain: layout paint style;
   position: relative;
-  margin: 0 auto 24px;
+  margin: 0;
   background: white;
   flex-shrink: 0;
   overflow: hidden;
@@ -489,3 +490,8 @@ html[data-theme="dark"] .print-status.failed{color:#fbbf24}
 .pdf-presentation .pdf-text-layer,.pdf-presentation .pdf-annot-layer,.pdf-presentation .pdf-user-layer{pointer-events:none}
 .pdf-presentation .page-nav,.pdf-presentation .pdf-perm-note{display:none!important}
 .pdf-presentation-active .filebar,.pdf-presentation-active .tabs,.pdf-presentation-active .search-tools{display:none!important}
+
+.pdf-row{display:flex;align-items:flex-start;gap:24px;margin:0 auto 24px;flex-shrink:0}
+.pdf-presentation .pdf-row{margin:0;gap:0}
+
+.pdf-row:has(> .pdf-page + .pdf-page) > .pdf-page.is-current-page{outline:1px solid var(--accent);outline-offset:-1px}

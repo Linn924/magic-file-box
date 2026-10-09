@@ -16,6 +16,10 @@ const props = defineProps<PreviewProps>();
 const presentation=ref(false);
 let priorFullscreen=false;
 let fullscreenCleanup:(()=>void)|undefined;
+let readingRestore:ReturnType<typeof setTimeout>|undefined;
+let readingInteraction=0;
+function cancelReadingRestore(){readingInteraction++;clearTimeout(readingRestore);}
+function selectReadingPage(index:number){cancelReadingRestore();focusPage(index);}
 const emit = defineEmits<{
   ready: [];
   error: [message: string];
@@ -28,7 +32,7 @@ const {
   sync,
   jump,
   dimensions,
-  visiblePages,
+  visiblePages,visibleRows,pageLayout,rowDimensions,focusPage,releasePageFocus,
   padTop,
   padBottom,
   pdf,
@@ -354,13 +358,22 @@ const activePdf=()=>presentation.value||!!scroll.value?.closest<HTMLElement>('.p
 const editable=(target:EventTarget|null)=>target instanceof HTMLElement&&!!target.closest('input,textarea,select,[contenteditable="true"]');
 async function togglePresentation(value=!presentation.value,restore=true){
   if(value===presentation.value)return;
+  clearTimeout(readingRestore);
+  const leavingPage=current.value,interaction=readingInteraction;
   if(value){priorFullscreen=document.documentElement.classList.contains('immersive');searchOpen.value=false;presentation.value=true;document.documentElement.classList.add('pdf-presentation-active');
     try{await window.localPreview.setFullscreen(true);}catch{presentation.value=false;document.documentElement.classList.remove('pdf-presentation-active');}
   } else {presentation.value=false;document.documentElement.classList.remove('pdf-presentation-active');if(restore)await window.localPreview.setFullscreen(priorFullscreen);}
   await nextTick();scroll.value?.focus();
+  if(!value){
+    jump(leavingPage);
+    // The shared fullscreen container restores raw scroll after 150ms. Reapply
+    // the physical page once it settles, unless the reader has since interacted.
+    readingRestore=setTimeout(()=>{if(!textDisposed&&!presentation.value&&interaction===readingInteraction)jump(leavingPage);},220);
+  }
 }
 function onKeydown(event:KeyboardEvent){
   if(!activePdf()||editable(event.target)||event.altKey||event.metaKey)return;
+  cancelReadingRestore();
   if(event.ctrlKey&&event.shiftKey&&event.key.toLowerCase()==='p'){event.preventDefault();event.stopImmediatePropagation();void togglePresentation();return;}
   if(presentation.value){
     if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();void togglePresentation(false);}
@@ -379,6 +392,8 @@ function onKeydown(event:KeyboardEvent){
   if(handled){event.preventDefault();event.stopPropagation();}
 }
 function onWheel(event:WheelEvent){
+  cancelReadingRestore();
+  if(!event.ctrlKey&&event.deltaY!==0)releasePageFocus();
   if(presentation.value){event.preventDefault();return;}
   if(!event.ctrlKey||event.deltaY===0)return;
   event.preventDefault();emit('update:zoom',Math.max(25,Math.min(400,props.zoom+(event.deltaY<0?10:-10))));
@@ -398,6 +413,7 @@ onMounted(() => {
   fullscreenCleanup=window.localPreview.onFullscreen(value=>{if(!value&&presentation.value)void togglePresentation(false,false);});
 });
 onBeforeUnmount(() => {
+  clearTimeout(readingRestore);
   fullscreenCleanup?.();window.removeEventListener('keydown',onKeydown,true);
   if(presentation.value){document.documentElement.classList.remove('pdf-presentation-active');void window.localPreview.setFullscreen(priorFullscreen);}
   exportController.abort();
@@ -493,6 +509,7 @@ onBeforeUnmount(() => {
       <div
         ref="scroll"
         class="pdf-scroll"
+        :data-layout="pageLayout"
         :class="{'is-panning':panning}"
         tabindex="0"
         @scroll.passive="sync"
@@ -502,20 +519,24 @@ onBeforeUnmount(() => {
         @mouseup="captureNotes"
       >
         <div v-if="padTop > 0" class="pdf-virtual-pad" :style="{ height: padTop + 'px' }" aria-hidden="true"></div>
+        <div v-for="row in visibleRows" :key="row.pages.join('-')" class="pdf-row" role="group" :aria-label="row.pages.map(i=>'第 '+(i+1)+' 页').join('、')" :data-pages="row.pages.map(i=>i+1).join(',')" :style="rowDimensions(row)">
         <div
-          v-for="index in visiblePages"
+          v-for="index in row.pages"
           :key="index"
           class="pdf-page preview-content"
           :class="{
+            'is-current-page':current===index+1,
             'has-hit': highlightPages.has(index),
             'is-active-hit': activeHit?.page === index + 1,
           }"
           :data-page="index"
+          @pointerdown="selectReadingPage(index)"
           :style="dimensions(index)"
         >
           <canvas :aria-label="'PDF 第 ' + (index + 1) + ' 页'"></canvas>
           <div class="pdf-text-layer"></div>
           <div class="pdf-user-layer" aria-hidden="true"><template v-for="mark in annotations.onPage(index+1)" :key="mark.id"><span v-for="(rect,i) in mark.rects" :key="i" class="pdf-user-mark" :class="mark.kind" :style="annotations.rectStyle(mark,rect,rotate)"></span></template></div>
+        </div>
         </div>
         <div v-if="padBottom > 0" class="pdf-virtual-pad" :style="{ height: padBottom + 'px' }" aria-hidden="true"></div>
       </div>
