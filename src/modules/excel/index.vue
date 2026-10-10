@@ -3,7 +3,9 @@ import PageNavigation from "../../components/PageNavigation.vue";
 import type { PreviewProps } from "../types";
 import { usePreview } from "./usePreview";
 import {useGridInteraction} from './useGridInteraction';
-import { ref } from "vue";
+import ExcelToolButton from './ExcelToolButton.vue';
+import ExcelIcon from './ExcelIcon.vue';
+import { ref,computed,watch,nextTick,onBeforeUnmount } from "vue";
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];
@@ -42,6 +44,21 @@ const {
 } = usePreview(props, emit);
 const cellInput=ref<HTMLTextAreaElement>();
 const grid=useGridInteraction(props.file,editor,rowCount,colCount,address=>locateCell(address,true));
+const actionMenu=ref<'insert'|'delete'|'more'|null>(null);
+const alignment=computed(()=>rows.value.flatMap(row=>row.cells).find(cell=>cell.address===editor.address.value)?.style.textAlign||'left');
+function toggleActions(menu:'insert'|'delete'|'more'){if(!grid.commit()||!editor.finishCell())return;grid.closeAll();actionMenu.value=actionMenu.value===menu?null:menu;void nextTick(()=>pane.value?.querySelector<HTMLButtonElement>('.excel-actions-menu button')?.focus({preventScroll:true}));}
+function closeActions(restoreFocus=false){const prior=actionMenu.value;actionMenu.value=null;if(restoreFocus&&prior)void nextTick(()=>pane.value?.querySelector<HTMLButtonElement>(`.excel-${prior}-toggle`)?.focus({preventScroll:true}));}
+function outsideActions(event:PointerEvent){if(!(event.target instanceof Element)||!event.target.closest('.excel-actions,.excel-actions-menu'))closeActions();}
+window.addEventListener('pointerdown',outsideActions);onBeforeUnmount(()=>window.removeEventListener('pointerdown',outsideActions));
+function editorKey(event:KeyboardEvent){if(event.key==='Escape'&&actionMenu.value){event.preventDefault();closeActions(true);return;}void grid.key(event);}
+async function actionStructure(axis:'row'|'column',kind:'insert'|'delete',side:'before'|'after'){closeActions();await grid.structure(axis,kind,side);}
+function customInsert(){closeActions();grid.customAxis.value='row';grid.customSide.value='before';grid.customCount.value=1;grid.openCustom();}
+function copyCell(){if(grid.commit()&&editor.finishCell())void grid.copy();}
+watch(editor.editing,()=>closeActions());
+watch(actionMenu,()=>{void nextTick(()=>{pane.value?.querySelectorAll<HTMLButtonElement>('.excel-actions-menu button').forEach(button=>{button.title ||= button.textContent?.trim()||'表格操作';button.setAttribute('aria-label',button.title);});});});
+function resizeFormula(){void nextTick(()=>{const input=cellInput.value;if(input){input.style.height='28px';input.style.height=Math.min(88,Math.max(28,input.scrollHeight+2))+'px';}});}
+watch([editor.input,editor.editing],resizeFormula,{immediate:true});
+watch(sheetName,()=>{void nextTick(()=>{const nav=pane.value?.querySelector<HTMLElement>('.sheets'),tab=nav?.querySelector<HTMLElement>('.active');if(!nav||!tab||!nav.clientWidth)return;const bounds=nav.getBoundingClientRect(),rect=tab.getBoundingClientRect();if(rect.left<bounds.left)nav.scrollLeft-=bounds.left-rect.left;else if(rect.right>bounds.right)nav.scrollLeft+=rect.right-bounds.right;});});
 function selectSheet(name:string){if(!grid.commit()||!editor.finishCell())return;grid.closeAll();sheetName.value=name;rowPage.value=colPage.value=0;if(editor.editing.value)editor.select('A1',name);}
 function headerAddress(axis:'row'|'column',index:number){const current=XLSX.utils.decode_cell(editor.address.value);return XLSX.utils.encode_cell(axis==='row'?{r:index,c:current.c}:{r:current.r,c:index});}
 function menuKey(event:KeyboardEvent){if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;event.preventDefault();const buttons=Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('button'));let index=buttons.indexOf(document.activeElement as HTMLButtonElement);index=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;buttons[index]?.focus();}
@@ -50,43 +67,45 @@ function dialogTab(event:KeyboardEvent){const fields=Array.from((event.currentTa
 const locateRef = ref("");
 const locateMsg = ref("");
 async function locate() {
+  if(editor.editing.value&&(!grid.commit()||!editor.finishCell()))return;
   const ok = await locateCell(locateRef.value);
-  locateMsg.value = ok ? `已定位 ${locateRef.value.toUpperCase()}` : "无效单元格，例如 B12";
+  if(ok&&editor.editing.value){await grid.select(locateRef.value.toUpperCase());await grid.move(0,0);}
+  locateMsg.value = ok ? '' : "无效单元格，例如 B12";
 }
+watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.value;locateMsg.value='';},{immediate:true});
 </script>
 <template>
-  <section ref="pane" class="excel" @keydown="grid.key">
+  <section ref="pane" class="excel" @keydown="editorKey">
     <Teleport :to="`[data-file-id='${props.file.id}'] .module-tools`" defer>
       <span class="excel-edit-tools">
-        <button type="button" class="excel-edit-toggle" :aria-pressed="editor.editing.value" :disabled="!editor.canEdit.value||editor.saving.value" :title="editor.canEdit.value?'基础编辑（源文件只读）':'XLS 只支持预览'" @click="editor.toggle()">{{editor.editing.value?'回到预览':'编辑副本'}}</button>
-        <button type="button" class="excel-save-copy" :disabled="!editor.canEdit.value||editor.saving.value" @click="editor.save()">{{editor.saving.value?'处理中…':'另存副本'}}</button>
-        <select v-model="editor.format.value" aria-label="副本格式" :disabled="editor.saving.value"><option value="xlsx">XLSX</option><option value="csv">CSV（当前工作表）</option><option value="tsv">TSV（当前工作表）</option></select>
-        <span class="excel-dirty" role="status">{{editor.dirty.value?'有未保存修改':editor.changes.value.length||editor.baseBytes.value?'副本已保存 · 源文件只读':'源文件只读'}}</span>
+        <ExcelToolButton class="excel-edit-toggle" icon="edit" :pressed="editor.editing.value" :disabled="!editor.canEdit.value||editor.saving.value" :title="!editor.canEdit.value?'XLS 只支持预览':editor.editing.value?'结束编辑，切回预览（保留本次修改）':'编辑副本（源文件不变）'" @click="editor.toggle()" />
+        <template v-if="!editor.editing.value"><ExcelToolButton class="excel-save-copy" icon="save" title="另存副本" :disabled="!editor.canEdit.value||editor.saving.value" @click="editor.save()" />
+        <select v-model="editor.format.value" aria-label="副本格式" title="副本格式；CSV/TSV 只保存当前工作表" :disabled="!editor.canEdit.value||editor.saving.value"><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="tsv">TSV</option></select></template>
+        <span class="excel-dirty" role="status">{{editor.dirty.value?'未保存':editor.changes.value.length||editor.baseBytes.value?'副本已保存':editor.editing.value?'编辑副本':'预览'}}</span>
       </span>
     </Teleport>
+    <div v-if="editor.editing.value" class="excel-editor-toolbar" role="toolbar" aria-label="Excel 编辑工具栏">
+      <span class="excel-command-group" data-group="save"><ExcelToolButton class="excel-save-copy" icon="save" title="另存副本（源文件不变）" :disabled="editor.saving.value" @click="editor.save()" /><select v-model="editor.format.value" aria-label="副本格式" title="副本格式；CSV/TSV 只保存当前工作表" :disabled="editor.saving.value"><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="tsv">TSV</option></select></span>
+      <span class="excel-command-group" data-group="history"><ExcelToolButton class="excel-undo" icon="undo" title="撤销（表格内 Ctrl+Z）" :disabled="editor.saving.value||(!editor.pending.value&&!editor.undoStack.value.length)" @click="editor.undo()" /><ExcelToolButton class="excel-redo" icon="redo" title="重做（表格内 Ctrl+Y）" :disabled="editor.saving.value||editor.pending.value||!editor.redoStack.value.length" @click="editor.redo()" /></span>
+      <span class="excel-command-group" data-group="clipboard"><ExcelToolButton icon="copy" title="复制单元格（Ctrl+C）" :disabled="editor.saving.value" @click="copyCell" /><ExcelToolButton icon="paste" title="粘贴到选中单元格（Ctrl+V）" :disabled="editor.saving.value" @click="grid.paste()" /><ExcelToolButton icon="clear" title="清空单元格（Delete）" :disabled="editor.saving.value" @click="grid.clear()" /></span>
+      <span class="excel-command-group" data-group="alignment"><ExcelToolButton v-for="option in [{value:'left',label:'内容居左'},{value:'center',label:'内容居中'},{value:'right',label:'内容居右'}] as const" :key="option.value" :icon="option.value" :title="option.label" :pressed="alignment===option.value" :disabled="editor.saving.value" @click="grid.align(option.value)" /></span>
+      <span class="excel-command-group" data-group="structure">
+        <span class="excel-actions"><ExcelToolButton class="excel-insert-toggle" icon="insert" title="插入行或列" aria-haspopup="menu" :aria-expanded="actionMenu==='insert'" :disabled="editor.saving.value" @click="toggleActions('insert')" /><div v-if="actionMenu==='insert'" class="excel-actions-menu" role="menu" aria-label="插入行列" @keydown="menuKey"><button role="menuitem" @click="actionStructure('row','insert','before')"><ExcelIcon name="above" />上方插入行</button><button role="menuitem" @click="actionStructure('row','insert','after')"><ExcelIcon name="below" />下方插入行</button><button role="menuitem" @click="actionStructure('column','insert','before')"><ExcelIcon name="before" />左侧插入列</button><button role="menuitem" @click="actionStructure('column','insert','after')"><ExcelIcon name="after" />右侧插入列</button><hr /><button role="menuitem" class="excel-custom-insert" @click="customInsert"><ExcelIcon name="custom" />自定义插入…</button></div></span>
+        <span class="excel-actions"><ExcelToolButton class="excel-delete-toggle" icon="delete" title="删除行或列" aria-haspopup="menu" :aria-expanded="actionMenu==='delete'" :disabled="editor.saving.value" @click="toggleActions('delete')" /><div v-if="actionMenu==='delete'" class="excel-actions-menu" role="menu" aria-label="删除行列" @keydown="menuKey"><button role="menuitem" @click="actionStructure('row','delete','before')"><ExcelIcon name="row" />删除当前行</button><button role="menuitem" @click="actionStructure('column','delete','before')"><ExcelIcon name="column" />删除当前列</button></div></span>
+      </span>
+      <span class="excel-command-group excel-actions" data-group="more"><ExcelToolButton class="excel-more-toggle" icon="more" title="更多表格操作" aria-haspopup="menu" :aria-expanded="actionMenu==='more'" :disabled="editor.saving.value" @click="toggleActions('more')" /><div v-if="actionMenu==='more'" class="excel-actions-menu" role="menu" aria-label="更多表格操作" @keydown="menuKey"><button role="menuitemcheckbox" :aria-checked="freezeFirstRow" @click="freezeFirstRow=!freezeFirstRow"><ExcelIcon name="row" />固定表头<span>{{freezeFirstRow?'✓':''}}</span></button><button role="menuitemcheckbox" :aria-checked="freezeFirstCol" @click="freezeFirstCol=!freezeFirstCol"><ExcelIcon name="column" />固定行号<span>{{freezeFirstCol?'✓':''}}</span></button><hr /><button class="excel-discard" role="menuitem" title="恢复最初打开的源内容（需确认）" @click="closeActions();editor.discard()"><ExcelIcon name="restore" />恢复源内容…</button></div></span>
+    </div>
     <div v-if="editor.editing.value" class="excel-editor-bar">
-      <span class="excel-cell-address">{{sheetName}}!{{editor.address.value}}</span>
-      <textarea ref="cellInput" v-model="editor.input.value" class="excel-cell-input" aria-label="单元格内容" rows="2" :disabled="editor.saving.value" placeholder="文字、数字或 =公式；以 ' 开头强制文字" @keydown="inputKey"></textarea>
-      <button type="button" class="excel-apply-cell" :disabled="editor.saving.value" @click="editor.finishCell()">应用</button>
-      <button type="button" class="excel-undo" :disabled="editor.saving.value||(!editor.pending.value&&!editor.undoStack.value.length)" @click="editor.undo()">撤销</button>
-      <button type="button" class="excel-redo" :disabled="editor.saving.value||editor.pending.value||!editor.redoStack.value.length" @click="editor.redo()">重做</button>
-      <button type="button" class="excel-discard" :disabled="editor.saving.value" @click="editor.discard()">恢复源内容</button>
+      <input v-model="locateRef" class="cell-locate-input excel-name-box" :placeholder="editor.address.value" aria-label="定位单元格" :title="sheetName+'!'+editor.address.value+'；输入地址后回车定位'" :disabled="editor.saving.value" @keydown.enter.prevent="locate" />
+      <ExcelToolButton class="excel-cancel-cell" icon="cancel" title="取消当前输入（Esc）" :disabled="editor.saving.value||!editor.pending.value" @click="grid.cancel()" />
+      <ExcelToolButton class="excel-apply-cell" icon="check" title="确认当前输入（Enter）" :disabled="editor.saving.value||!editor.pending.value" @click="editor.finishCell()" />
+      <span class="excel-formula-label" title="单元格内容或公式" aria-hidden="true">ƒx</span>
+      <textarea ref="cellInput" v-model="editor.input.value" class="excel-cell-input" aria-label="单元格内容" rows="1" :disabled="editor.saving.value" placeholder="输入内容或 =公式" @keydown="inputKey"></textarea>
     </div>
     <p v-if="editor.error.value" class="excel-edit-error" role="alert">{{editor.error.value}}</p>
     <span v-if="editor.status.value" class="excel-edit-status sr-only" role="status">{{editor.status.value}}</span>
     <div v-if="warning" class="notice" role="status">{{ warning }}</div>
-    <nav class="sheets" aria-label="工作表">
-      <button
-        v-for="name in book?.SheetNames"
-        :key="name"
-        :class="{ active: name === sheetName }"
-        :disabled="editor.saving.value"
-        @click="selectSheet(name)"
-      >
-        {{ name }}
-      </button>
-    </nav>
-    <div class="sheet-tools" role="toolbar" aria-label="表格定位与冻结">
+    <div v-show="!editor.editing.value" class="sheet-tools" role="toolbar" aria-label="表格定位与冻结">
       <label class="cell-locate"
         >定位<input
           v-model="locateRef"
@@ -95,7 +114,7 @@ async function locate() {
           aria-label="定位单元格"
           @keydown.enter.prevent="locate"
         />
-        <button type="button" @click="locate">跳转</button>
+        <ExcelToolButton icon="jump" title="定位单元格（地址框内 Enter）" @click="locate" />
         </label
       >
       <label class="freeze-toggle"
@@ -105,6 +124,7 @@ async function locate() {
       >
       <small v-if="locateMsg" class="locate-status" role="status">{{ locateMsg }}</small>
     </div>
+    <p v-if="editor.editing.value&&locateMsg" class="excel-edit-error" role="alert">{{locateMsg}}</p>
     <div ref="scroll" class="table-wrap" @scroll.passive="onScroll" @paste="grid.pasteEvent">
       <div
         v-if="rows.length"
@@ -199,6 +219,7 @@ async function locate() {
       <p v-else class="empty">此工作表没有数据</p>
     </div>
     <footer class="sheet-footer">
+      <nav class="sheets" aria-label="工作表"><button v-for="name in book?.SheetNames" :key="name" :class="{active:name===sheetName}" :title="name" :disabled="editor.saving.value" @click="selectSheet(name)">{{name}}</button></nav>
       <span
         >{{ rowCount.toLocaleString() }} 行 ·
         {{ colCount.toLocaleString() }} 列</span
@@ -213,23 +234,23 @@ async function locate() {
       </div>
     </footer>
     <div v-if="grid.menu.value" class="excel-context-menu" role="menu" aria-label="单元格操作" :style="{left:grid.menu.value.x+'px',top:grid.menu.value.y+'px'}" @keydown="menuKey">
-      <button role="menuitem" data-action="edit" @click="grid.select(editor.address.value,true)">编辑单元格 <small>F2</small></button>
-      <button role="menuitem" data-action="copy" @click="grid.copy">复制 <small>Ctrl+C</small></button>
-      <button role="menuitem" data-action="paste" @click="grid.paste">粘贴 <small>Ctrl+V</small></button>
-      <button role="menuitem" data-action="clear" @click="grid.clear">清空内容 <small>Delete</small></button>
+      <button role="menuitem" data-action="edit" title="编辑单元格（F2）" @click="grid.select(editor.address.value,true)"><ExcelIcon name="edit" />编辑单元格 <small>F2</small></button>
+      <button role="menuitem" data-action="copy" title="复制（Ctrl+C）" @click="grid.copy"><ExcelIcon name="copy" />复制 <small>Ctrl+C</small></button>
+      <button role="menuitem" data-action="paste" title="粘贴（Ctrl+V）" @click="grid.paste"><ExcelIcon name="paste" />粘贴 <small>Ctrl+V</small></button>
+      <button role="menuitem" data-action="clear" title="清空内容（Delete）" @click="grid.clear"><ExcelIcon name="clear" />清空内容 <small>Delete</small></button>
       <hr />
-      <button role="menuitem" data-action="align-left" @click="grid.align('left')">内容居左</button>
-      <button role="menuitem" data-action="align-center" @click="grid.align('center')">内容居中</button>
-      <button role="menuitem" data-action="align-right" @click="grid.align('right')">内容居右</button>
+      <button role="menuitem" data-action="align-left" title="内容居左" @click="grid.align('left')"><ExcelIcon name="left" />内容居左</button>
+      <button role="menuitem" data-action="align-center" title="内容居中" @click="grid.align('center')"><ExcelIcon name="center" />内容居中</button>
+      <button role="menuitem" data-action="align-right" title="内容居右" @click="grid.align('right')"><ExcelIcon name="right" />内容居右</button>
       <hr />
-      <button role="menuitem" data-action="insert-above" @click="grid.structure('row','insert','before')">在上方插入行</button>
-      <button role="menuitem" data-action="insert-below" @click="grid.structure('row','insert','after')">在下方插入行</button>
-      <button role="menuitem" data-action="insert-left" @click="grid.structure('column','insert','before')">在左侧插入列</button>
-      <button role="menuitem" data-action="insert-right" @click="grid.structure('column','insert','after')">在右侧插入列</button>
-      <button role="menuitem" data-action="insert-custom" @click="grid.openCustom">自定义插入…</button>
+      <button role="menuitem" data-action="insert-above" title="在上方插入行" @click="grid.structure('row','insert','before')"><ExcelIcon name="above" />在上方插入行</button>
+      <button role="menuitem" data-action="insert-below" title="在下方插入行" @click="grid.structure('row','insert','after')"><ExcelIcon name="below" />在下方插入行</button>
+      <button role="menuitem" data-action="insert-left" title="在左侧插入列" @click="grid.structure('column','insert','before')"><ExcelIcon name="before" />在左侧插入列</button>
+      <button role="menuitem" data-action="insert-right" title="在右侧插入列" @click="grid.structure('column','insert','after')"><ExcelIcon name="after" />在右侧插入列</button>
+      <button role="menuitem" data-action="insert-custom" title="自定义插入行/列及数量" @click="grid.openCustom"><ExcelIcon name="custom" />自定义插入…</button>
       <hr />
-      <button role="menuitem" data-action="delete-row" @click="grid.structure('row','delete','before')">删除当前行</button>
-      <button role="menuitem" data-action="delete-column" @click="grid.structure('column','delete','before')">删除当前列</button>
+      <button role="menuitem" data-action="delete-row" title="删除当前行" @click="grid.structure('row','delete','before')"><ExcelIcon name="row" />删除当前行</button>
+      <button role="menuitem" data-action="delete-column" title="删除当前列" @click="grid.structure('column','delete','before')"><ExcelIcon name="column" />删除当前列</button>
     </div>
     <div v-if="grid.custom.value" class="excel-insert-overlay" @pointerdown.self="grid.closeAll">
       <form class="excel-insert-dialog" role="dialog" aria-modal="true" aria-label="自定义插入行列" @keydown.tab="dialogTab" @submit.prevent="grid.structure(grid.customAxis.value,'insert',grid.customSide.value,grid.customCount.value)">

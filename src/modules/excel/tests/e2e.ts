@@ -77,11 +77,11 @@ const suite: Suite = async (c) => {
     win,
     "(()=>{const i=document.querySelector('.cell-locate-input');i.value='B12';i.dispatchEvent(new Event('input',{bubbles:true}))})()",
   );
-  await c.click(win, ".cell-locate button", "跳转");
+  await c.click(win, ".cell-locate button");
   await c.check(
     win,
     "Excel locate cell B12",
-    "document.body.textContent.includes('已定位 B12')",
+    "(()=>{const root=document.querySelector('.table-wrap').getBoundingClientRect(),cell=document.querySelector('td[data-address=\"B12\"]');if(!cell)return false;const r=cell.getBoundingClientRect();return r.bottom>root.top&&r.top<root.bottom})()",
   );
   await c.evaluate(win,"(()=>{const z=document.querySelector('.zoom-control input');z.value='200';z.dispatchEvent(new Event('input',{bubbles:true}));z.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));})()");
   await c.evaluate(win,"(()=>{const i=document.querySelector('.cell-locate-input');i.value='B150';i.dispatchEvent(new Event('input',{bubbles:true}));i.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))})()");
