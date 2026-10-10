@@ -292,3 +292,12 @@
 .excel-edit-error,.excel-edit-status{margin:0;padding:5px 10px;font-size:12px;overflow-wrap:anywhere}.excel-edit-error{color:var(--danger)}
 .excel-selected-cell{outline:2px solid var(--accent);outline-offset:-2px}
 .excel-changed-cell{box-shadow:inset 3px 0 #16803c}
+.spreadsheet td:has(.excel-inline-input){position:relative;overflow:visible!important;padding:0!important}
+.excel-inline-input{display:block;box-sizing:border-box;width:100%;min-width:40px;min-height:24px;height:100%;margin:0;resize:none;border:2px solid var(--accent);border-radius:0;padding:2px;background:#fff;color:#20262e;font:inherit;line-height:inherit;outline:none;white-space:pre-wrap}
+.excel-context-menu{position:fixed;z-index:120;width:214px;padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--panel);box-shadow:0 4px 18px #0003;color:var(--text)}
+.excel-context-menu button{display:flex;justify-content:space-between;align-items:center;width:100%;min-height:24px;padding:3px 8px;border:0;background:transparent;color:inherit;text-align:left;font-size:12px;border-radius:3px}
+.excel-context-menu button:hover,.excel-context-menu button:focus-visible{background:var(--well);outline:1px solid var(--accent)}
+.excel-context-menu small{color:var(--muted);font-size:10px}.excel-context-menu hr{border:0;border-top:1px solid var(--line);margin:3px 0}
+.excel-insert-overlay{position:fixed;inset:0;z-index:130;background:#0003;display:grid;place-items:center}
+.excel-insert-dialog{display:grid;gap:12px;padding:18px;width:min(330px,calc(100vw - 40px));background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px #0004}
+.excel-insert-dialog label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}.excel-insert-dialog select,.excel-insert-dialog input{width:170px;min-height:28px;background:var(--well);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:4px}.excel-insert-dialog>div{display:flex;justify-content:flex-end;gap:8px}.excel-insert-dialog small{color:var(--muted);font-size:11px}

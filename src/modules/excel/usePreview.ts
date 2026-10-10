@@ -22,12 +22,13 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   const warning = ref('');
   const restored = props.file.view?.excel;
   const sheetName = ref("");
-  const editor=useEditor(props.file,book,sheetName);
+  const widths = ref<Record<string, number>>({ ...restored?.widths });
+  async function install(bytes:Uint8Array,ext:string,widthState?:Record<string,number>){const loaded=await loadWorkbook(bytes,ext);styled=loaded.styled;warning.value=loaded.warning;book.value=loaded.book;if(widthState)widths.value={...widthState};await nextTick();}
+  const editor=useEditor(props.file,book,sheetName,install,()=>widths.value);
   const rowPage = ref(0);
   const colPage = ref(0);
   const pageRows = 200,
     pageCols = 100;
-  const widths = ref<Record<string, number>>({ ...restored?.widths });
   let initialized = false;
   function resizeColumn(event: PointerEvent, c: number) {
     event.preventDefault();
@@ -55,7 +56,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     element.addEventListener("pointercancel", up);
   }
   const sheet = computed(() => book.value?.Sheets[sheetName.value]);
-  const styledSheet = computed(() => styled?.getWorksheet(sheetName.value));
+  const styledSheet = computed(() => {book.value;return styled?.getWorksheet(sheetName.value);});
   const range = computed(() =>
     sheet.value?.["!ref"]
       ? XLSX.utils.decode_range(sheet.value["!ref"])
@@ -483,7 +484,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   );
   onMounted(async () => {
     try {
-      const loaded = await loadWorkbook(props.file.bytes, props.file.ext);
+      const loaded = await loadWorkbook(editor.baseBytes.value??props.file.bytes, editor.baseBytes.value?'xlsx':props.file.ext);
       styled = loaded.styled;
       warning.value = loaded.warning;
       book.value = loaded.book;

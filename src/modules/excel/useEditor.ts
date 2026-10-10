@@ -1,13 +1,15 @@
 import {computed,ref,watch,toRaw,type Ref} from 'vue';
 import * as XLSX from 'xlsx';
 import type {PreviewFile} from '../../../shared/contracts';
-import type {ExcelChange,ExcelValue,ExcelDraft,ExcelCopyFormat,ExcelTransaction,ExcelBefore} from '../../../shared/excelEditing';
+import type {ExcelChange,ExcelValue,ExcelDraft,ExcelCopyFormat,ExcelTransaction,ExcelBefore,ExcelGridState,ExcelStructure} from '../../../shared/excelEditing';
 import {parseExcelInput,parseTablePaste,excelInput,changeKey,changeSignature} from './editModel';
 import {exportExcelCopy} from './exportCopy';
-export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,sheetName:Ref<string>){
+import {changeStructure,moveIndex} from './structure';
+export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,sheetName:Ref<string>,install:(bytes:Uint8Array,ext:string,widths?:Record<string,number>)=>Promise<void>,getWidths:()=>Record<string,number>){
   const restored=file.view?.excelDraft;
   const editing=ref(restored?.editing??false),changes=ref<ExcelChange[]>(restored?.changes??[]),undoStack=ref<ExcelTransaction[]>(restored?.undo??[]),redoStack=ref<ExcelTransaction[]>(restored?.redo??[]);
   const savedSignature=ref(restored?.savedSignature??changeSignature([]));
+  const baseBytes=ref<Uint8Array|undefined>(restored?.baseBytes),revisions=ref<Record<string,number>>(restored?.revisions??{});let serial=restored?.serial??0;
   const address=ref(restored?.address||'A1'),selectedSheet=ref(restored?.sheet||''),input=ref(restored?.input??''),error=ref(''),status=ref(''),saving=ref(false),format=ref<ExcelCopyFormat>(file.ext==='csv'?'csv':file.ext==='tsv'?'tsv':'xlsx');
   const canEdit=computed(()=>!!book.value&&['xlsx','csv','tsv'].includes(file.ext));
   const patchMap=computed(()=>new Map(changes.value.map(change=>[changeKey(change.sheet,change.address),change.value])));
@@ -18,15 +20,18 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
   function valueAt(sheet:string,cellAddress:string){return patchMap.value.get(changeKey(sheet,cellAddress))??original(sheet,cellAddress);}
   function expectedInput(){return excelInput(valueAt(selectedSheet.value,address.value));}
   const pending=computed(()=>!!selectedSheet.value&&input.value!==expectedInput());
-  const dirty=computed(()=>pending.value||changeSignature(changes.value)!==savedSignature.value);
+  function signature(values=changes.value,versions=revisions.value){return changeSignature([...values,...Object.entries(versions).map(([sheet,value])=>({sheet,address:'!structure',value:{kind:'number' as const,value}}))]);}
+  const dirty=computed(()=>pending.value||signature()!==savedSignature.value);
   let ready=false;
   function persist(){
     if(!ready)return;
     file.view??={zoom:100,scroll:[]};
-    const draft:ExcelDraft={editing:editing.value,changes:toRaw(changes.value).map(change=>({...toRaw(change),value:{...toRaw(change.value)}})),undo:JSON.parse(JSON.stringify(undoStack.value)),redo:JSON.parse(JSON.stringify(redoStack.value)),savedSignature:savedSignature.value,sheet:selectedSheet.value,address:address.value,input:input.value};
+    const cloneGrid=(state:ExcelGridState):ExcelGridState=>({bytes:state.bytes,changes:JSON.parse(JSON.stringify(state.changes)),revisions:{...state.revisions},address:state.address,widths:state.widths?{...state.widths}:undefined});
+    const cloneHistory=(entries:ExcelTransaction[])=>entries.map(entry=>({before:JSON.parse(JSON.stringify(entry.before)),after:JSON.parse(JSON.stringify(entry.after)),grid:entry.grid?{before:cloneGrid(entry.grid.before),after:cloneGrid(entry.grid.after)}:undefined}));
+    const draft:ExcelDraft={editing:editing.value,changes:toRaw(changes.value).map(change=>({...toRaw(change),value:{...toRaw(change.value)}})),undo:cloneHistory(undoStack.value),redo:cloneHistory(redoStack.value),savedSignature:savedSignature.value,sheet:selectedSheet.value,address:address.value,input:input.value,baseBytes:baseBytes.value,revisions:{...revisions.value},serial};
     file.view.excelDraft=draft;void window.localPreview.markModified(file.id,dirty.value).catch(()=>{});
   }
-  watch([editing,changes,undoStack,redoStack,savedSignature,address,selectedSheet,input],persist,{deep:true,flush:'sync'});
+  watch([editing,changes,undoStack,redoStack,savedSignature,address,selectedSheet,input,revisions],persist,{deep:true,flush:'sync'});
   function refreshInput(){input.value=expectedInput();}
   function guardTarget(sheet:string,cellAddress:string){
     const worksheet=book.value?.Sheets[sheet];if(!worksheet)throw Error('请选择工作表。');const pos=XLSX.utils.decode_cell(cellAddress),base=worksheet['!ref']?XLSX.utils.decode_range(worksheet['!ref']):undefined;
@@ -39,13 +44,15 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
     for(const update of updates){const key=changeKey(update.sheet,update.address);if(update.value===null||JSON.stringify(update.value)===JSON.stringify(original(update.sheet,update.address)))next.delete(key);else next.set(key,{sheet:update.sheet,address:update.address,value:update.value});}
     if(next.size>20000||[...next.values()].reduce((n,change)=>n+(change.value.kind==='blank'?0:String(change.value.value).length),0)>10000000)throw Error('当前草稿过大，请先另存并重新打开副本。');
     const before=updates.map(update=>({...update,value:patchMap.value.get(changeKey(update.sheet,update.address))??null}));changes.value=[...next.values()];
-    if(record){undoStack.value.push({before,after:updates as ExcelChange[]});redoStack.value=[];while(undoStack.value.length>100||undoStack.value.reduce((n,entry)=>n+entry.after.length,0)>20000||undoStack.value.reduce((n,entry)=>n+[...entry.before,...entry.after].reduce((sum,change)=>sum+(!change.value||change.value.kind==='blank'?0:String(change.value.value).length),0),0)>10000000)undoStack.value.shift();}
+    if(record){undoStack.value.push({before,after:updates as ExcelChange[]});redoStack.value=[];trimHistory();}
   }
+  function trimHistory(){while(undoStack.value.length>100||undoStack.value.reduce((n,entry)=>n+entry.after.length+(entry.grid?.before.changes.length??0),0)>20000||undoStack.value.reduce((n,entry)=>n+(entry.grid?.before.bytes?.length??0)+(entry.grid?.after.bytes?.length??0),0)>64*1024*1024||undoStack.value.reduce((n,entry)=>n+JSON.stringify([entry.before,entry.after,entry.grid?.before.changes,entry.grid?.after.changes]).length,0)>10000000)undoStack.value.shift();}
   function finishCell(){if(!pending.value)return true;try{guardTarget(selectedSheet.value,address.value);setValues([{sheet:selectedSheet.value,address:address.value,value:parseExcelInput(input.value)}]);error.value='';status.value='';refreshInput();return true;}catch(e){error.value=(e as Error).message;return false;}}
   function select(cellAddress:string,sheet=sheetName.value){if(!editing.value)return true;if(!finishCell())return false;selectedSheet.value=sheet;address.value=cellAddress;refreshInput();return true;}
   function toggle(){if(!canEdit.value)return;if(editing.value&&!finishCell())return;editing.value=!editing.value;selectedSheet.value=sheetName.value;refreshInput();}
-  function undo(){status.value='';error.value='';if(pending.value){refreshInput();error.value='';return;}const entry=undoStack.value.pop();if(!entry)return;setValues(entry.before,false);redoStack.value.push(entry);refreshInput();}
-  function redo(){status.value='';error.value='';if(pending.value)return;const entry=redoStack.value.pop();if(!entry)return;setValues(entry.after,false);undoStack.value.push(entry);refreshInput();}
+  async function restoreGrid(state:ExcelGridState){await install(state.bytes??file.bytes,state.bytes?'xlsx':file.ext,state.widths);baseBytes.value=state.bytes;changes.value=state.changes;revisions.value={...state.revisions};address.value=state.address;refreshInput();}
+  async function undo(){if(saving.value)return;status.value='';error.value='';if(pending.value){refreshInput();return;}const entry=undoStack.value.at(-1);if(!entry)return;saving.value=true;try{if(entry.grid)await restoreGrid(entry.grid.before);else setValues(entry.before,false);undoStack.value.pop();redoStack.value.push(entry);refreshInput();}catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();}}
+  async function redo(){if(saving.value||pending.value)return;status.value='';error.value='';const entry=redoStack.value.at(-1);if(!entry)return;saving.value=true;try{if(entry.grid)await restoreGrid(entry.grid.after);else setValues(entry.after,false);redoStack.value.pop();undoStack.value.push(entry);refreshInput();}catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();}}
   function paste(text:string){
     if(!editing.value||!finishCell())return;
     try{const start=XLSX.utils.decode_cell(address.value),rows=parseTablePaste(text),updates:ExcelChange[]=[];
@@ -53,15 +60,28 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
       setValues(updates);refreshInput();error.value='';status.value='已粘贴 '+updates.length+' 个单元格';
     }catch(e){error.value=(e as Error).message;}
   }
-  async function discard(){if(!await window.localPreview.confirmDiscard(file.id,true))return;changes.value=[];undoStack.value=[];redoStack.value=[];savedSignature.value=changeSignature([]);error.value='';status.value='已恢复源文件内容';refreshInput();persist();}
+  async function discard(){if(saving.value||!await window.localPreview.confirmDiscard(file.id,true))return;saving.value=true;try{if(baseBytes.value)await install(file.bytes,file.ext);baseBytes.value=undefined;revisions.value={};changes.value=[];undoStack.value=[];redoStack.value=[];savedSignature.value=changeSignature([]);error.value='';status.value='已恢复源文件内容';refreshInput();}catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();}}
+  async function structure(op:Omit<ExcelStructure,'sheet'>){
+    if(!editing.value||saving.value||!finishCell())return false;saving.value=true;error.value='';status.value='';
+    try{const before:ExcelGridState={bytes:baseBytes.value,changes:[...changes.value],revisions:{...revisions.value},address:address.value,widths:{...getWidths()}};
+      const bytes=await exportExcelCopy(baseBytes.value??file.bytes,baseBytes.value?'xlsx':file.ext,changes.value,'xlsx',sheetName.value);
+      const result=await changeStructure(bytes,{...op,sheet:sheetName.value});if(result.bytes.length>100*1024*1024)throw Error('调整后工作簿超过 100 MB。');
+      if((before.bytes?.length??0)+result.bytes.length>64*1024*1024)throw Error('此文件超出结构撤销的 64 MB 预算，请在表格软件中调整行列。');
+      const versions={...revisions.value};for(const change of changes.value)versions[change.sheet]=++serial;for(const name of result.affected)versions[name]=++serial;
+      const position=XLSX.utils.decode_cell(address.value),axis=op.axis==='row'?'r':'c';position[axis]=moveIndex(position[axis],{...op,sheet:sheetName.value})??op.index;
+      const widthState:Record<string,number>={};for(const [key,width] of Object.entries(before.widths!)){if(op.axis==='column'&&key.startsWith(sheetName.value+':')){const column=moveIndex(Number(key.slice(key.lastIndexOf(':')+1)),{...op,sheet:sheetName.value});if(column!==null)widthState[sheetName.value+':'+column]=width;}else widthState[key]=width;}
+      const after:ExcelGridState={bytes:result.bytes,changes:[],revisions:versions,address:XLSX.utils.encode_cell(position),widths:widthState};
+      await restoreGrid(after);undoStack.value.push({before:[],after:[],grid:{before,after}});redoStack.value=[];trimHistory();status.value=(op.kind==='insert'?'已插入 ':'已删除 ')+op.count+(op.axis==='row'?' 行':' 列');return true;
+    }catch(e){error.value=(e as Error).message;return false;}finally{saving.value=false;persist();}
+  }
   async function save(){
     if(saving.value||!finishCell())return;saving.value=true;error.value='';status.value='';
     const copyFormat=format.value,copySheet=sheetName.value;
-    const snapshot=changes.value.map(change=>({...toRaw(change),value:{...toRaw(change.value)}})),signature=changeSignature(snapshot);
-    try{const bytes=await exportExcelCopy(file.bytes,file.ext,snapshot,copyFormat,copySheet);const result=await window.localPreview.saveExcelCopy(file.id,copyFormat,bytes);if(result==='saved'){savedSignature.value=copyFormat==='xlsx'?signature:changeSignature([...(JSON.parse(savedSignature.value) as ExcelChange[]).filter(change=>change.sheet!==copySheet),...snapshot.filter(change=>change.sheet===copySheet)]);status.value=copyFormat==='xlsx'?'已另存副本，源文件未改变':'当前工作表已另存，其余工作表不包含在此副本中';}else status.value='已取消另存';}
+    const snapshot=changes.value.map(change=>({...toRaw(change),value:{...toRaw(change.value)}})),saved=signature(snapshot);
+    try{const bytes=await exportExcelCopy(baseBytes.value??file.bytes,baseBytes.value?'xlsx':file.ext,snapshot,copyFormat,copySheet);const result=await window.localPreview.saveExcelCopy(file.id,copyFormat,bytes);if(result==='saved'){savedSignature.value=copyFormat==='xlsx'?saved:changeSignature([...(JSON.parse(savedSignature.value) as ExcelChange[]).filter(change=>change.sheet!==copySheet),...(JSON.parse(saved) as ExcelChange[]).filter(change=>change.sheet===copySheet)]);status.value=copyFormat==='xlsx'?'已另存副本，源文件未改变':'当前工作表已另存，其余工作表不包含在此副本中';}else status.value='已取消另存';}
     catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();}
   }
   function initialize(){ready=true;if(!selectedSheet.value||!book.value?.Sheets[selectedSheet.value]){selectedSheet.value=sheetName.value;refreshInput();}persist();}
   function extent(sheet:string){let rows=0,cols=0;for(const change of changes.value)if(change.sheet===sheet){const cell=XLSX.utils.decode_cell(change.address);rows=Math.max(rows,cell.r+1);cols=Math.max(cols,cell.c+1);}return {rows,cols};}
-  return {editing,changes,dirty,pending,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent};
+  return {editing,changes,baseBytes,revisions,dirty,pending,selectedSheet,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent,structure};
 }

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import {parseExcelInput,parseTablePaste,excelInput,changeSignature} from '../editModel';
+import {moveIndex,moveRange,moveFormula} from '../structure';
 assert.deepEqual(parseExcelInput('12.5'),{kind:'number',value:12.5});
 assert.deepEqual(parseExcelInput("'00123"),{kind:'text',value:'00123'});
 assert.deepEqual(parseExcelInput('123456789012345678'),{kind:'text',value:'123456789012345678'});
@@ -11,3 +12,11 @@ assert.deepEqual(parseTablePaste('"a\tb"\t2\r\n"c\nd"\t3\r\n'),[['a\tb','2'],['c
 assert.throws(()=>parseTablePaste('"unterminated'));
 assert.equal(changeSignature([{sheet:'A',address:'B1',value:{kind:'number',value:2}},{sheet:'A',address:'A1',value:{kind:'blank'}}]),changeSignature([{sheet:'A',address:'A1',value:{kind:'blank'}},{sheet:'A',address:'B1',value:{kind:'number',value:2}}]));
 console.log('PASS Excel edit parsing: text/number/formula, exact identifiers, bounds and quoted table paste');
+const insert={sheet:'Data',axis:'row' as const,kind:'insert' as const,index:1,count:2};
+assert.equal(moveIndex(1,insert),3);assert.equal(moveRange('A1:B3',insert),'A1:B5');
+assert.equal(moveFormula('SUM($A$1:A3)+Other!B2','Data',insert),'SUM($A$1:A5)+Other!B2');
+assert.equal(moveFormula("'Data'!$B$2+Other!A1",'Other',insert),"'Data'!$B$4+Other!A1");
+const remove={...insert,kind:'delete' as const,count:1};assert.equal(moveIndex(1,remove),null);assert.equal(moveFormula('B2+B3','Data',remove),'#REF!+B2');assert.equal(moveRange('A2:B2',remove),null);assert.equal(moveRange('A1:B3',remove),'A1:B2');
+assert.equal(moveFormula('#REF!+B2','Data',insert),'#REF!+B4');assert.throws(()=>moveFormula('IF(A1="A2",1,0)','Data',insert));
+assert.equal(moveFormula('Data!#REF!+B2','Other',insert),'Data!#REF!+B2');assert.equal(moveFormula('A1048576','Data',insert),'#REF!');
+console.log('PASS Excel structural references: insertion/deletion, absolute/range/cross-sheet references and unsupported formulas');
