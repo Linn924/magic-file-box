@@ -1,6 +1,7 @@
 <script setup lang="ts">
 defineProps<{name:string}>();
 const paths:Record<string,string>={
+  settings:'M6.5 1.5h3l.4 1.8 1.1.6 1.8-.5L14.3 6l-1.4 1.3v1.4l1.4 1.3-1.5 2.6-1.8-.5-1.1.6-.4 1.8h-3l-.4-1.8-1.1-.6-1.8.5L1.7 10l1.4-1.3V7.3L1.7 6l1.5-2.6 1.8.5 1.1-.6.4-1.8ZM10.3 8a2.3 2.3 0 1 1-4.6 0 2.3 2.3 0 0 1 4.6 0',
   search:'M11 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M10 10l4 4',
   rotate:'M13 8A5 5 0 1 1 11 4M13 2v4h-4',
   reset:'M13 8A5 5 0 1 1 11 4M13 2v4h-4M6 8h4',

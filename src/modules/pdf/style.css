@@ -492,7 +492,7 @@ html[data-theme="dark"] .print-status.failed{color:#fbbf24}
 .pdf-presentation .pdf-page{margin:0;flex-shrink:0;box-shadow:none}
 .pdf-presentation .pdf-text-layer,.pdf-presentation .pdf-annot-layer,.pdf-presentation .pdf-user-layer{pointer-events:none}
 .pdf-presentation .page-nav,.pdf-presentation .pdf-perm-note{display:none!important}
-.pdf-presentation-active .filebar,.pdf-presentation-active .tabs,.pdf-presentation-active .search-tools{display:none!important}
+.pdf-presentation-active .filebar,.pdf-presentation-active .tabbar,.pdf-presentation-active .tabs,.pdf-presentation-active .search-tools{display:none!important}
 
 .pdf-row{display:flex;align-items:flex-start;gap:24px;margin:0 auto 24px;flex-shrink:0}
 .pdf-presentation .pdf-row{margin:0;gap:0}

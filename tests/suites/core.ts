@@ -2,6 +2,7 @@ import { app, BrowserWindow, dialog } from "electron";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Suite } from "../context";
+import {checkTabbarLayout} from '../tabbarLayout';
 const suite: Suite = async (c) => {
   await c.check(
     c.home,
@@ -216,5 +217,6 @@ const suite: Suite = async (c) => {
     throw Error("Session/payload leak");
   c.pass("memory session and payload release");
   await c.snapshot(c.home, "home");
+  await checkTabbarLayout(c);
 };
 export default suite;

@@ -318,21 +318,28 @@ main {
 }
 
 /* —— Tabs —— */
+.tabbar{height:36px;min-height:36px;display:flex;align-items:flex-start;flex-shrink:0;min-width:0;padding:3px 8px 0;background:var(--panel);border-bottom:1px solid var(--line)}
+.tabbar.has-overflow{height:46px;min-height:46px}
 .tabs {
-  height: 36px;
-  flex-shrink: 0;
+  position:relative;
+  height: 32px;
+  flex:0 1 auto;
+  min-width:0;
   display: flex;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 2px;
-  padding: 0 8px;
+  padding: 0;
   background: var(--panel);
-  border-bottom: 1px solid var(--line);
+  border:0;
   overflow-x: auto;
+  overflow-y:hidden;
   scroll-behavior: smooth;
   scrollbar-width: thin;
   scroll-padding-inline: 16px;
   scroll-snap-type: x proximity;
 }
+.tabbar.has-overflow .tabs{height:42px;flex:1 1 0}
+.tab-actions{display:flex;align-items:flex-start;flex:0 0 auto;margin-left:auto;gap:4px}
 
 .tabs::-webkit-scrollbar {
   height: 6px;
@@ -536,9 +543,10 @@ main {
 
 .tab-add-file {
   height: 32px;
-  flex: 0 0 auto;
+  width:32px;min-width:32px;
+  flex: 0 0 32px;
   margin-left: 4px;
-  padding: 0 10px;
+  padding: 0;
   border: 1px dashed var(--line);
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
@@ -554,8 +562,9 @@ main {
 }
 
 .tab-settings {
-  align-self: center;
-  margin-left: auto;
+  align-self: flex-start;
+  width:32px;height:32px;min-width:32px;flex:0 0 32px;
+  margin-left: 0;
   margin-bottom: 2px;
 }
 
@@ -883,6 +892,7 @@ main {
 
 /* —— Immersive: hide chrome; reveal strips at edges —— */
 .immersive .app-header,
+.immersive .tabbar,
 .immersive .tabs,
 .immersive .module-tools,
 .immersive .search-tools,

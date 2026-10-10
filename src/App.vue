@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { onMounted, onBeforeUnmount, provide, ref, shallowRef, nextTick } from "vue";
 import { useImmersive } from "./composables/useImmersive";
+import {useTabStrip} from './composables/useTabStrip';
+import ToolbarIcon from './components/ToolbarIcon.vue';
 import PreviewTab from "./components/PreviewTab.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import HomeIntro from "./components/HomeIntro.vue";
@@ -19,6 +21,8 @@ const tabMime = "application/x-file-preview-tab";
 const cleanups: Array<() => void> = [];
 const mainEl = ref<HTMLElement>();
 const tabsNav = ref<HTMLElement>();
+const tabbar = ref<HTMLElement>();
+const {overflow:tabsOverflow}=useTabStrip(tabbar,tabsNav,files,()=>{void alignActiveTab('nearest');});
 /** Next active-tab scroll policy: center for wheel, nearest for click/close. */
 let tabAlignMode: "center" | "nearest" = "nearest";
 provide("previewFiles", files);
@@ -297,10 +301,7 @@ onBeforeUnmount(() => {
         title="设置"
         @click="showSettings = true"
       >
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-          <circle cx="8" cy="8" r="2.2" />
-          <path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M12.8 3.2l-1.1 1.1M4.3 11.7l-1.1 1.1" />
-        </svg>
+        <ToolbarIcon name="settings" />
       </button>
     </header>
     <section v-if="!isPreview" class="welcome">
@@ -321,7 +322,7 @@ onBeforeUnmount(() => {
       <p class="home-credit">By 仔仔</p>
     </section>
     <template v-else
-      ><nav
+      ><div v-if="files.length" ref="tabbar" class="tabbar" :class="{'has-overflow':tabsOverflow}"><nav
         v-if="files.length"
         ref="tabsNav"
         class="tabs"
@@ -360,6 +361,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <button
+          v-if="!tabsOverflow"
           type="button"
           class="tab-add-file"
           title="打开文件（Ctrl+O）"
@@ -368,6 +370,9 @@ onBeforeUnmount(() => {
         >
           +
         </button>
+      </nav>
+      <span class="tab-actions">
+        <button v-if="tabsOverflow" type="button" class="tab-add-file" title="打开文件（Ctrl+O）" aria-label="打开文件" @click="openFiles">+</button>
         <button
           type="button"
           class="settings-button tab-settings"
@@ -375,12 +380,9 @@ onBeforeUnmount(() => {
           title="设置"
           @click="showSettings = true"
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" aria-hidden="true">
-            <circle cx="8" cy="8" r="2.2" />
-            <path d="M8 1.5v1.6M8 12.9v1.6M1.5 8h1.6M12.9 8h1.6M3.2 3.2l1.1 1.1M11.7 11.7l1.1 1.1M12.8 3.2l-1.1 1.1M4.3 11.7l-1.1 1.1" />
-          </svg>
+          <ToolbarIcon name="settings" />
         </button>
-      </nav>
+      </span></div>
       <PreviewTab
         v-for="file in files"
         v-show="file.id === active"
