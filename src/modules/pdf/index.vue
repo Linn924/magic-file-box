@@ -5,6 +5,7 @@ import { usePreview } from "./usePreview";
 import { usePdfSearch, type SearchHit } from "./useSearch";
 import PageNavigation from "../../components/PageNavigation.vue";
 import PdfSearch from "./PdfSearch.vue";
+import ToolButton from '../../components/ToolButton.vue';
 import PdfNav from "./PdfNav.vue";
 import {usePan} from './usePan';
 import {useAnnotations} from './useAnnotations';
@@ -70,7 +71,10 @@ async function exportNotes(){
   } catch(error){if(!exportController.signal.aborted)exportStatus.value=error instanceof Error?error.message:String(error);}
   finally {exporting.value=false;}
 }
-function captureNotes(){if(!panning.value)annotations.capture(scroll.value??null,rotate.value);}
+const paneRoot=ref<HTMLElement>(),markPosition=ref({left:8,top:8});
+function captureNotes(){if(panning.value)return;annotations.capture(scroll.value??null,rotate.value);if(annotations.pending.value&&paneRoot.value){const selection=window.getSelection(),range=selection?.rangeCount?selection.getRangeAt(0).getBoundingClientRect():undefined,bounds=paneRoot.value.getBoundingClientRect();if(range)markPosition.value={left:Math.max(8,Math.min(bounds.width-104,range.right-bounds.left-96)),top:Math.max(8,Math.min(bounds.height-40,range.bottom-bounds.top+5))};}}
+function readingScroll(){annotations.pending.value=null;sync();}
+watch([()=>props.zoom,rotate],()=>{annotations.pending.value=null;});
 function addMark(kind:'highlight'|'note'){
  annotations.add(kind);
  if(kind==='note')notesOpen.value=true;
@@ -392,6 +396,7 @@ function onKeydown(event:KeyboardEvent){
   if(handled){event.preventDefault();event.stopPropagation();}
 }
 function onWheel(event:WheelEvent){
+  annotations.pending.value=null;
   cancelReadingRestore();
   if(!event.ctrlKey&&event.deltaY!==0)releasePageFocus();
   if(presentation.value){event.preventDefault();return;}
@@ -406,6 +411,7 @@ function presentationBack(event:MouseEvent){if(presentation.value){event.prevent
 function handleOpenSearch(e: Event) {
   if ((e as CustomEvent<string>).detail !== props.file.id) return;
   searchOpen.value = true;
+  void nextTick(()=>document.querySelector<HTMLInputElement>(`[data-file-id="${props.file.id}"] .pdf-search-input`)?.focus({preventScroll:true}));
 }
 onMounted(() => {
   window.addEventListener("pdf:open-search", handleOpenSearch);
@@ -423,14 +429,16 @@ onBeforeUnmount(() => {
 });
 </script>
 <template>
-  <section class="pdf-pane" :class="{'pdf-presentation':presentation}" :aria-label="presentation?'PDF 演示模式（Esc 退出）':'PDF 预览'">
+  <section ref="paneRoot" class="pdf-pane" :class="{'pdf-presentation':presentation}" :aria-label="presentation?'PDF 演示模式（Esc 退出）':'PDF 预览'">
     <Teleport
       :to="`[data-file-id='${props.file.id}'] .module-tools`"
       defer
     >
       <span class="pdf-inline-tools" data-pdf-toolbar>
+        <span class="preview-tool-group" data-pdf-group="navigation"><ToolButton class="pdf-nav-toggle" icon="navigation" :pressed="navOpen" title="目录 / 缩略图" @click="navOpen=!navOpen" /></span>
+        <span class="preview-tool-group" data-pdf-group="query">
         <PdfSearch
-          :target="`[data-file-id='${props.file.id}'] .search-tools`"
+          :target="`[data-file-id='${props.file.id}'] .floating-tools`"
           v-model:open="searchOpen"
           :query="search.query.value"
           :count="search.count.value"
@@ -448,39 +456,11 @@ onBeforeUnmount(() => {
           @prev="search.prev()"
           @clear="search.clear()"
         />
-        <button
-          type="button"
-          class="pdf-nav-toggle icon-only-btn"
-          :aria-pressed="navOpen"
-          :title="navOpen ? '隐藏导航' : '目录 / 缩略图'"
-          aria-label="目录 / 缩略图"
-          @click="navOpen = !navOpen"
-        >
-          <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true">
-            <rect x="2.5" y="3.5" width="4.5" height="9" rx="1" />
-            <path d="M9 4.5h5M9 8h5M9 11.5h5" />
-          </svg>
-          <span class="sr-only">{{ navOpen ? "隐藏导航" : "目录 / 缩略图" }}</span>
-        </button>
-        <button
-          type="button"
-          class="pdf-rotate icon-only-btn"
-          :title="'临时旋转（当前 ' + rotate + '°）'"
-          aria-label="旋转预览"
-          @click="cycleRotate"
-        >
-          <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <path d="M13.2 8A5.2 5.2 0 1 1 11.4 4.2" />
-            <path d="M13.2 2.6v3h-3" />
-          </svg>
-          <span class="sr-only">旋转 {{ rotate }}°</span>
-        </button>
-        <button type="button" class="pdf-present" title="演示模式（Ctrl+Shift+P，Esc 退出）" aria-label="演示模式" @click="togglePresentation()">演示</button>
-        <button type="button" class="pdf-notes-toggle icon-only-btn" :aria-pressed="notesOpen" :title="'本次批注（'+annotations.notes.value.length+'）'" aria-label="本次批注" @click="notesOpen=!notesOpen"><svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M3 12.5h10M4 9l6.5-6.5 2 2L6 11H4z"/></svg></button>
-        <button v-if="annotations.pending.value" type="button" class="pdf-mark-highlight" @click="addMark('highlight')">高亮</button>
-        <button v-if="annotations.pending.value" type="button" class="pdf-mark-note" @click="addMark('note')">写备注</button>
+        <ToolButton class="pdf-notes-toggle" icon="note" :pressed="notesOpen" :title="'本次批注（'+annotations.notes.value.length+'）'" @click="notesOpen=!notesOpen" /></span>
+        <span class="preview-tool-group" data-pdf-group="view"><ToolButton class="pdf-rotate" icon="rotate" :title="'临时旋转（当前 '+rotate+'°）'" @click="cycleRotate" /><ToolButton class="pdf-present" icon="presentation" title="演示模式（Ctrl+Shift+P，Esc 退出）" @click="togglePresentation()" /></span>
       </span>
     </Teleport>
+    <div v-if="annotations.pending.value&&!presentation" class="pdf-selection-actions" role="toolbar" aria-label="标注所选文字" :style="{left:markPosition.left+'px',top:markPosition.top+'px'}"><ToolButton class="pdf-mark-highlight" icon="highlight" title="高亮所选文字" @click="addMark('highlight')" /><ToolButton class="pdf-mark-note" icon="note" title="为所选文字添加备注" @click="addMark('note')" /><ToolButton icon="cancel" title="取消文字标注" @click="annotations.pending.value=null" /></div>
     <form
       v-if="needPassword"
       class="pdf-password"
@@ -512,7 +492,7 @@ onBeforeUnmount(() => {
         :data-layout="pageLayout"
         :class="{'is-panning':panning}"
         tabindex="0"
-        @scroll.passive="sync"
+        @scroll.passive="readingScroll"
         @wheel="onWheel"
         @click="presentationClick"
         @contextmenu="presentationBack"

@@ -594,8 +594,6 @@ main {
 
 .filebar.actbar > :not(.flex-sp) { flex-shrink: 0; }
 .filebar.actbar > .module-tools:empty { display:none; }
-.search-tools { flex-shrink:0; min-width:0; background:var(--panel); }
-.search-tools:has(> *) { border-bottom:1px solid var(--line); }
 .search-caption { color:var(--muted); font-size:12px; white-space:nowrap; }
 .search-close { margin-left:auto; }
 

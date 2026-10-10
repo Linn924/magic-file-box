@@ -480,6 +480,9 @@ html[data-theme="dark"] .paper-chip.warn{color:#fbbf24}
 .pdf-search-mode{max-width:120px;height:28px;background:var(--well);color:var(--text);border:1px solid var(--line);border-radius:4px}
 .pdf-search-case[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
 .pdf-search-notice{flex-basis:100%;font-size:12px;color:var(--muted)}
+.pdf-pane{position:relative}.pdf-selection-actions{position:absolute;display:flex;gap:2px;padding:3px;z-index:70;border:1px solid var(--line);border-radius:5px;background:var(--panel);box-shadow:0 3px 12px #0003}
+.preview-floating-panel .pdf-search-bar{display:block;padding:0}.preview-floating-panel .pdf-search-input{width:auto;max-width:none}.preview-floating-panel .pdf-search-notice{margin-top:8px}
+.pdf-notes h3{display:flex;align-items:center;gap:6px}.pdf-notes h3>.tool-button-wrap{margin-left:auto}.pdf-note-head .tool-button-wrap{margin-left:auto}
 .pdf-export-notes{width:100%;font-size:12px}
 .pdf-export-status{font-size:12px;overflow-wrap:anywhere}
 .print-status.submitted{color:#16803c}.print-status.cancelled{color:var(--muted)}.print-status.failed{color:#b45309}

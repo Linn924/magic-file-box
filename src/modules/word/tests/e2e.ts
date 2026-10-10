@@ -6,6 +6,7 @@ import JSZip from "jszip";
 const suite: Suite = async (c) => {
   for (const name of ["document.docx", "legacy.doc"]) {
     const win = await c.open(name);
+    if(name==='legacy.doc')await c.check(win,'legacy DOC print is disabled with a clear tooltip',"document.querySelector('.file-print-button').disabled&&document.querySelector('.file-print-button').title.includes('不支持打印')");
     await c.check(
       win,
       "Word content " + name,

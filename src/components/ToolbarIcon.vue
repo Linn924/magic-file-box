@@ -1,6 +1,24 @@
 <script setup lang="ts">
 defineProps<{name:string}>();
 const paths:Record<string,string>={
+  search:'M11 7a4 4 0 1 1-8 0 4 4 0 0 1 8 0M10 10l4 4',
+  rotate:'M13 8A5 5 0 1 1 11 4M13 2v4h-4',
+  reset:'M13 8A5 5 0 1 1 11 4M13 2v4h-4M6 8h4',
+  print:'M4 6V2h8v4M4 11H2V6h12v5h-2M4 9h8v5H4V9M11 7h1',
+  trash:'M4 5v9h8V5M2 3h12M6 3V1h4v2M6 7v5M10 7v5',
+  export:'M3 8v6h10V8M8 10V2M5 5l3-3 3 3',
+  fullscreen:'M2 6V2h4M10 2h4v4M14 10v4h-4M6 14H2v-4',
+  presentation:'M2 3h12v8H2V3M8 11v3M5 14h6M6 5l4 2-4 2V5',
+  navigation:'M2 3h12v10H2V3M6 3v10M8 5h4M8 8h4M8 11h4',
+  note:'M3 2h10v9l-3 3H3V2M10 14v-3h3M5 5h6M5 8h4',
+  highlight:'m3 8 6-6 4 4-6 6H5L3 8M7 4l4 4M3 14h10',
+  original:'M2 2h12v12H2V2M5 5v6M9 5v6M4 5h1M8 5h1',
+  plus:'M3 8h10M8 3v10',
+  minus:'M3 8h10',
+  lines:'M6 3h8M6 8h8M6 13h8M2 2h1v3M2 7h2l-2 2h2M2 12h2v2H2',
+  case:'M2 12l3-8 3 8M3 9h4M13 8a2 2 0 1 0 0 4V8M13 12h1',
+  up:'m4 10 4-4 4 4',
+  down:'m4 6 4 4 4-4',
   edit:'M3 11.5 10.5 4l2 2L5 13.5H3v-2ZM9.5 5l2 2M10.5 4l1-1a1.4 1.4 0 0 1 2 2l-1 1',
   preview:'M1.5 8s2.5-4 6.5-4 6.5 4 6.5 4-2.5 4-6.5 4-6.5-4-6.5-4ZM10 8a2 2 0 1 1-4 0 2 2 0 0 1 4 0',
   save:'M3 2h8l3 3v9H2V2h1ZM5 2v4h6V2M5 14V9h6v5M9 3v2',
@@ -29,4 +47,4 @@ const paths:Record<string,string>={
   expand:'M4 6l4 4 4-4',
 };
 </script>
-<template><svg class="excel-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" :stroke-width="name==='more'?3:1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect v-if="name==='row'" x="2" y="6" width="12" height="4" fill="currentColor" stroke="none" opacity=".25" /><rect v-if="name==='column'" x="6" y="3" width="4" height="10" fill="currentColor" stroke="none" opacity=".25" /><path :d="paths[name]||paths.more" /></svg></template>
+<template><svg class="tool-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" :stroke-width="name==='more'?3:1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect v-if="name==='row'" x="2" y="6" width="12" height="4" fill="currentColor" stroke="none" opacity=".25" /><rect v-if="name==='column'" x="6" y="3" width="4" height="10" fill="currentColor" stroke="none" opacity=".25" /><path :d="paths[name]||paths.more" /></svg></template>

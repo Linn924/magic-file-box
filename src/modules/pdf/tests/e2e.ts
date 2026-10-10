@@ -163,7 +163,7 @@ const suite: Suite = async (c) => {
     "(()=>{const i=document.querySelector('.pdf-search-input');i.value='Local Preview';i.dispatchEvent(new Event('input',{bubbles:true}))})()",
   );
   await c.click(searchWin, ".pdf-search-go");
-  await c.click(searchWin, ".pdf-search-bar button", "下一处");
+  await c.click(searchWin, '.pdf-search-bar button[aria-label="下一处"]');
   await c.check(
     searchWin,
     "next hit updates active index",
@@ -349,6 +349,7 @@ const suite: Suite = async (c) => {
   const selectText="(()=>{const span=document.querySelector('.pdf-page[data-page=\"0\"] .pdf-text-layer span');const range=document.createRange();range.selectNodeContents(span);const selection=getSelection();selection.removeAllRanges();selection.addRange(range);document.querySelector('.pdf-scroll').dispatchEvent(new MouseEvent('mouseup',{bubbles:true}))})()";
   await c.evaluate(selWin,selectText);
   await c.check(selWin,'selected text offers memory highlight',"!!document.querySelector('.pdf-mark-highlight')");
+  await c.check(selWin,'selection annotation actions are contextual rather than in top toolbar',"!!document.querySelector('.pdf-selection-actions .pdf-mark-highlight')&&!document.querySelector('.actbar .pdf-mark-highlight,.actbar .pdf-mark-note')");await c.evaluate(selWin,"document.querySelector('.pdf-scroll').dispatchEvent(new Event('scroll'))");await c.check(selWin,'reading scroll dismisses stale selection actions',"!document.querySelector('.pdf-selection-actions')");await c.evaluate(selWin,selectText);await c.check(selWin,'new selection restores annotation actions',"!!document.querySelector('.pdf-mark-highlight')");
   await c.click(selWin,'.pdf-mark-highlight');
   await c.check(selWin,'highlight appears on PDF page',"!!document.querySelector('.pdf-user-mark.highlight')");
   await c.evaluate(selWin,selectText);

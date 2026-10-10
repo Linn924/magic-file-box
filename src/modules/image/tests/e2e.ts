@@ -95,7 +95,7 @@ const suite: Suite = async (c) => {
   await c.check(
     png,
     "image rotates 90",
-    "document.querySelector('.image-rotate').textContent.includes('90')",
+    "document.querySelector('.image-rotate').title.includes('90')&&document.querySelector('.image img').style.transform.includes('rotate(90deg)')",
   );
   await c.click(png, ".image-original");
   await c.check(

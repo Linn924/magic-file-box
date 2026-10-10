@@ -5,6 +5,7 @@ import FitControl from "./FitControl.vue";
 import type { FitMode } from "../composables/fit";
 import type { PreviewModule } from "../modules/types";
 import ZoomControl from "./ZoomControl.vue";
+import ToolButton from './ToolButton.vue';
 import { fileSize, type PreviewFile } from "../types";
 import { cachePut, cacheGet, cacheDrop, cacheHas } from "../composables/fileContentCache";
 const props = defineProps<{
@@ -192,34 +193,17 @@ async function loaded() {
     </div>
     <!-- Plan B: action strip -->
     <div class="filebar actbar" role="toolbar" aria-label="文件预览工具">
-      <FitControl
-        v-if="!error && module?.pageFit"
-        v-model="fitMode"
-        @update:model-value="zoom = 100"
-      />
-      <span v-if="!error && module?.pageFit" class="sep" aria-hidden="true"></span>
-      <ZoomControl v-if="!error" v-model="zoom" />
+      <span v-if="!error" class="preview-tool-group" data-preview-group="view"><ZoomControl v-model="zoom" /><FitControl v-if="module?.pageFit" v-model="fitMode" @update:model-value="zoom = 100" /></span>
       <span class="module-tools" :data-tools-for="file.id"></span>
-      <component
+      <span v-if="module?.toolbar && !error" class="preview-tool-group" data-preview-group="output"><component
         v-if="module?.toolbar && !error"
         :is="module.toolbar"
         :file="file"
-      />
+      /></span>
       <span class="flex-sp"></span>
-      <button
-        class="immersive-toggle icon-only-btn"
-        type="button"
-        :title="immersive ? '退出全屏（Esc）' : '沉浸阅读（F11）'"
-        :aria-label="immersive ? '退出全屏' : '沉浸阅读'"
-        @click="toggleFullscreen"
-      >
-        <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M2.5 6V2.5H6M10 2.5h3.5V6M13.5 10v3.5H10M6 13.5H2.5V10" />
-        </svg>
-        <span class="sr-only">{{ immersive ? "退出全屏" : "沉浸" }}</span>
-      </button>
+      <ToolButton class="immersive-toggle" icon="fullscreen" :title="immersive ? '退出全屏（Esc）' : '沉浸阅读（F11）'" :pressed="immersive" @click="toggleFullscreen" />
     </div>
-    <div class="search-tools"></div>
+    <div class="floating-tools"></div>
     <div v-if="error" class="error" role="alert">
       <strong>暂时无法预览</strong>
       <p>{{ error }}</p>

@@ -1,131 +1,22 @@
 <script setup lang="ts">
 import {nextTick,ref,watch} from 'vue';
-
-const props=defineProps<{
-  target:string;
-  caseSensitive:boolean;
-  mode:import('./searchIndex').SearchMode;
-  notice:string;
-  query: string;
-  count: number;
-  active: number;
-  searching: boolean;
-  error: string;
-  open: boolean;
-}>();
+import ToolButton from '../../components/ToolButton.vue';
+import PreviewPanel from '../../components/PreviewPanel.vue';
+const props=defineProps<{target:string;caseSensitive:boolean;mode:import('./searchIndex').SearchMode;notice:string;query:string;count:number;active:number;searching:boolean;error:string;open:boolean}>();
 const input=ref<HTMLInputElement>();
-watch(()=>props.open,async value=>{if(value){await nextTick();input.value?.focus();}});
-const emit = defineEmits<{
-  "update:query": [string];
-  "update:caseSensitive": [boolean];
-  "update:mode": [import('./searchIndex').SearchMode];
-  search: [];
-  next: [];
-  prev: [];
-  clear: [];
-  "update:open": [boolean];
-}>();
-function submit(event: Event) {
-  event.preventDefault();
-  emit("search");
-}
+watch(()=>props.open,async value=>{if(value){await nextTick();input.value?.focus({preventScroll:true});}});
+const emit=defineEmits<{'update:query':[string];'update:caseSensitive':[boolean];'update:mode':[import('./searchIndex').SearchMode];search:[];next:[];prev:[];clear:[];'update:open':[boolean]}>();
+function submit(event:Event){event.preventDefault();emit('search');}
 </script>
 <template>
-  <div class="pdf-search" :class="{ open }">
-    <button
-      type="button"
-      class="pdf-search-toggle icon-only-btn"
-      :aria-expanded="open"
-      :title="open ? '关闭搜索' : '搜索'"
-      aria-label="搜索"
-      @click="emit('update:open', !open)"
-    >
-      <svg v-if="!open" class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-        <circle cx="7.2" cy="7.2" r="4.3" />
-        <path d="M10.6 10.6L13.5 13.5" />
-      </svg>
-      <svg v-else class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-        <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
-      </svg>
-      <span class="sr-only">{{ open ? "关闭搜索" : "搜索" }}</span>
-    </button>
-    <Teleport :to="target" defer>
-    <form v-if="open" class="pdf-search-bar" role="search" @submit="submit" @keydown.esc.prevent="emit('update:open',false)">
-      <span class="search-caption">查找</span>
-      <input
-        ref="input"
-        class="pdf-search-input"
-        :value="query"
-        placeholder="在文档中搜索文字"
-        aria-label="搜索 PDF"
-        @input="emit('update:query', ($event.target as HTMLInputElement).value)"
-        @keydown.enter.prevent="emit('search')"
-      />
-      <button
-        type="submit"
-        class="pdf-search-go icon-only-btn"
-        :disabled="searching"
-        title="查找"
-        aria-label="查找"
-      >
-        <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-          <circle cx="7.2" cy="7.2" r="4.3" />
-          <path d="M10.6 10.6L13.5 13.5" />
-        </svg>
-        <span class="sr-only">查找</span>
-      </button>
-      <button type="button" class="pdf-search-case" :aria-pressed="caseSensitive" aria-label="区分大小写" title="区分大小写" @click="emit('update:caseSensitive',!caseSensitive)">Aa</button>
-      <select class="pdf-search-mode" :value="mode" aria-label="搜索模式" @change="emit('update:mode',($event.target as HTMLSelectElement).value as import('./searchIndex').SearchMode)">
-        <option value="plain">普通文字</option><option value="wildcard">通配符 * ?</option><option value="regex">正则表达式</option>
-      </select>
-      <span class="pdf-search-count" aria-live="polite">
-        <template v-if="searching">搜索中…</template>
-        <template v-else-if="query.trim()">
-          {{ count ? active + 1 + " / " + count : "无结果" }}
-        </template>
-      </span>
-      <button
-        type="button"
-        class="icon-only-btn"
-        :disabled="searching || !count"
-        title="上一处"
-        aria-label="上一处"
-        @click="emit('prev')"
-      >
-        <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 10l4-4 4 4" />
-        </svg>
-        <span class="sr-only">上一处</span>
-      </button>
-      <button
-        type="button"
-        class="icon-only-btn"
-        :disabled="searching || !count"
-        title="下一处"
-        aria-label="下一处"
-        @click="emit('next')"
-      >
-        <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <path d="M4 6l4 4 4-4" />
-        </svg>
-        <span class="sr-only">下一处</span>
-      </button>
-      <button
-        type="button"
-        class="icon-only-btn"
-        title="清除"
-        aria-label="清除"
-        @click="emit('clear')"
-      >
-        <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
-          <path d="M4 4l8 8M12 4l-8 8" />
-        </svg>
-        <span class="sr-only">清除</span>
-      </button>
-      <span v-if="notice" class="pdf-search-notice" role="status">{{ notice }}</span>
-      <span v-if="error" class="pdf-search-error" role="alert">{{ error }}</span>
-      <button type="button" class="search-close" aria-label="关闭文档搜索" title="关闭搜索（Esc）" @click="emit('update:open',false)">关闭</button>
-    </form>
-    </Teleport>
-  </div>
+  <span class="pdf-search"><ToolButton class="pdf-search-toggle" icon="search" :pressed="open" :aria-expanded="open" aria-haspopup="dialog" :title="open?'收起查找窗口':'查找文档内容（Ctrl+F）'" @click="emit('update:open',!open)" />
+    <PreviewPanel :open="open" title="查找 PDF 内容" :target="target" trigger=".pdf-search-toggle" close-label="关闭文档搜索" @update:open="emit('update:open',$event)">
+      <form class="pdf-search-bar" role="search" @submit="submit">
+        <div class="query-primary"><input ref="input" class="pdf-search-input" :value="query" placeholder="输入要查找的内容" aria-label="搜索 PDF" @input="emit('update:query',($event.target as HTMLInputElement).value)" @keydown.enter.prevent="emit('search')" /><ToolButton class="pdf-search-go" icon="search" title="查找（Enter）" :disabled="searching" @click="emit('search')" /></div>
+        <div class="query-options"><ToolButton class="pdf-search-case" icon="case" :pressed="caseSensitive" title="区分大小写" @click="emit('update:caseSensitive',!caseSensitive)" /><select class="pdf-search-mode" :value="mode" aria-label="搜索模式" title="搜索模式" @change="emit('update:mode',($event.target as HTMLSelectElement).value as import('./searchIndex').SearchMode)"><option value="plain">普通文字</option><option value="wildcard">通配符 * ?</option><option value="regex">正则表达式</option></select></div>
+        <div class="query-results"><span class="pdf-search-count" aria-live="polite"><template v-if="searching">搜索中…</template><template v-else-if="query.trim()">{{count?active+1+' / '+count:'无结果'}}</template><template v-else>输入内容开始查找</template></span><ToolButton icon="up" title="上一处" :disabled="searching||!count" @click="emit('prev')" /><ToolButton icon="down" title="下一处" :disabled="searching||!count" @click="emit('next')" /><ToolButton icon="clear" title="清除搜索" @click="emit('clear')" /></div>
+        <span v-if="notice" class="pdf-search-notice query-notice" role="status">{{notice}}</span><span v-if="error" class="pdf-search-error query-error" role="alert">{{error}}</span>
+      </form>
+    </PreviewPanel>
+  </span>
 </template>

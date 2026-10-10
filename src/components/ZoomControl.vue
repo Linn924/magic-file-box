@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, watch } from "vue";
 import { clampZoom } from "../composables/zoom";
+import ToolButton from './ToolButton.vue';
 const props = defineProps<{ modelValue: number }>();
 const emit = defineEmits<{ "update:modelValue": [value: number] }>();
 const draft = ref(String(props.modelValue));
@@ -20,12 +21,9 @@ function apply() {
 </script>
 <template>
   <div class="zoom-control">
-    <button
-      aria-label="缩小"
+    <ToolButton icon="minus" title="缩小"
       @click="emit('update:modelValue', clampZoom(modelValue - 10))"
-    >
-      −</button
-    ><label
+    /><label
       ><input
         :value="draft"
         @input="draft = ($event.target as HTMLInputElement).value"
@@ -38,13 +36,8 @@ function apply() {
         @blur="apply"
         @keydown.enter.prevent="apply"
       />%</label
-    ><button
-      aria-label="放大"
+    ><ToolButton icon="plus" title="放大"
       @click="emit('update:modelValue', clampZoom(modelValue + 10))"
-    >
-      ＋</button
-    ><button class="fit-button" @click="emit('update:modelValue', 100)">
-      适配
-    </button>
+    /><ToolButton class="fit-button" icon="reset" title="重置缩放为 100%" @click="emit('update:modelValue',100)" />
   </div>
 </template>

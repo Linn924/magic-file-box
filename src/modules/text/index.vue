@@ -6,6 +6,8 @@ import { createSafeResizeObserver } from "../../composables/safeResizeObserver";
 import textModule from "./index";
 import {renderTextLine,textMatches} from './highlight';
 import {LineHeights} from './lineHeights';
+import ToolButton from '../../components/ToolButton.vue';
+import PreviewPanel from '../../components/PreviewPanel.vue';
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];
@@ -20,7 +22,8 @@ const query = ref("");
 const showLines = ref(true);
 const showSearch = ref(false);
 const searchInput = ref<HTMLInputElement>();
-watch(showSearch, async value => { if (value) { await nextTick(); searchInput.value?.focus(); } });
+watch(showSearch, async value => { if (value) { await nextTick(); searchInput.value?.focus({preventScroll:true}); } else query.value=''; });
+function findKey(event:KeyboardEvent){if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='f'&&pane.value?.clientWidth){event.preventDefault();showSearch.value=true;void nextTick(()=>searchInput.value?.focus({preventScroll:true}));}}
 const lines = computed(() => (pretty.value || "").split("\n"));
 
 /** 超过此行数才启用虚拟滚动，小文件直接全量渲染 */
@@ -81,8 +84,8 @@ watch(()=>props.zoom,async(value,old)=>{
 });
 watch([showLines,query],()=>{void nextTick().then(updateVirtual);});
 let resizeObs:ResizeObserver|undefined;
-onMounted(()=>{updateVirtual();resizeObs=createSafeResizeObserver(updateVirtual);if(textScroll.value)resizeObs.observe(textScroll.value);});
-onBeforeUnmount(()=>{virtualDisposed=true;virtualRevision++;resizeObs?.disconnect();});
+onMounted(()=>{window.addEventListener('keydown',findKey);updateVirtual();resizeObs=createSafeResizeObserver(updateVirtual);if(textScroll.value)resizeObs.observe(textScroll.value);});
+onBeforeUnmount(()=>{window.removeEventListener('keydown',findKey);virtualDisposed=true;virtualRevision++;resizeObs?.disconnect();});
 
 /** 当前视口内实际渲染的行（小文件为全部，大文件为虚拟窗口） */
 const virtualLines = computed(() => {
@@ -109,38 +112,21 @@ const showHtml = computed(
   <section ref="pane" class="text">
     <Teleport :to="`[data-file-id='${props.file.id}'] .module-tools`" defer>
       <span class="text-tools filebar-inline" data-text-tools>
-        <label class="tool-field"
-          >编码
-          <select v-model="encoding" aria-label="文本编码">
+        <span class="preview-tool-group" data-text-group="query"><ToolButton class="text-search-toggle" icon="search" :pressed="showSearch" :aria-expanded="showSearch" aria-haspopup="dialog" :title="showSearch?'收起查找窗口':'查找文本内容（Ctrl+F）'" @click="showSearch=!showSearch" /><ToolButton class="text-lines-toggle" icon="lines" :pressed="!showHtml&&showLines" :disabled="showHtml" :title="showHtml?'Markdown 排版预览不显示行号':'显示 / 隐藏行号'" @click="showLines=!showLines" /></span>
+        <label class="tool-field" title="文本编码"
+          >
+          <select v-model="encoding" aria-label="文本编码" title="文本编码">
             <option value="utf-8">UTF-8</option>
             <option value="gb18030">GBK</option>
             <option value="utf-16le">UTF-16 LE</option>
             <option value="utf-16be">UTF-16 BE</option>
           </select></label
-        ><span class="tool-meta">{{ raw.length.toLocaleString() }} 字</span
-        ><label class="tool-check"
-          ><input v-model="showLines" type="checkbox" /> 行号</label
-        ><button
-          type="button"
-          class="text-search-toggle icon-only-btn"
-          :title="showSearch ? '关闭搜索' : '搜索'"
-          aria-label="搜索文本"
-          @click="showSearch = !showSearch"
         >
-          <svg v-if="!showSearch" class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-            <circle cx="7.2" cy="7.2" r="4.3" />
-            <path d="M10.6 10.6L13.5 13.5" />
-          </svg>
-          <svg v-else class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" aria-hidden="true">
-            <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" />
-          </svg>
-          <span class="sr-only">{{ showSearch ? "关闭搜索" : "搜索" }}</span>
-        </button>
       </span>
     </Teleport>
-    <Teleport :to="`[data-file-id='${props.file.id}'] .search-tools`" defer>
-      <div v-if="showSearch" class="text-search-bar" role="search" @keydown.esc.prevent="showSearch=false">
-        <span class="search-caption">查找</span>
+    <PreviewPanel v-model:open="showSearch" title="查找文本内容" :target="`[data-file-id='${props.file.id}'] .floating-tools`" trigger=".text-search-toggle" close-label="关闭文本搜索">
+      <div class="text-search-bar" role="search">
+        <div class="query-primary">
         <input
           ref="searchInput"
           v-model="query"
@@ -148,12 +134,10 @@ const showHtml = computed(
           aria-label="搜索文本"
           placeholder="搜索"
         />
-        <span v-if="query.trim()" class="text-search-count" aria-live="polite">
-          {{ hitCount }} 行
-        </span>
-        <button type="button" class="search-close" aria-label="关闭文本搜索" title="关闭搜索（Esc）" @click="showSearch=false">关闭</button>
+        <ToolButton icon="clear" title="清除搜索" :disabled="!query" @click="query=''" /></div>
+        <div class="query-results"><span class="text-search-count" aria-live="polite">{{query.trim()?hitCount+' 行匹配':'输入内容开始查找'}}</span></div>
       </div>
-    </Teleport>
+    </PreviewPanel>
     <div v-if="invalidJson" class="notice">
       JSON 格式不完整，按原始文本显示。
     </div>
@@ -202,5 +186,6 @@ const showHtml = computed(
         ></div>
       </div>
     </div>
+    <footer class="pane-footer text-footer"><span>{{raw.length.toLocaleString()}} 字 · {{lines.length.toLocaleString()}} 行</span></footer>
   </section>
 </template>

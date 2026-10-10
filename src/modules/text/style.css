@@ -136,6 +136,7 @@ html[data-theme="dark"] .tok-cmt { color:#a2aec0; }
 .text-search-count {
   color: var(--muted);
 }
+.preview-floating-panel .text-search-bar{display:block;padding:0}.preview-floating-panel .text-search-input{width:auto;max-width:none}.text-footer{flex-shrink:0}
 html[data-theme="dark"] .text-line:hover {
   background: #1a2330;
 }

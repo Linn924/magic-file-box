@@ -83,6 +83,7 @@ const suite: Suite = async (c) => {
     c.close(win);
   }
   const md = await c.open("readme.md");
+  await c.check(md,'Markdown line-number button reflects rendered reading mode',"document.querySelector('.text-lines-toggle').disabled&&document.querySelector('.text-lines-toggle').getAttribute('aria-pressed')==='false'");
   await c.check(
     md,
     "readme.md",
@@ -94,6 +95,7 @@ const suite: Suite = async (c) => {
     "text wheel does not zoom",
     "document.querySelector('.zoom-control input').value==='100'",
   );
+  await c.click(md,'.text-search-toggle');await c.check(md,'Markdown query switches to source lines with usable line control',"!document.querySelector('.text-lines-toggle').disabled&&!!document.querySelector('.line-no')");await c.click(md,'.search-close');await c.check(md,'closing Markdown query restores layout and line-control state',"!!document.querySelector('.markdown h1')&&document.querySelector('.text-lines-toggle').disabled");
   c.close(md);
 };
 export default suite;

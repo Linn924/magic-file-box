@@ -3,8 +3,8 @@ import PageNavigation from "../../components/PageNavigation.vue";
 import type { PreviewProps } from "../types";
 import { usePreview } from "./usePreview";
 import {useGridInteraction} from './useGridInteraction';
-import ExcelToolButton from './ExcelToolButton.vue';
-import ExcelIcon from './ExcelIcon.vue';
+import ExcelToolButton from '../../components/ToolButton.vue';
+import ExcelIcon from '../../components/ToolbarIcon.vue';
 import { ref,computed,watch,nextTick,onBeforeUnmount } from "vue";
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{

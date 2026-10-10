@@ -284,10 +284,6 @@
 .excel-insert-overlay{position:fixed;inset:0;z-index:130;background:#0003;display:grid;place-items:center}
 .excel-insert-dialog{display:grid;gap:12px;padding:18px;width:min(330px,calc(100vw - 40px));background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px #0004}
 .excel-insert-dialog label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}.excel-insert-dialog select,.excel-insert-dialog input{width:170px;min-height:28px;background:var(--well);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:4px}.excel-insert-dialog>div{display:flex;justify-content:flex-end;gap:8px}.excel-insert-dialog small{color:var(--muted);font-size:11px}
-.excel-icon{display:block;width:16px;height:16px;flex-shrink:0}
-.excel-tool-wrap{display:inline-flex;align-items:center;flex-shrink:0}
-.excel-icon-button{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;width:28px;height:28px;min-width:28px;padding:5px;border:1px solid transparent;border-radius:4px;background:transparent;color:var(--text);cursor:pointer}
-.excel-icon-button:hover:not(:disabled){background:var(--well);border-color:var(--line)}.excel-icon-button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.excel-icon-button[aria-pressed=true]{background:color-mix(in srgb,var(--accent) 12%,var(--panel));border-color:var(--accent);color:var(--accent)}.excel-icon-button:disabled{opacity:.4;cursor:default}
 .excel-editor-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:4px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0}
 .excel-command-group{display:inline-flex;align-items:center;gap:2px;padding-right:6px;border-right:1px solid var(--line);flex-shrink:0}.excel-command-group:last-child{border-right:0;padding-right:0}
 .excel-editor-toolbar select{width:76px;height:28px;border:1px solid var(--line);border-radius:4px;padding:2px 4px;background:var(--well);color:var(--text);font-size:12px}
