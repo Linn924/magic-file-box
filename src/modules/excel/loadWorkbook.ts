@@ -1,5 +1,6 @@
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
+import {readXlsAlignments} from './xlsCopy';
 export function readBasicWorkbook(bytes:Uint8Array,ext:string){
   if(ext==='csv'||ext==='tsv'){
     let text:string;
@@ -8,7 +9,8 @@ export function readBasicWorkbook(bytes:Uint8Array,ext:string){
     else {try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{text=new TextDecoder('gb18030',{fatal:true}).decode(bytes);}}
     return XLSX.read(text,{type:'string',raw:true,FS:ext==='tsv'?'\t':undefined,cellStyles:true,cellText:true,cellHTML:false,sheetStubs:true});
   }
-  return XLSX.read(bytes,{type:'array',cellStyles:true,cellText:true,cellHTML:false,sheetStubs:true});
+  const book=XLSX.read(bytes,{type:'array',cellStyles:true,cellNF:true,cellText:true,cellHTML:false,sheetStubs:true});
+  if(ext==='xls')readXlsAlignments(bytes,book);return book;
 }
 export async function loadWorkbook(bytes: Uint8Array, ext: string) {
   // Basic cell data remains available when the optional style engine rejects a file.

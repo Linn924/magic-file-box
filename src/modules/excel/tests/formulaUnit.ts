@@ -1,0 +1,24 @@
+import assert from 'node:assert/strict';
+import * as XLSX from 'xlsx';
+import {createFormulaCalculator,parseFormula,roundValue} from '../formula';
+import {exportXlsCopy,readXlsAlignments,compileXlsFormula} from '../xlsCopy';
+const book=XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([[1,'苹果',12.345],[3,'香蕉',20],[7,'桃子',30],[null,'a*b',40]]),'Data');
+XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([[5]]),"O'Brien");
+function result(f:string){book.Sheets.Data.Z1={t:'n',f};return createFormulaCalculator(book).result('Data','Z1');}
+for(const [f,value] of Object.entries({'1+2*3':7,'-2^2':4,'2^3^2':64,'10%':.1,'"a"&TRUE':'aTRUE',"'O''Brien'!$A$1+1":6,'SUM(A1:A3)':11,'AVERAGE(A1:A3)':11/3,'MIN(A1:A3)':1,'MAX(A1:A3)':7,'COUNT(A1:B3)':3,'COUNTA(A1:B3)':6,'ABS(-3)':3,'IF(FALSE,1/0,"安全")':'安全','VLOOKUP(3,A1:C3,2,FALSE)':'香蕉','VLOOKUP(6,A1:C3,2)':'香蕉','VLOOKUP("a~*b",B1:C4,2,FALSE)':40,'ROUND(C1,2)':12.35,'ROUND(-2.5,0)':-3,'ROUND(125,-1)':130,'ROUNDUP(-1.231,2)':-1.24,'ROUNDDOWN(-1.239,2)':-1.23}))assert.deepEqual(result(f),{value},f);
+for(const [f,error] of Object.entries({'1/0':'#DIV/0!','VLOOKUP(0,A1:C3,2)':'#N/A','VLOOKUP("3",A1:C3,2,FALSE)':'#N/A','VLOOKUP(3,A1:C3,9,FALSE)':'#REF!','Z1+1':'#CYCLE!','Unknown(1)':'#UNSUPPORTED!','SUM(A1:A100001)':'#LIMIT!','Missing!A1':'#REF!'}))assert.deepEqual(result(f),{error},f);
+assert.equal(roundValue(1.005,2),1.01);assert.equal(roundValue(1.23,2,'ROUNDUP'),1.23);
+book.Sheets.Data.D1={t:'e',v:7};assert.deepEqual(result('COUNTA(D1:D2)'),{value:1});assert.deepEqual(result('COUNT(D1:D2)'),{value:0});
+book.Sheets.Data.Z1={t:'n',f:'ROUND(C1,2)'};assert.deepEqual(createFormulaCalculator(book,[{sheet:'Data',address:'C1',value:{kind:'number',value:9.876}}]).result('Data','Z1'),{value:9.88});
+for(const formula of ['VLOOKUP(A1,A1:B2)','ROUND(1)','[other.xls]Sheet!A1','SUM(A1,,B1)','A0','XFE1'])assert.throws(()=>parseFormula(formula),formula);
+delete book.Sheets.Data.Z1;delete book.Sheets.Data.D1;
+const formulas={D1:'VLOOKUP(3,A1:C3,3,FALSE)',D2:'ROUND(C1,2)',D3:'IF(A1=1,"中文","")',D4:'A1=1',E1:"'O''Brien'!A1+2",E2:'1/0',E3:'IF(FALSE,"yes","")',E4:'SUM(A1:A3)'};
+for(const [address,f] of Object.entries(formulas))book.Sheets.Data[address]={t:'n',f};
+book.Sheets.Data['!ref']='A1:E4';book.Sheets.Data['!rows']=[{hpt:32}];book.Sheets.Data['!cols']=[{wch:18}];book.Sheets.Data.C1.z='0.00';book.Sheets.Data['!merges']=[{s:{r:5,c:0},e:{r:5,c:1}}];
+const bytes=await exportXlsCopy(book,[{sheet:'Data',address:'C1',value:{kind:'number',value:12.345},alignment:'center'}]),copy=XLSX.read(bytes,{type:'array',cellStyles:true,cellNF:true});readXlsAlignments(bytes,copy);
+assert.equal(bytes[0],208);assert.equal(copy.Sheets.Data.D1.v,20);assert.equal(copy.Sheets.Data.D2.v,12.35);assert.equal(copy.Sheets.Data.D3.v,'中文');assert.equal(copy.Sheets.Data.D4.v,true);assert.equal(copy.Sheets.Data.E1.v,7);assert.equal(copy.Sheets.Data.E2.t,'e');assert.equal(copy.Sheets.Data.E3.v,'');assert.equal(copy.Sheets.Data.E4.v,11);
+for(const address of Object.keys(formulas))assert.ok(copy.Sheets.Data[address].f,'XLS formula retained at '+address);
+assert.equal(copy.Sheets.Data.C1.z,'0.00');assert.equal(copy.Sheets.Data.C1.s.alignment.horizontal,'center');assert.equal(copy.Sheets.Data['!rows']?.[0].hpt,32);assert.equal(copy.Sheets.Data['!merges']?.length,1);
+assert.throws(()=>compileXlsFormula('IW1',['Data']));assert.throws(()=>compileXlsFormula('ROUND(A1,1)+"'+ 'x'.repeat(256)+'"',['Data']));
+console.log('PASS Excel formulas and XLS round-trip: lookup, rounding, cross-sheet dependencies, errors, limits, formula caches and layout');

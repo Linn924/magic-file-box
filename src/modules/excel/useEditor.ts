@@ -5,14 +5,16 @@ import type {ExcelChange,ExcelValue,ExcelDraft,ExcelCopyFormat,ExcelTransaction,
 import {parseExcelInput,parseTablePaste,excelInput,changeKey,changeSignature} from './editModel';
 import {exportExcelCopy} from './exportCopy';
 import {changeStructure,moveIndex} from './structure';
+import {createFormulaCalculator,formulaReferences,parseFormula} from './formula';
 export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,sheetName:Ref<string>,install:(bytes:Uint8Array,ext:string,widths?:Record<string,number>)=>Promise<void>,getWidths:()=>Record<string,number>){
   const restored=file.view?.excelDraft;
   const editing=ref(restored?.editing??false),changes=ref<ExcelChange[]>(restored?.changes??[]),undoStack=ref<ExcelTransaction[]>(restored?.undo??[]),redoStack=ref<ExcelTransaction[]>(restored?.redo??[]);
   const savedSignature=ref(restored?.savedSignature??changeSignature([]));
   const baseBytes=ref<Uint8Array|undefined>(restored?.baseBytes),revisions=ref<Record<string,number>>(restored?.revisions??{});let serial=restored?.serial??0;
   const formatted=ref<string[]>(restored?.formatted??[]);
-  const address=ref(restored?.address||'A1'),selectedSheet=ref(restored?.sheet||''),input=ref(restored?.input??''),error=ref(''),status=ref(''),saving=ref(false),format=ref<ExcelCopyFormat>(file.ext==='csv'?'csv':file.ext==='tsv'?'tsv':'xlsx');
-  const canEdit=computed(()=>!!book.value&&['xlsx','csv','tsv'].includes(file.ext));
+  const address=ref(restored?.address||'A1'),selectedSheet=ref(restored?.sheet||''),input=ref(restored?.input??''),error=ref(''),status=ref(''),saving=ref(false),format=ref<ExcelCopyFormat>(file.ext==='xls'?'xls':file.ext==='csv'?'csv':file.ext==='tsv'?'tsv':'xlsx');
+  const canEdit=computed(()=>!!book.value&&['xlsx','xls','csv','tsv'].includes(file.ext));
+  const calculator=computed(()=>book.value?createFormulaCalculator(book.value,changes.value):undefined);
   const patchMap=computed(()=>new Map(changes.value.filter(change=>!change.alignmentOnly).map(change=>[changeKey(change.sheet,change.address),change.value])));
   const alignmentMap=computed(()=>new Map(changes.value.filter(change=>change.alignment).map(change=>[changeKey(change.sheet,change.address),change.alignment!])));
   function original(sheet:string,cellAddress:string):ExcelValue {
@@ -37,7 +39,7 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
   function refreshInput(){input.value=expectedInput();}
   function guardTarget(sheet:string,cellAddress:string){
     const worksheet=book.value?.Sheets[sheet];if(!worksheet)throw Error('请选择工作表。');const pos=XLSX.utils.decode_cell(cellAddress),base=worksheet['!ref']?XLSX.utils.decode_range(worksheet['!ref']):undefined;
-    if(pos.r<0||pos.r>=Math.max(50000,(base?.e.r??0)+1)||pos.c<0||pos.c>=16384)throw Error('新增区域限 50000 行、16384 列。');
+    if(pos.r<0||pos.r>=Math.max(50000,(base?.e.r??0)+1)||pos.c<0||pos.c>=(file.ext==='xls'?256:16384))throw Error(file.ext==='xls'?'XLS 最多 65536 行、256 列。':'新增区域限 50000 行、16384 列。');
     for(const merge of worksheet['!merges']||[])if(pos.r>=merge.s.r&&pos.r<=merge.e.r&&pos.c>=merge.s.c&&pos.c<=merge.e.c&&(pos.r!==merge.s.r||pos.c!==merge.s.c))throw Error('请编辑合并单元格左上角；不支持粘贴到合并覆盖区域。');
     if(worksheet[cellAddress]?.F)throw Error('首版不支持修改数组公式区域。');
   }
@@ -49,7 +51,8 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
     if(record){undoStack.value.push({before,after:updates as ExcelChange[]});redoStack.value=[];trimHistory();}
   }
   function trimHistory(){while(undoStack.value.length>100||undoStack.value.reduce((n,entry)=>n+entry.after.length+(entry.grid?.before.changes.length??0),0)>20000||undoStack.value.reduce((n,entry)=>n+(entry.grid?.before.bytes?.length??0)+(entry.grid?.after.bytes?.length??0),0)>64*1024*1024||undoStack.value.reduce((n,entry)=>n+JSON.stringify([entry.before,entry.after,entry.grid?.before.changes,entry.grid?.after.changes]).length,0)>10000000)undoStack.value.shift();}
-  function finishCell(){if(!pending.value)return true;try{guardTarget(selectedSheet.value,address.value);setValues([{sheet:selectedSheet.value,address:address.value,value:parseExcelInput(input.value),alignment:alignmentMap.value.get(changeKey(selectedSheet.value,address.value))}]);error.value='';status.value='';refreshInput();return true;}catch(e){error.value=(e as Error).message;return false;}}
+  function parseValue(text:string){const value=parseExcelInput(text);if(file.ext==='xls'&&value.kind==='formula')for(const ref of formulaReferences(parseFormula(value.value)))for(const address of [ref.a,ref.b].filter(Boolean) as string[]){const pos=XLSX.utils.decode_cell(address.replace(/\$/g,''));if(pos.r>=65536||pos.c>=256)throw Error('XLS 公式引用不能超过 IV65536。');}return value;}
+  function finishCell(){if(!pending.value)return true;try{guardTarget(selectedSheet.value,address.value);setValues([{sheet:selectedSheet.value,address:address.value,value:parseValue(input.value),alignment:alignmentMap.value.get(changeKey(selectedSheet.value,address.value))}]);error.value='';status.value='';refreshInput();return true;}catch(e){error.value=(e as Error).message;return false;}}
   function align(alignment:ExcelAlignment){if(!editing.value||saving.value||!finishCell())return;try{guardTarget(selectedSheet.value,address.value);setValues([{sheet:selectedSheet.value,address:address.value,value:valueAt(selectedSheet.value,address.value),alignment}]);error.value='';}catch(e){error.value=(e as Error).message;}}
   function select(cellAddress:string,sheet=sheetName.value){if(!editing.value)return true;if(!finishCell())return false;selectedSheet.value=sheet;address.value=cellAddress;refreshInput();return true;}
   function toggle(){if(!canEdit.value)return;if(editing.value&&!finishCell())return;editing.value=!editing.value;selectedSheet.value=sheetName.value;refreshInput();}
@@ -59,12 +62,13 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
   function paste(text:string){
     if(!editing.value||!finishCell())return;
     try{const start=XLSX.utils.decode_cell(address.value),rows=parseTablePaste(text),updates:ExcelChange[]=[];
-      for(let r=0;r<rows.length;r++)for(let c=0;c<rows[r].length;c++){const cellAddress=XLSX.utils.encode_cell({r:start.r+r,c:start.c+c});guardTarget(sheetName.value,cellAddress);updates.push({sheet:sheetName.value,address:cellAddress,value:parseExcelInput(rows[r][c]),alignment:alignmentMap.value.get(changeKey(sheetName.value,cellAddress))});}
+      for(let r=0;r<rows.length;r++)for(let c=0;c<rows[r].length;c++){const cellAddress=XLSX.utils.encode_cell({r:start.r+r,c:start.c+c});guardTarget(sheetName.value,cellAddress);updates.push({sheet:sheetName.value,address:cellAddress,value:parseValue(rows[r][c]),alignment:alignmentMap.value.get(changeKey(sheetName.value,cellAddress))});}
       setValues(updates);refreshInput();error.value='';status.value='已粘贴 '+updates.length+' 个单元格';
     }catch(e){error.value=(e as Error).message;}
   }
   async function discard(){if(saving.value||!await window.localPreview.confirmDiscard(file.id,true))return;saving.value=true;try{if(baseBytes.value)await install(file.bytes,file.ext);baseBytes.value=undefined;formatted.value=[];revisions.value={};changes.value=[];undoStack.value=[];redoStack.value=[];savedSignature.value=changeSignature([]);error.value='';status.value='已恢复源文件内容';refreshInput();}catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();}}
   async function structure(op:Omit<ExcelStructure,'sheet'>){
+    if(file.ext==='xls'&&op.kind==='insert'){const current=book.value?.Sheets[sheetName.value]?.['!ref'],extent=current?XLSX.utils.decode_range(current).e:{r:0,c:0};if(Math.max(op.index,(op.axis==='row'?extent.r:extent.c)+1)+op.count>(op.axis==='row'?65536:256)){error.value='插入后超出 XLS 行列上限。';return false;}}
     if(!editing.value||saving.value||!finishCell())return false;saving.value=true;error.value='';status.value='';
     try{const before:ExcelGridState={bytes:baseBytes.value,changes:[...changes.value],revisions:{...revisions.value},address:address.value,widths:{...getWidths()},formatted:[...formatted.value]};
       const bytes=await exportExcelCopy(baseBytes.value??file.bytes,baseBytes.value?'xlsx':file.ext,changes.value,'xlsx',sheetName.value);
@@ -78,14 +82,14 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
     }catch(e){error.value=(e as Error).message;return false;}finally{saving.value=false;persist();}
   }
   async function save(){
-    if(format.value!=='xlsx'&&formatted.value.includes(sheetName.value)){error.value='CSV/TSV 不保存单元格对齐，请选择 XLSX 副本。';return;}
+    if(['csv','tsv'].includes(format.value)&&formatted.value.includes(sheetName.value)){error.value='CSV/TSV 不保存单元格对齐，请选择 Excel 副本。';return;}
     if(saving.value||!finishCell())return;saving.value=true;error.value='';status.value='';
     const copyFormat=format.value,copySheet=sheetName.value;
     const snapshot=changes.value.map(change=>({...toRaw(change),value:{...toRaw(change.value)}})),saved=signature(snapshot);
-    try{const bytes=await exportExcelCopy(baseBytes.value??file.bytes,baseBytes.value?'xlsx':file.ext,snapshot,copyFormat,copySheet);const result=await window.localPreview.saveExcelCopy(file.id,copyFormat,bytes);if(result==='saved'){savedSignature.value=copyFormat==='xlsx'?saved:changeSignature([...(JSON.parse(savedSignature.value) as ExcelChange[]).filter(change=>change.sheet!==copySheet),...(JSON.parse(saved) as ExcelChange[]).filter(change=>change.sheet===copySheet)]);status.value=copyFormat==='xlsx'?'已另存副本，源文件未改变':'当前工作表已另存，其余工作表不包含在此副本中';}else status.value='已取消另存';}
+    try{const bytes=await exportExcelCopy(baseBytes.value??file.bytes,baseBytes.value?'xlsx':file.ext,snapshot,copyFormat,copySheet);const result=await window.localPreview.saveExcelCopy(file.id,copyFormat,bytes);if(result==='saved'){savedSignature.value=['xlsx','xls'].includes(copyFormat)?saved:changeSignature([...(JSON.parse(savedSignature.value) as ExcelChange[]).filter(change=>change.sheet!==copySheet),...(JSON.parse(saved) as ExcelChange[]).filter(change=>change.sheet===copySheet)]);status.value=['xlsx','xls'].includes(copyFormat)?'已另存副本，源文件未改变':'当前工作表已另存，其余工作表不包含在此副本中';}else status.value='已取消另存';}
     catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();}
   }
   function initialize(){ready=true;if(!selectedSheet.value||!book.value?.Sheets[selectedSheet.value]){selectedSheet.value=sheetName.value;refreshInput();}persist();}
   function extent(sheet:string){let rows=0,cols=0;for(const change of changes.value)if(change.sheet===sheet){const cell=XLSX.utils.decode_cell(change.address);rows=Math.max(rows,cell.r+1);cols=Math.max(cols,cell.c+1);}return {rows,cols};}
-  return {editing,changes,baseBytes,revisions,dirty,pending,selectedSheet,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,alignmentMap,align,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent,structure};
+  return {editing,changes,calculator,baseBytes,revisions,dirty,pending,selectedSheet,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,alignmentMap,align,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent,structure};
 }

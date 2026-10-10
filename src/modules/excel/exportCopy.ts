@@ -1,6 +1,8 @@
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import {readBasicWorkbook} from './loadWorkbook';
+import {exportXlsCopy} from './xlsCopy';
+import {createFormulaCalculator} from './formula';
 import type {ExcelChange,ExcelCopyFormat,ExcelValue} from '../../../shared/excelEditing';
 const MAIN='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 function xml(text:string){const document=new DOMParser().parseFromString(text,'application/xml');if(document.querySelector('parsererror'))throw Error('源文件 XML 无法安全保存。');return document;}
@@ -15,7 +17,17 @@ function applyValue(sheet:XLSX.WorkSheet,address:string,value:ExcelValue){
 export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelChange[],format:ExcelCopyFormat,currentSheet:string){
   if(!changes.length&&format===ext)return bytes.slice();
   const workbook=readBasicWorkbook(bytes,ext);
-  for(const change of changes){const sheet=workbook.Sheets[change.sheet];if(!sheet)throw Error('工作表已不存在。');if(!change.alignmentOnly)applyValue(sheet,change.address,change.value);else if(change.alignment){const position=XLSX.utils.decode_cell(change.address),range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):{s:position,e:position};range.s.r=Math.min(range.s.r,position.r);range.s.c=Math.min(range.s.c,position.c);range.e.r=Math.max(range.e.r,position.r);range.e.c=Math.max(range.e.c,position.c);sheet['!ref']=XLSX.utils.encode_range(range);}}
+  for(const change of changes){const sheet=workbook.Sheets[change.sheet];if(!sheet)throw Error('工作表已不存在。');if(!change.alignmentOnly)applyValue(sheet,change.address,change.value);else if(change.alignment){sheet[change.address]??={t:"z"};const position=XLSX.utils.decode_cell(change.address),range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):{s:position,e:position};range.s.r=Math.min(range.s.r,position.r);range.s.c=Math.min(range.s.c,position.c);range.e.r=Math.max(range.e.r,position.r);range.e.c=Math.max(range.e.c,position.c);sheet['!ref']=XLSX.utils.encode_range(range);}}
+  if(format==='xls'){
+    if(ext==='xlsx'){
+      const zip=await JSZip.loadAsync(bytes),styles=zip.file('xl/styles.xml');
+      if(styles){const xfs=elements(xml(await styles.async('string')),'cellXfs')[0];
+        const metadata=xml(await zip.file('xl/workbook.xml')!.async('string')),relations=xml(await zip.file('xl/_rels/workbook.xml.rels')!.async('string'));
+        for(const info of elements(metadata,'sheet')){const id=info.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id'),target=Array.from(relations.documentElement.children).find(n=>n.getAttribute('Id')===id)?.getAttribute('Target');if(!target)continue;const segments=(target.startsWith('/')?target.slice(1):'xl/'+target).split('/'),parts:string[]=[];for(const part of segments){if(part==='..')parts.pop();else if(part&&part!=='.')parts.push(part);}const entry=zip.file(parts.join('/'));if(!entry)continue;for(const cell of elements(xml(await entry.async('string')),'c')){const address=cell.getAttribute('r')!,xf=xfs?.children[Number(cell.getAttribute('s')||0)],alignment=xf?elements(xf,'alignment')[0]?.getAttribute('horizontal'):undefined;if(['left','center','right'].includes(alignment||'')){const basic=workbook.Sheets[info.getAttribute('name')!][address];if(basic)basic.s={...basic.s,alignment:{horizontal:alignment}};}}}
+      }
+    }
+    return exportXlsCopy(workbook,changes);
+  }
   if(format!=='xlsx'){
     if(changes.some(change=>change.sheet===currentSheet&&change.alignment))throw Error('CSV/TSV 不保存单元格对齐，请选择 XLSX 副本。');
     const sheet=workbook.Sheets[currentSheet];if(!sheet)throw Error('请选择工作表。');
@@ -33,6 +45,7 @@ export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelC
   }
   const base=ext==='xlsx'?bytes:new Uint8Array(XLSX.write(workbook,{type:'array',bookType:'xlsx'}));
   const zip=await JSZip.loadAsync(base),workbookEntry=zip.file('xl/workbook.xml'),relsEntry=zip.file('xl/_rels/workbook.xml.rels');
+  const calculator=createFormulaCalculator(workbook);
   if(!workbookEntry||!relsEntry)throw Error('工作簿结构不完整。');
   const document=xml(await workbookEntry.async('string')),rels=xml(await relsEntry.async('string'));
   if(document.documentElement.namespaceURI!==MAIN)throw Error('首版不编辑严格格式的 XLSX，请先转换为常规 XLSX。');
@@ -70,7 +83,12 @@ export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelC
       changed=true;
     }
     // Dependencies may have changed; never leave a stale numeric formula cache.
-    if(changes.some(change=>!change.alignmentOnly))for(const cell of elements(sheetDoc,'c'))if(elements(cell,'f').length){for(const cache of elements(cell,'v'))cache.remove();changed=true;}
+    if(changes.some(change=>!change.alignmentOnly)||ext!=='xlsx')for(const cell of elements(sheetDoc,'c'))if(elements(cell,'f').length){
+      for(const cache of elements(cell,'v'))cache.remove();cell.removeAttribute('t');const result=calculator.result(name,cell.getAttribute('r')!);
+      if(result.error){if(['#NULL!','#REF!','#DIV/0!','#N/A','#VALUE!','#NAME?','#NUM!'].includes(result.error)){cell.setAttribute('t','e');const v=sheetDoc.createElementNS(MAIN,'v');v.textContent=result.error;cell.append(v);}}
+      else {const v=sheetDoc.createElementNS(MAIN,'v');if(typeof result.value==='string')cell.setAttribute('t','str');else if(typeof result.value==='boolean')cell.setAttribute('t','b');v.textContent=typeof result.value==='boolean'?String(Number(result.value)):String(result.value??0);cell.append(v);}changed=true;
+    }
+    if(ext!=='xlsx')for(const cell of elements(sheetDoc,'c')){const alignment=workbook.Sheets[name][cell.getAttribute('r')!]?.s?.alignment?.horizontal;if(['left','center','right'].includes(alignment)){cell.setAttribute('s',String(await alignedStyle(cell.getAttribute('s'),alignment)));changed=true;}}
     if(changed){const dimension=elements(sheetDoc,'dimension')[0];if(dimension&&workbook.Sheets[name]?.['!ref'])dimension.setAttribute('ref',workbook.Sheets[name]['!ref']);zip.file(path,new XMLSerializer().serializeToString(sheetDoc));}
   }
   if(styleChanged)zip.file('xl/styles.xml',new XMLSerializer().serializeToString(styleDocument!));

@@ -303,7 +303,8 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
         s?.alignment?.horizontal === "centerContinuous"
           ? "center"
           : (s?.alignment?.horizontal as CSSProperties["textAlign"]) ||
-            (changed?(changed.kind==='number'?'right':'left'):(basic?.t === "n" ? "right" : "left"))),
+            basic?.s?.alignment?.horizontal ||
+            (changed?.kind==='formula'||!changed&&basic?.f?typeof editor.calculator.value?.result(sheetName.value,XLSX.utils.encode_cell({r,c}),false).value==='number'?'right':'left':changed?(changed.kind==='number'?'right':'left'):(basic?.t === "n" ? "right" : "left"))),
       verticalAlign:
         s?.alignment?.vertical === "middle"
           ? "middle"
@@ -356,9 +357,9 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     }
     return spans;
   });
-  function editedNumber(value:number,r:number,c:number){const format=styledSheet.value?.getCell(r+1,c+1).numFmt;try{return format?XLSX.SSF.format(format,value):String(value);}catch{return String(value);}}
-  const rows = computed(() =>
-    rowNumbers.value
+  function editedNumber(value:number,r:number,c:number){const format=styledSheet.value?.getCell(r+1,c+1).numFmt||sheet.value?.[XLSX.utils.encode_cell({r,c})]?.z;try{return format?XLSX.SSF.format(format,value):String(value);}catch{return String(value);}}
+  const rows = computed(() => {
+    editor.calculator.value?.beginBatch();return rowNumbers.value
       .filter((r) => rowHeight(r) > 0)
       .map((r) => ({
         r,
@@ -378,11 +379,16 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
             sourceRow + 1,
             sourceCol + 1,
           ).value;
+          const formula=patch?.kind==='formula'?patch.value:!patch?value?.f:undefined;
+          const calculated=formula?editor.calculator.value?.result(sheetName.value,cellAddress,false):undefined;
+          const text=formula?calculated?.error==='#UNSUPPORTED!'?'='+formula:calculated?.error||
+            (typeof calculated?.value==='number'?editedNumber(calculated.value,sourceRow,sourceCol):typeof calculated?.value==='boolean'?calculated.value?'TRUE':'FALSE':String(calculated?.value??'')):
+            patch?(patch.kind==='blank'?'':patch.kind==='number'?editedNumber(patch.value,sourceRow,sourceCol):String(patch.value)):value?XLSX.utils.format_cell(value):'';
           return [
             {
               c,address:cellAddress,
               modified:!!patch||editor.alignmentMap.value.has(JSON.stringify([sheetName.value,cellAddress])),
-              text:patch?(patch.kind==='blank'?'':patch.kind==='formula'?'='+patch.value:patch.kind==='number'?editedNumber(patch.value,sourceRow,sourceCol):String(patch.value)):(value?.f&&(editor.changes.value.length||editor.editing.value||value.t==='z'||value.v===undefined||(rich&&typeof rich==='object'&&('formula' in rich||'sharedFormula' in rich)&&rich.result===undefined))?'='+value.f:value?XLSX.utils.format_cell(value):''),
+              text,title:formula?'='+formula+'\n'+(calculated?.error==='#UNSUPPORTED!'?'暂不支持此公式；未使用旧缓存结果':calculated?.error==='#LIMIT!'?'计算超出范围限制':calculated?.error==='#CYCLE!'?'循环引用':text):text,
               style: styleAt(sourceRow, sourceCol),
               rowspan: merge?.rows || 1,
               colspan: merge?.cols || 1,
@@ -393,8 +399,8 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
             },
           ];
         }),
-      })),
-  );
+      }));
+  });
   const padTop = computed(() => Math.max(0,rowOffsets.value[bodyStart.value]||0));
   const padBottom = computed(() =>
     Math.max(0, totalTableHeight.value - (rowOffsets.value[virtualEnd.value] || 0)),

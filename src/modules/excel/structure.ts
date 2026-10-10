@@ -1,7 +1,7 @@
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import type {ExcelStructure} from '../../../shared/excelEditing';
-import {parseExcelInput} from './editModel';
+import {parseFormula,formulaReferences} from './formula';
 const MAIN='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 const REL='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 function xml(text:string){const doc=new DOMParser().parseFromString(text,'application/xml');if(doc.querySelector('parsererror'))throw Error('工作簿 XML 无法安全调整。');return doc;}
@@ -18,20 +18,15 @@ export function moveRange(ref:string,op:ExcelStructure){
   else {if(end<op.index){}else if(start>=op.index+op.count){start-=op.count;end-=op.count;}else {start=Math.min(start,op.index);end=end>=op.index+op.count?end-op.count:op.index-1;if(start>end)return null;}}
   range.s[axis]=start;range.e[axis]=end;return XLSX.utils.encode_range(range);
 }
-const REFERENCES=/(?:(('(?:[^']|'')+'|[A-Za-z_\u0080-\uFFFF][\w.\u0080-\uFFFF]*)!)?)(\$?[A-Za-z]{1,3}\$?[1-9]\d*)(?::(\$?[A-Za-z]{1,3}\$?[1-9]\d*))?/g;
 export function moveFormula(formula:string,sheet:string,op:ExcelStructure){
-  // Only the declared arithmetic/function grammar is accepted for structural changes.
-  // Existing cell-only editing retains broader formulas verbatim.
-  const simple=formula.replace(/(?:(?:'(?:[^']|'')+'|[A-Za-z_\u0080-\uFFFF][\w.\u0080-\uFFFF]*)!)?#REF!/g,'A1').replace(REFERENCES,(_match,_prefix,_sheet,a,b)=>a+(b?':'+b:''));
-  try{parseExcelInput('='+simple.replace(/#REF!/g,'A1'));}catch{throw Error('此工作簿含暂不支持调整的公式，请在表格软件中插入或删除行列。');}
-  return formula.replace(REFERENCES,(match,prefix,qualifier,a:string,b?:string)=>{
-    const target=qualifier?(qualifier.startsWith("'")?qualifier.slice(1,-1).replace(/''/g,"'"):qualifier):sheet;
-    if(target.toLowerCase()!==op.sheet.toLowerCase())return match;
-    const moved=moveRange(a.replace(/\$/g,'')+(b?':'+b.replace(/\$/g,''):''),op);if(!moved)return (prefix||'')+'#REF!';
-    const range=XLSX.utils.decode_range(moved);if(range.e.r>=1048576||range.e.c>=16384)return (prefix||'')+'#REF!';
+  let refs:ReturnType<typeof formulaReferences>;try{refs=formulaReferences(parseFormula(formula));}catch{throw Error('此工作簿含暂不支持调整的公式，请在表格软件中插入或删除行列。');}
+  let result=formula;for(const ref of refs.reverse()){
+    const {a,b}=ref,target=ref.sheet||sheet;if(target.toLowerCase()!==op.sheet.toLowerCase())continue;
+    const original=formula.slice(ref.start,ref.end),prefix=ref.sheet?(original.match(/^(?:'(?:[^']|'')*'|[A-Za-z_\u0080-\uFFFF][\w.\u0080-\uFFFF]*)\s*!/)?.[0]||''):'';
+    const moved=moveRange(a.replace(/\$/g,'')+(b?':'+b.replace(/\$/g,''):''),op),range=moved?XLSX.utils.decode_range(moved):undefined;
     const encode=(cell:XLSX.CellAddress,prior:string)=>{const parts=prior.match(/^(\$?)[A-Za-z]+(\$?)\d+$/)!;return parts[1]+XLSX.utils.encode_col(cell.c)+parts[2]+String(cell.r+1);};
-    return (prefix||'')+encode(range.s,a)+(b?':'+encode(range.e,b):'');
-  });
+    const replacement=!range||range.e.r>=1048576||range.e.c>=16384?prefix+'#REF!':prefix+encode(range.s,a)+(b?':'+encode(range.e,b):'');result=result.slice(0,ref.start)+replacement+result.slice(ref.end);
+  }return result;
 }
 export async function changeStructure(bytes:Uint8Array,op:ExcelStructure){
   if(!Number.isInteger(op.index)||!Number.isInteger(op.count)||op.index<0||op.count<1||op.count>1000)throw Error('位置需为正整数，一次最多调整 1000 行或列。');

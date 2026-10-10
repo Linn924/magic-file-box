@@ -1,3 +1,4 @@
+import './formulaUnit';
 import assert from 'node:assert/strict';
 import {parseExcelInput,parseTablePaste,excelInput,changeSignature} from '../editModel';
 import {moveIndex,moveRange,moveFormula} from '../structure';
@@ -6,7 +7,7 @@ assert.deepEqual(parseExcelInput("'00123"),{kind:'text',value:'00123'});
 assert.deepEqual(parseExcelInput('123456789012345678'),{kind:'text',value:'123456789012345678'});
 assert.equal(excelInput({kind:'text',value:'00123'}),"'00123");
 for(const expression of ['=A1+2','=SUM(A1:B3,4)','=AVERAGE($A$1:A3)','=2*(3+4)','=1e2+4'])assert.equal(parseExcelInput(expression).kind,'formula');
-for(const expression of ['=','=1+','=A1 B2','=SUM(A1,','=WEBSERVICE(1)','=Other!A1','=A0+1','=XFE1','=SUM(A1,,B2)'])assert.throws(()=>parseExcelInput(expression),expression);
+for(const expression of ['=','=1+','=A1 B2','=SUM(A1,','=WEBSERVICE(1)','=A0+1','=XFE1','=SUM(A1,,B2)'])assert.throws(()=>parseExcelInput(expression),expression);
 assert.throws(()=>parseExcelInput('a'.repeat(32768)));assert.throws(()=>parseExcelInput('x\u0000'));
 assert.deepEqual(parseTablePaste('"a\tb"\t2\r\n"c\nd"\t3\r\n'),[['a\tb','2'],['c\nd','3']]);
 assert.throws(()=>parseTablePaste('"unterminated'));
@@ -17,6 +18,6 @@ assert.equal(moveIndex(1,insert),3);assert.equal(moveRange('A1:B3',insert),'A1:B
 assert.equal(moveFormula('SUM($A$1:A3)+Other!B2','Data',insert),'SUM($A$1:A5)+Other!B2');
 assert.equal(moveFormula("'Data'!$B$2+Other!A1",'Other',insert),"'Data'!$B$4+Other!A1");
 const remove={...insert,kind:'delete' as const,count:1};assert.equal(moveIndex(1,remove),null);assert.equal(moveFormula('B2+B3','Data',remove),'#REF!+B2');assert.equal(moveRange('A2:B2',remove),null);assert.equal(moveRange('A1:B3',remove),'A1:B2');
-assert.equal(moveFormula('#REF!+B2','Data',insert),'#REF!+B4');assert.throws(()=>moveFormula('IF(A1="A2",1,0)','Data',insert));
+assert.equal(moveFormula('#REF!+B2','Data',insert),'#REF!+B4');assert.equal(moveFormula('IF(A1="A2",1,0)','Data',insert),'IF(A1="A2",1,0)');
 assert.equal(moveFormula('Data!#REF!+B2','Other',insert),'Data!#REF!+B2');assert.equal(moveFormula('A1048576','Data',insert),'#REF!');
 console.log('PASS Excel structural references: insertion/deletion, absolute/range/cross-sheet references and unsupported formulas');

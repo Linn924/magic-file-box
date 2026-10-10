@@ -5,6 +5,7 @@ import { usePreview } from "./usePreview";
 import {useGridInteraction} from './useGridInteraction';
 import ExcelToolButton from '../../components/ToolButton.vue';
 import ExcelIcon from '../../components/ToolbarIcon.vue';
+import FormulaPicker from './FormulaPicker.vue';
 import { ref,computed,watch,nextTick,onBeforeUnmount } from "vue";
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
@@ -78,14 +79,14 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
   <section ref="pane" class="excel" @keydown="editorKey">
     <Teleport :to="`[data-file-id='${props.file.id}'] .module-tools`" defer>
       <span class="excel-edit-tools">
-        <ExcelToolButton class="excel-edit-toggle" icon="edit" :pressed="editor.editing.value" :disabled="!editor.canEdit.value||editor.saving.value" :title="!editor.canEdit.value?'XLS 只支持预览':editor.editing.value?'结束编辑，切回预览（保留本次修改）':'编辑副本（源文件不变）'" @click="editor.toggle()" />
+        <ExcelToolButton class="excel-edit-toggle" icon="edit" :pressed="editor.editing.value" :disabled="!editor.canEdit.value||editor.saving.value" :title="!editor.canEdit.value?'该格式暂不支持编辑':editor.editing.value?'结束编辑，切回预览（保留本次修改）':'编辑副本（源文件不变）'" @click="editor.toggle()" />
         <template v-if="!editor.editing.value"><ExcelToolButton class="excel-save-copy" icon="save" title="另存副本" :disabled="!editor.canEdit.value||editor.saving.value" @click="editor.save()" />
-        <select v-model="editor.format.value" aria-label="副本格式" title="副本格式；CSV/TSV 只保存当前工作表" :disabled="!editor.canEdit.value||editor.saving.value"><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="tsv">TSV</option></select></template>
+        <select v-model="editor.format.value" aria-label="副本格式" title="副本格式；CSV/TSV 只保存当前工作表" :disabled="!editor.canEdit.value||editor.saving.value"><option v-if="props.file.ext==='xls'" value="xls">XLS</option><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="tsv">TSV</option></select></template>
         <span class="excel-dirty" role="status">{{editor.dirty.value?'未保存':editor.changes.value.length||editor.baseBytes.value?'副本已保存':editor.editing.value?'编辑副本':'预览'}}</span>
       </span>
     </Teleport>
     <div v-if="editor.editing.value" class="excel-editor-toolbar" role="toolbar" aria-label="Excel 编辑工具栏">
-      <span class="excel-command-group" data-group="save"><ExcelToolButton class="excel-save-copy" icon="save" title="另存副本（源文件不变）" :disabled="editor.saving.value" @click="editor.save()" /><select v-model="editor.format.value" aria-label="副本格式" title="副本格式；CSV/TSV 只保存当前工作表" :disabled="editor.saving.value"><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="tsv">TSV</option></select></span>
+      <span class="excel-command-group" data-group="save"><ExcelToolButton class="excel-save-copy" icon="save" title="另存副本（源文件不变）" :disabled="editor.saving.value" @click="editor.save()" /><select v-model="editor.format.value" aria-label="副本格式" title="副本格式；CSV/TSV 只保存当前工作表" :disabled="editor.saving.value"><option v-if="props.file.ext==='xls'" value="xls">XLS</option><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="tsv">TSV</option></select></span>
       <span class="excel-command-group" data-group="history"><ExcelToolButton class="excel-undo" icon="undo" title="撤销（表格内 Ctrl+Z）" :disabled="editor.saving.value||(!editor.pending.value&&!editor.undoStack.value.length)" @click="editor.undo()" /><ExcelToolButton class="excel-redo" icon="redo" title="重做（表格内 Ctrl+Y）" :disabled="editor.saving.value||editor.pending.value||!editor.redoStack.value.length" @click="editor.redo()" /></span>
       <span class="excel-command-group" data-group="clipboard"><ExcelToolButton icon="copy" title="复制单元格（Ctrl+C）" :disabled="editor.saving.value" @click="copyCell" /><ExcelToolButton icon="paste" title="粘贴到选中单元格（Ctrl+V）" :disabled="editor.saving.value" @click="grid.paste()" /><ExcelToolButton icon="clear" title="清空单元格（Delete）" :disabled="editor.saving.value" @click="grid.clear()" /></span>
       <span class="excel-command-group" data-group="alignment"><ExcelToolButton v-for="option in [{value:'left',label:'内容居左'},{value:'center',label:'内容居中'},{value:'right',label:'内容居右'}] as const" :key="option.value" :icon="option.value" :title="option.label" :pressed="alignment===option.value" :disabled="editor.saving.value" @click="grid.align(option.value)" /></span>
@@ -99,12 +100,13 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
       <input v-model="locateRef" class="cell-locate-input excel-name-box" :placeholder="editor.address.value" aria-label="定位单元格" :title="sheetName+'!'+editor.address.value+'；输入地址后回车定位'" :disabled="editor.saving.value" @keydown.enter.prevent="locate" />
       <ExcelToolButton class="excel-cancel-cell" icon="cancel" title="取消当前输入（Esc）" :disabled="editor.saving.value||!editor.pending.value" @click="grid.cancel()" />
       <ExcelToolButton class="excel-apply-cell" icon="check" title="确认当前输入（Enter）" :disabled="editor.saving.value||!editor.pending.value" @click="editor.finishCell()" />
-      <span class="excel-formula-label" title="单元格内容或公式" aria-hidden="true">ƒx</span>
+      <FormulaPicker :disabled="editor.saving.value" @insert="value=>{editor.input.value=value;nextTick(()=>cellInput?.focus({preventScroll:true}))}" />
       <textarea ref="cellInput" v-model="editor.input.value" class="excel-cell-input" aria-label="单元格内容" rows="1" :disabled="editor.saving.value" placeholder="输入内容或 =公式" @keydown="inputKey"></textarea>
     </div>
     <p v-if="editor.error.value" class="excel-edit-error" role="alert">{{editor.error.value}}</p>
     <span v-if="editor.status.value" class="excel-edit-status sr-only" role="status">{{editor.status.value}}</span>
     <div v-if="warning" class="notice" role="status">{{ warning }}</div>
+    <div v-if="editor.editing.value&&props.file.ext==='xls'" class="notice" role="note">XLS 副本保留数据、支持的公式和基本布局；宏、图表及复杂样式不保证保留。源文件不变。</div>
     <div v-show="!editor.editing.value" class="sheet-tools" role="toolbar" aria-label="表格定位与冻结">
       <label class="cell-locate"
         >定位<input
@@ -183,7 +185,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
                 :style="cell.style"
                 :rowspan="cell.rowspan"
                 :colspan="cell.colspan"
-                :title="cell.text"
+                :title="cell.title"
               >
                 <textarea v-if="grid.inline.value&&editor.address.value===cell.address" :ref="(el:any)=>{grid.inlineInput.value=el;}" v-model="editor.input.value" class="excel-inline-input" aria-label="单元格内编辑" :disabled="editor.saving.value" @click.stop @dblclick.stop @keydown.stop="grid.inlineKey" @blur="grid.inlineBlur"></textarea>
                 <template v-else-if="cell.rich"
