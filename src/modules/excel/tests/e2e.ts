@@ -88,14 +88,18 @@ const suite: Suite = async (c) => {
   try {
   await c.check(win,'Excel zoomed locate lands in actual visible cell',"(()=>{const r=document.querySelector('.table-wrap').getBoundingClientRect(),row=document.querySelector('tr[data-row=\"149\"]');if(!row)return false;const b=row.getBoundingClientRect();return b.top>=r.top&&b.top<r.bottom})()");
   } catch(error){throw Error(String(error)+' '+JSON.stringify(await c.evaluate(win,"(()=>{const root=document.querySelector('.table-wrap'),row=document.querySelector('tr[data-row=\\\"149\\\"]');return {top:root.scrollTop,scale:document.querySelector('.sheet-surface').style.zoom,root:root.getBoundingClientRect().toJSON(),row:row?.getBoundingClientRect().toJSON(),first:document.querySelector('tbody tr[data-row]')?.dataset.row}})()")));}
-  await c.evaluate(win,"(()=>{const z=document.querySelector('.zoom-control input');z.value='100';z.dispatchEvent(new Event('input',{bubbles:true}));z.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));const i=document.querySelector('.freeze-num');i.value='2';i.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.table-wrap').scrollTop=5000;})()");
-  try {
-  await c.check(win,'extra frozen data rows remain visible after virtualization',"(()=>{const r=document.querySelector('.table-wrap').getBoundingClientRect(),rows=[document.querySelector('tr[data-row=\"0\"]'),document.querySelector('tr[data-row=\"1\"]')];return rows.every(row=>row&&row.getBoundingClientRect().top>=r.top&&row.getBoundingClientRect().bottom<=r.bottom)})()");
-  } catch(error){throw Error(String(error)+' '+JSON.stringify(await c.evaluate(win,"(()=>{const root=document.querySelector('.table-wrap');return {top:root.scrollTop,input:document.querySelector('.freeze-num').value,root:root.getBoundingClientRect().toJSON(),rows:[...document.querySelectorAll('tbody tr[data-row]')].slice(0,3).map(r=>({n:r.dataset.row,rect:r.getBoundingClientRect().toJSON(),position:getComputedStyle(r).position,top:getComputedStyle(r).top}))}})()")));}
+  await c.click(win,'.excel-edit-toggle');
+  const editPosition=await c.evaluate<{top:number;left:number}>(win,"(()=>{const s=document.querySelector('.table-wrap');return {top:s.scrollTop,left:s.scrollLeft}})()");
+  await c.evaluate(win,"document.querySelector('.spreadsheet td[data-address=\"C152\"]').dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))");
+  await c.check(win,'zoomed inline edit preserves the scrolled viewport',`(()=>{const s=document.querySelector('.table-wrap');return !!document.querySelector('.excel-inline-input')&&Math.abs(s.scrollTop-${editPosition.top})<2&&Math.abs(s.scrollLeft-${editPosition.left})<2})()`);
+  await c.evaluate(win,"document.querySelector('.excel-inline-input').dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}))");
+  await c.check(win,'zoomed edit commit does not align target to top left',`(()=>{const s=document.querySelector('.table-wrap');return document.querySelector('.excel-selected-cell').dataset.address==='C153'&&Math.abs(s.scrollTop-${editPosition.top})<2&&Math.abs(s.scrollLeft-${editPosition.left})<2})()`);
+  await c.click(win,'.excel-edit-toggle');
+  await c.evaluate(win,"(()=>{const z=document.querySelector('.zoom-control input');z.value='100';z.dispatchEvent(new Event('input',{bubbles:true}));z.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}));})()");
     await c.check(
     win,
-    "Excel freeze toggles present",
-    "document.querySelectorAll('.freeze-toggle').length>=4 && document.querySelectorAll('.freeze-num').length===2",
+    "Excel extra freeze controls removed; existing header toggles retained",
+    "document.querySelectorAll('.freeze-toggle').length===2 && !document.querySelector('.freeze-num')",
   );
   await c.click(win, ".sheets button", "季度报告");
   await c.snapshot(win, "excel");

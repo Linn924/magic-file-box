@@ -15,8 +15,9 @@ function applyValue(sheet:XLSX.WorkSheet,address:string,value:ExcelValue){
 export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelChange[],format:ExcelCopyFormat,currentSheet:string){
   if(!changes.length&&format===ext)return bytes.slice();
   const workbook=readBasicWorkbook(bytes,ext);
-  for(const change of changes){const sheet=workbook.Sheets[change.sheet];if(!sheet)throw Error('工作表已不存在。');applyValue(sheet,change.address,change.value);}
+  for(const change of changes){const sheet=workbook.Sheets[change.sheet];if(!sheet)throw Error('工作表已不存在。');if(!change.alignmentOnly)applyValue(sheet,change.address,change.value);else if(change.alignment){const position=XLSX.utils.decode_cell(change.address),range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):{s:position,e:position};range.s.r=Math.min(range.s.r,position.r);range.s.c=Math.min(range.s.c,position.c);range.e.r=Math.max(range.e.r,position.r);range.e.c=Math.max(range.e.c,position.c);sheet['!ref']=XLSX.utils.encode_range(range);}}
   if(format!=='xlsx'){
+    if(changes.some(change=>change.sheet===currentSheet&&change.alignment))throw Error('CSV/TSV 不保存单元格对齐，请选择 XLSX 副本。');
     const sheet=workbook.Sheets[currentSheet];if(!sheet)throw Error('请选择工作表。');
     if(Object.keys(sheet).some(key=>!key.startsWith('!')&&!!sheet[key]?.f))throw Error('CSV/TSV 不保存未计算公式，请选择 XLSX 副本。');
     const separator=format==='csv'?',':'\t',range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):undefined,rows:string[]=[];
@@ -36,6 +37,13 @@ export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelC
   const document=xml(await workbookEntry.async('string')),rels=xml(await relsEntry.async('string'));
   if(document.documentElement.namespaceURI!==MAIN)throw Error('首版不编辑严格格式的 XLSX，请先转换为常规 XLSX。');
   const paths=new Map<string,string>();
+  let styleDocument:Document|undefined;let styleChanged=false;const styleIds=new Map<string,number>();
+  async function alignedStyle(prior:string|null,alignment:string){
+    if(!styleDocument){const entry=zip.file('xl/styles.xml');if(!entry)throw Error('缺少样式定义，无法保存对齐。');styleDocument=xml(await entry.async('string'));}
+    const xfs=elements(styleDocument,'cellXfs')[0],base=Number(prior||0);if(!xfs||!xfs.children[base])throw Error('单元格样式定义无效。');
+    const key=base+':'+alignment;if(styleIds.has(key))return styleIds.get(key)!;
+    const xf=xfs.children[base].cloneNode(true) as Element;let node=elements(xf,'alignment')[0];if(!node){node=styleDocument.createElementNS(MAIN,'alignment');xf.insertBefore(node,Array.from(xf.children).find(child=>['protection','extLst'].includes(child.localName))||null);}node.setAttribute('horizontal',alignment);xf.setAttribute('applyAlignment','1');const id=xfs.children.length;xfs.append(xf);xfs.setAttribute('count',String(xfs.children.length));styleIds.set(key,id);styleChanged=true;return id;
+  }
   for(const sheet of elements(document,'sheet')){
     const id=sheet.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id');
     const relation=Array.from(rels.documentElement.children).find(node=>node.getAttribute('Id')===id);
@@ -45,12 +53,14 @@ export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelC
   for(const [name,path] of paths){
     const entry=zip.file(path);if(!entry)throw Error('缺少工作表。');const sheetDoc=xml(await entry.async('string')),data=elements(sheetDoc,'sheetData')[0];if(!data)throw Error('缺少单元格数据。');
     let changed=false;
-    for(const change of ext==='xlsx'?changes.filter(change=>change.sheet===name):[]){
+    for(const change of changes.filter(change=>change.sheet===name)){
       const position=XLSX.utils.decode_cell(change.address);let row=elements(data,'row').find(row=>Number(row.getAttribute('r'))===position.r+1);
       if(!row){row=sheetDoc.createElementNS(MAIN,'row');row.setAttribute('r',String(position.r+1));const next=Array.from(data.children).find(node=>Number(node.getAttribute('r'))>position.r+1);data.insertBefore(row,next||null);}
       let cell=Array.from(row.children).find(cell=>cell.getAttribute('r')===change.address);
       if(!cell){cell=sheetDoc.createElementNS(MAIN,'c');cell.setAttribute('r',change.address);const next=Array.from(row.children).filter(node=>node.localName==='c').find(node=>XLSX.utils.decode_cell(node.getAttribute('r')||'A1').c>position.c);row.insertBefore(cell,next||Array.from(row.children).find(node=>node.localName!=='c')||null);}
       // Existing array/shared formula groups cannot be safely edited in this version.
+      if(change.alignment){cell.setAttribute('s',String(await alignedStyle(cell.getAttribute('s'),change.alignment)));changed=true;}
+      if(change.alignmentOnly||ext!=='xlsx')continue;
       const oldFormula=elements(cell,'f')[0];if(oldFormula?.hasAttribute('t')&&oldFormula.getAttribute('t')!=='normal')throw Error('此单元格属于共享/数组公式，首版不支持修改。');
       for(const node of Array.from(cell.children))if(['v','f','is'].includes(node.localName))node.remove();cell.removeAttribute('t');
       const value=change.value;
@@ -60,9 +70,10 @@ export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelC
       changed=true;
     }
     // Dependencies may have changed; never leave a stale numeric formula cache.
-    for(const cell of elements(sheetDoc,'c'))if(elements(cell,'f').length){for(const cache of elements(cell,'v'))cache.remove();changed=true;}
+    if(changes.some(change=>!change.alignmentOnly))for(const cell of elements(sheetDoc,'c'))if(elements(cell,'f').length){for(const cache of elements(cell,'v'))cache.remove();changed=true;}
     if(changed){const dimension=elements(sheetDoc,'dimension')[0];if(dimension&&workbook.Sheets[name]?.['!ref'])dimension.setAttribute('ref',workbook.Sheets[name]['!ref']);zip.file(path,new XMLSerializer().serializeToString(sheetDoc));}
   }
+  if(styleChanged)zip.file('xl/styles.xml',new XMLSerializer().serializeToString(styleDocument!));
   let calc=elements(document,'calcPr')[0];if(!calc){calc=document.createElementNS(MAIN,'calcPr');document.documentElement.append(calc);}calc.setAttribute('calcMode','auto');calc.setAttribute('fullCalcOnLoad','1');calc.setAttribute('forceFullCalc','1');
   zip.file('xl/workbook.xml',new XMLSerializer().serializeToString(document));
   for(const relation of Array.from(rels.documentElement.children))if((relation.getAttribute('Type')||'').endsWith('/calcChain'))relation.remove();

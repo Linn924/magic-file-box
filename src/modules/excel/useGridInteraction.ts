@@ -16,7 +16,7 @@ export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<n
   watch(editor.editing,value=>{if(!value){inline.value=false;closeAll();}});
   function cell(address:string){return document.querySelector<HTMLElement>(`[data-file-id="${file.id}"] .spreadsheet td[data-address="${address}"]`);}
   async function focusCell(){await nextTick();cell(editor.address.value)?.focus({preventScroll:true});}
-  async function select(address:string,edit=false){if(editor.saving.value||!editor.editing.value)return;if(!editor.select(address))return;closeMenu();inline.value=edit;if(edit){await nextTick();inlineInput.value?.focus();inlineInput.value?.select();}}
+  async function select(address:string,edit=false){if(editor.saving.value||!editor.editing.value)return;if(!editor.select(address))return;closeMenu();inline.value=edit;if(edit){await nextTick();inlineInput.value?.focus({preventScroll:true});inlineInput.value?.select();}}
   function commit(){if(!inline.value)return true;if(!editor.finishCell()){void nextTick(()=>inlineInput.value?.focus());return false;}inline.value=false;return true;}
   function cancel(){editor.cancelInput();inline.value=false;void focusCell();}
   async function move(dr:number,dc:number){if(!commit()||!editor.finishCell())return;const pos=XLSX.utils.decode_cell(editor.address.value);pos.r=Math.max(0,Math.min(rowCount.value-1,pos.r+dr));pos.c=Math.max(0,Math.min(colCount.value-1,pos.c+dc));
@@ -47,7 +47,7 @@ export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<n
     else if(!event.ctrlKey&&!event.metaKey&&!event.altKey&&event.key.length===1){event.preventDefault();await select(editor.address.value,true);editor.input.value=event.key;await nextTick();inlineInput.value?.setSelectionRange(1,1);}
   }
   async function context(event:MouseEvent,address:string,axis?:'row'|'column',index?:number){if(!editor.editing.value||editor.saving.value)return;event.preventDefault();if(!commit()||!editor.select(address))return;inline.value=false;
-    const pos=XLSX.utils.decode_cell(address);menu.value={x:Math.max(4,Math.min(event.clientX,window.innerWidth-220)),y:Math.max(4,Math.min(event.clientY,window.innerHeight-340)),axis,index:index??(axis==='column'?pos.c:pos.r)};customAxis.value=axis??'row';customSide.value='before';customCount.value=1;
+    const pos=XLSX.utils.decode_cell(address);menu.value={x:Math.max(4,Math.min(event.clientX,window.innerWidth-220)),y:Math.max(4,Math.min(event.clientY,window.innerHeight-440)),axis,index:index??(axis==='column'?pos.c:pos.r)};customAxis.value=axis??'row';customSide.value='before';customCount.value=1;
     await nextTick();document.querySelector<HTMLElement>(`[data-file-id="${file.id}"] .excel-context-menu button`)?.focus();
   }
   async function structure(axis:'row'|'column',kind:'insert'|'delete',side:'before'|'after',count=1){
@@ -55,6 +55,7 @@ export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<n
     if(await editor.structure({axis,kind,index,count})){custom.value=false;await locate(editor.address.value);await focusCell();}
   }
   function openCustom(){editor.error.value='';custom.value=true;closeMenu();void nextTick(()=>document.querySelector<HTMLInputElement>(`[data-file-id="${file.id}"] .excel-insert-count`)?.focus());}
+  function align(value:'left'|'center'|'right'){if(!commit())return;editor.align(value);closeMenu();void focusCell();}
   function pasteEvent(event:ClipboardEvent){if(!editor.editing.value||editor.saving.value||event.target instanceof Element&&event.target.closest('textarea,input'))return;if(!event.clipboardData?.types.includes('text/plain'))return;event.preventDefault();editor.paste(event.clipboardData.getData('text/plain'));}
-  return {inline,inlineInput,menu,custom,customAxis,customSide,customCount,select,commit,cancel,move,inlineKey,inlineBlur,key,context,copy,paste,clear,structure,openCustom,pasteEvent,closeAll};
+  return {inline,inlineInput,menu,custom,customAxis,customSide,customCount,select,commit,cancel,move,inlineKey,inlineBlur,key,context,copy,paste,clear,structure,openCustom,pasteEvent,closeAll,align};
 }

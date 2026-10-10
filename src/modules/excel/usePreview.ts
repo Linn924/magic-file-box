@@ -141,7 +141,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     rowPage.value = page - 1;
   }
   /** Jump to A1-style reference. Returns false if invalid. */
-  async function locateCell(refText: string) {
+  async function locateCell(refText: string,editingNavigation=false) {
     const m = String(refText || "")
       .trim()
       .toUpperCase()
@@ -153,6 +153,22 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     const row = Number(m[2]) - 1;
     if (row < 0 || col < 0 || row >= rowCount.value || col >= colCount.value)
       return false;
+    if(editingNavigation){
+      colPage.value=Math.floor(col/pageCols);await nextTick();
+      const container=scroll.value;if(!container)return false;const scale=props.zoom/100;
+      const ensureMounted=()=>{const target=container.querySelector<HTMLElement>(`td[data-address="${XLSX.utils.encode_cell({r:row,c:col})}"]`);if(!target)return false;const bounds=container.getBoundingClientRect(),rect=target.getBoundingClientRect();const header=container.querySelector('thead')?.getBoundingClientRect().height??28*scale,gutter=container.querySelector('thead th')?.getBoundingClientRect().width??46*scale;
+        if(rect.top<bounds.top+header)container.scrollTop-=bounds.top+header-rect.top;else if(rect.bottom>bounds.bottom)container.scrollTop+=rect.bottom-bounds.bottom;
+        if(rect.left<bounds.left+gutter)container.scrollLeft-=bounds.left+gutter-rect.left;else if(rect.right>bounds.right)container.scrollLeft+=rect.right-bounds.right;return true;};
+      if(ensureMounted()){onScroll();await nextTick();return true;}
+      const top=(rowOffsets.value[row]||0)*scale,bottom=(rowOffsets.value[row+1]||top/scale+24)*scale;
+      if(top<container.scrollTop)container.scrollTop=top;
+      else if(bottom+28*scale>container.scrollTop+container.clientHeight)container.scrollTop=bottom+28*scale-container.clientHeight;
+      let left=46*scale;for(let c=startCol.value;c<col;c++)left+=colWidth(c)*scale;
+      const right=left+colWidth(col)*scale;
+      if(left<container.scrollLeft+46*scale)container.scrollLeft=Math.max(0,left-46*scale);
+      else if(right>container.scrollLeft+container.clientWidth)container.scrollLeft=right-container.clientWidth;
+      onScroll();await nextTick();ensureMounted();onScroll();return true;
+    }
     colPage.value = Math.floor(col / pageCols);
     loadedRowCount.value = Math.max(
       loadedRowCount.value,
@@ -174,39 +190,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   }
   const freezeFirstRow = ref(true);
   const freezeFirstCol = ref(true);
-  /** Extra frozen body rows / data cols beyond the first (sticky headers always frozen). */
-  const freezeRows = ref(0);
-  const freezeCols = ref(0);
-  function clampFreeze(n: number) {
-    return Math.max(0, Math.min(8, Math.floor(n) || 0));
-  }
-  watch(freezeRows, (v) => {
-    freezeRows.value = clampFreeze(v);
-  });
-  watch(freezeCols, (v) => {
-    freezeCols.value = clampFreeze(v);
-  });
   watch(()=>props.zoom,async()=>{await nextTick();onScroll();});
-  const HEADER_H = 28;
-  const ROW_HEAD_W = 46;
-  const freezeTop = computed(() => {
-    const tops: number[] = [];
-    let y = HEADER_H;
-    for (let r = 0; r < freezeRows.value; r++) {
-      tops.push(y);
-      y += rowHeight(r);
-    }
-    return tops;
-  });
-  const freezeLeft = computed(() => {
-    const lefts: number[] = [];
-    let x = ROW_HEAD_W;
-    for (let c = 0; c < freezeCols.value; c++) {
-      lefts.push(x);
-      x += colWidth(startCol.value + c);
-    }
-    return lefts;
-  });
   watch(sheetName, () => {
     loadedRowCount.value = 200;
     rowPage.value = 0;
@@ -315,11 +299,11 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     const changed=editor.patchMap.value.get(JSON.stringify([sheetName.value,XLSX.utils.encode_cell({r,c})]));
     const result: CSSProperties = {
       ...fontStyle(s?.font),
-      textAlign:
+      textAlign:editor.alignmentMap.value.get(JSON.stringify([sheetName.value,XLSX.utils.encode_cell({r,c})]))||(
         s?.alignment?.horizontal === "centerContinuous"
           ? "center"
           : (s?.alignment?.horizontal as CSSProperties["textAlign"]) ||
-            (changed?(changed.kind==='number'?'right':'left'):(basic?.t === "n" ? "right" : "left")),
+            (changed?(changed.kind==='number'?'right':'left'):(basic?.t === "n" ? "right" : "left"))),
       verticalAlign:
         s?.alignment?.vertical === "middle"
           ? "middle"
@@ -357,13 +341,12 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     }
     return result;
   }
-  const frozenCount=computed(()=>Math.min(freezeRows.value,rowCount.value));
-  const bodyStart=computed(()=>Math.max(frozenCount.value,virtualStart.value));
-  const rowNumbers=computed(()=>[...Array.from({length:frozenCount.value},(_,i)=>i),...Array.from({length:Math.max(0,virtualEnd.value-bodyStart.value)},(_,i)=>bodyStart.value+i)].filter(r=>rowHeight(r)>0));
+  const bodyStart=computed(()=>virtualStart.value);
+  const rowNumbers=computed(()=>Array.from({length:Math.max(0,virtualEnd.value-bodyStart.value)},(_,i)=>bodyStart.value+i).filter(r=>rowHeight(r)>0));
   const firstBodyRow=computed(()=>rowNumbers.value.find(r=>r>=bodyStart.value)??-1);
   const merged = computed(() => {
     const spans=new Map<string,{rows:number;cols:number;r:number;c:number}|null>();
-    const windows=frozenCount.value?[[0,frozenCount.value],[bodyStart.value,virtualEnd.value]]:[[bodyStart.value,virtualEnd.value]];
+    const windows=[[bodyStart.value,virtualEnd.value]];
     for(const m of sheet.value?.['!merges']||[])for(const [start,end] of windows){
       const r0=Math.max(m.s.r,start),r1=Math.min(m.e.r,end-1),c0=Math.max(m.s.c,startCol.value),c1=Math.min(m.e.c,endCol.value-1);
       const visibleRows=Array.from({length:Math.max(0,r1-r0+1)},(_,i)=>r0+i).filter(r=>rowHeight(r)>0);
@@ -398,7 +381,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
           return [
             {
               c,address:cellAddress,
-              modified:!!patch,
+              modified:!!patch||editor.alignmentMap.value.has(JSON.stringify([sheetName.value,cellAddress])),
               text:patch?(patch.kind==='blank'?'':patch.kind==='formula'?'='+patch.value:patch.kind==='number'?editedNumber(patch.value,sourceRow,sourceCol):String(patch.value)):(value?.f&&(editor.changes.value.length||editor.editing.value||value.t==='z'||value.v===undefined||(rich&&typeof rich==='object'&&('formula' in rich||'sharedFormula' in rich)&&rich.result===undefined))?'='+value.f:value?XLSX.utils.format_cell(value):''),
               style: styleAt(sourceRow, sourceCol),
               rowspan: merge?.rows || 1,
@@ -412,7 +395,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
         }),
       })),
   );
-  const padTop = computed(() => Math.max(0,(rowOffsets.value[bodyStart.value]||0)-(rowOffsets.value[frozenCount.value]||0)));
+  const padTop = computed(() => Math.max(0,rowOffsets.value[bodyStart.value]||0));
   const padBottom = computed(() =>
     Math.max(0, totalTableHeight.value - (rowOffsets.value[virtualEnd.value] || 0)),
   );
@@ -519,10 +502,6 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     locateCell,
     freezeFirstRow,
     freezeFirstCol,
-    freezeRows,
-    freezeCols,
-    freezeTop,
-    freezeLeft,
     book,
     sheetName,
     rowPage,

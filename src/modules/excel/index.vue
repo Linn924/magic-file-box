@@ -19,10 +19,6 @@ const {
   locateCell,
   freezeFirstRow,
   freezeFirstCol,
-  freezeRows,
-  freezeCols,
-  freezeTop,
-  freezeLeft,
   book,
   sheetName,
   rowPage,
@@ -45,7 +41,7 @@ const {
   XLSX,
 } = usePreview(props, emit);
 const cellInput=ref<HTMLTextAreaElement>();
-const grid=useGridInteraction(props.file,editor,rowCount,colCount,locateCell);
+const grid=useGridInteraction(props.file,editor,rowCount,colCount,address=>locateCell(address,true));
 function selectSheet(name:string){if(!grid.commit()||!editor.finishCell())return;grid.closeAll();sheetName.value=name;rowPage.value=colPage.value=0;if(editor.editing.value)editor.select('A1',name);}
 function headerAddress(axis:'row'|'column',index:number){const current=XLSX.utils.decode_cell(editor.address.value);return XLSX.utils.encode_cell(axis==='row'?{r:index,c:current.c}:{r:current.r,c:index});}
 function menuKey(event:KeyboardEvent){if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;event.preventDefault();const buttons=Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('button'));let index=buttons.indexOf(document.activeElement as HTMLButtonElement);index=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;buttons[index]?.focus();}
@@ -75,10 +71,9 @@ async function locate() {
       <button type="button" class="excel-undo" :disabled="editor.saving.value||(!editor.pending.value&&!editor.undoStack.value.length)" @click="editor.undo()">撤销</button>
       <button type="button" class="excel-redo" :disabled="editor.saving.value||editor.pending.value||!editor.redoStack.value.length" @click="editor.redo()">重做</button>
       <button type="button" class="excel-discard" :disabled="editor.saving.value" @click="editor.discard()">恢复源内容</button>
-      <small>双击或 F2 在单元格内编辑；Enter/Tab 提交并移动，Esc 取消，Alt+Enter 换行。右键插入/删除行列。公式需在外部表格软件中重算。</small>
     </div>
     <p v-if="editor.error.value" class="excel-edit-error" role="alert">{{editor.error.value}}</p>
-    <p v-if="editor.status.value" class="excel-edit-status" role="status">{{editor.status.value}}</p>
+    <span v-if="editor.status.value" class="excel-edit-status sr-only" role="status">{{editor.status.value}}</span>
     <div v-if="warning" class="notice" role="status">{{ warning }}</div>
     <nav class="sheets" aria-label="工作表">
       <button
@@ -107,24 +102,6 @@ async function locate() {
         ><input v-model="freezeFirstRow" type="checkbox" /> 首行</label
       ><label class="freeze-toggle"
         ><input v-model="freezeFirstCol" type="checkbox" /> 首列</label
-      ><label class="freeze-toggle"
-        >+行<input
-          v-model.number="freezeRows"
-          class="freeze-num"
-          type="number"
-          min="0"
-          max="8"
-          aria-label="额外冻结行数"
-      /></label
-      ><label class="freeze-toggle"
-        >+列<input
-          v-model.number="freezeCols"
-          class="freeze-num"
-          type="number"
-          min="0"
-          max="8"
-          aria-label="额外冻结列数"
-      /></label
       >
       <small v-if="locateMsg" class="locate-status" role="status">{{ locateMsg }}</small>
     </div>
@@ -138,8 +115,6 @@ async function locate() {
         }"
         :style="{
           zoom: zoom / 100,
-          '--freeze-rows': freezeRows,
-          '--freeze-cols': freezeCols,
         }"
       >
         <table class="spreadsheet preview-content">
@@ -171,17 +146,8 @@ async function locate() {
             <tr v-if="row.r===firstBodyRow && padTop>0" class="row-virtual-spacer" aria-hidden="true" :style="{height:padTop+'px'}"><td :colspan="columns.length+1"></td></tr>
             <tr
               :data-row="row.r"
-              :data-frozen="row.r < freezeRows ? '1' : undefined"
               :style="{
                 height: row.height + 'px',
-                ...(row.r < freezeRows
-                  ? {
-                      position: 'sticky' as const,
-                      top: (freezeTop[row.r] ?? 28) + 'px',
-                      zIndex: 2,
-                      background: 'var(--panel)',
-                    }
-                  : null),
               }"
             >
               <th @contextmenu="grid.context($event,headerAddress('row',row.r),'row',row.r)">{{ row.r + 1 }}</th>
@@ -194,16 +160,7 @@ async function locate() {
                 @click="grid.select(cell.address)"
                 @dblclick="grid.select(cell.address,true)"
                 @contextmenu="grid.context($event,cell.address)"
-                :style="[
-                  cell.style,
-                  cell.c - startCol < freezeCols
-                    ? {
-                        position: 'sticky' as const,
-                        left: (freezeLeft[cell.c - startCol] ?? 46) + 'px',
-                        zIndex: 2,
-                      }
-                    : null,
-                ]"
+                :style="cell.style"
                 :rowspan="cell.rowspan"
                 :colspan="cell.colspan"
                 :title="cell.text"
@@ -260,6 +217,10 @@ async function locate() {
       <button role="menuitem" data-action="copy" @click="grid.copy">复制 <small>Ctrl+C</small></button>
       <button role="menuitem" data-action="paste" @click="grid.paste">粘贴 <small>Ctrl+V</small></button>
       <button role="menuitem" data-action="clear" @click="grid.clear">清空内容 <small>Delete</small></button>
+      <hr />
+      <button role="menuitem" data-action="align-left" @click="grid.align('left')">内容居左</button>
+      <button role="menuitem" data-action="align-center" @click="grid.align('center')">内容居中</button>
+      <button role="menuitem" data-action="align-right" @click="grid.align('right')">内容居右</button>
       <hr />
       <button role="menuitem" data-action="insert-above" @click="grid.structure('row','insert','before')">在上方插入行</button>
       <button role="menuitem" data-action="insert-below" @click="grid.structure('row','insert','after')">在下方插入行</button>
