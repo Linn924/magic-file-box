@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {parseExcelInput,parseTablePaste,excelInput,changeSignature} from '../editModel';
+assert.deepEqual(parseExcelInput('12.5'),{kind:'number',value:12.5});
+assert.deepEqual(parseExcelInput("'00123"),{kind:'text',value:'00123'});
+assert.deepEqual(parseExcelInput('123456789012345678'),{kind:'text',value:'123456789012345678'});
+assert.equal(excelInput({kind:'text',value:'00123'}),"'00123");
+for(const expression of ['=A1+2','=SUM(A1:B3,4)','=AVERAGE($A$1:A3)','=2*(3+4)','=1e2+4'])assert.equal(parseExcelInput(expression).kind,'formula');
+for(const expression of ['=','=1+','=A1 B2','=SUM(A1,','=WEBSERVICE(1)','=Other!A1','=A0+1','=XFE1','=SUM(A1,,B2)'])assert.throws(()=>parseExcelInput(expression),expression);
+assert.throws(()=>parseExcelInput('a'.repeat(32768)));assert.throws(()=>parseExcelInput('x\u0000'));
+assert.deepEqual(parseTablePaste('"a\tb"\t2\r\n"c\nd"\t3\r\n'),[['a\tb','2'],['c\nd','3']]);
+assert.throws(()=>parseTablePaste('"unterminated'));
+assert.equal(changeSignature([{sheet:'A',address:'B1',value:{kind:'number',value:2}},{sheet:'A',address:'A1',value:{kind:'blank'}}]),changeSignature([{sheet:'A',address:'A1',value:{kind:'blank'}},{sheet:'A',address:'B1',value:{kind:'number',value:2}}]));
+console.log('PASS Excel edit parsing: text/number/formula, exact identifiers, bounds and quoted table paste');

@@ -20,6 +20,7 @@ export interface PreviewFile {
     /** Session-only physical page and row progress; survives automatic regrouping. */
     pdfReading?: {page:number;fraction:number};
     image?: {rotate:0|90|180|270;originalPixels:boolean};
+    excelDraft?: import("./excelEditing").ExcelDraft;
     excel?: {
       sheet: string;
       columns: number;
@@ -117,6 +118,9 @@ export function normalizeSettings(
   };
 }
 export interface DesktopBridge {
+  markModified(id:string,dirty:boolean):Promise<void>;
+  confirmDiscard(id:string,force?:boolean):Promise<boolean>;
+  saveExcelCopy(id:string,format:import('./excelEditing').ExcelCopyFormat,data:Uint8Array):Promise<'saved'|'cancelled'>;
   exportPdfNotes(id:string,name:string,data:Uint8Array):Promise<'saved'|'cancelled'>;
   pdfResources(): Promise<{pixels:number;bytes:number;documents:number}>;
   releasePdfResources(): void;

@@ -2,6 +2,9 @@ import { contextBridge, ipcRenderer, shell, webUtils } from "electron";
 import type { DesktopBridge, Settings } from "../shared/contracts";
 
 const bridge: DesktopBridge = {
+  markModified:(id,dirty)=>ipcRenderer.invoke('preview:modified',id,dirty),
+  confirmDiscard:(id,force)=>ipcRenderer.invoke('preview:confirm-discard',id,force),
+  saveExcelCopy:(id,format,data)=>ipcRenderer.invoke('excel:save-copy',id,format,data),
   exportPdfNotes:(id,name,data)=>ipcRenderer.invoke('pdf:export-notes',id,name,data),
   pdfResources:()=>ipcRenderer.invoke('pdf:resources'),
   releasePdfResources:()=>ipcRenderer.send('pdf:resources-release'),

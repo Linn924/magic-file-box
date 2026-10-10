@@ -140,7 +140,8 @@ function leave() {
     dragging.value = false;
   }
 }
-function closeTab(id: string) {
+async function closeTab(id: string,transferred=false) {
+  if(!transferred&&!await window.localPreview.confirmDiscard(id))return;
   window.localPreview.release(id);
   const index = files.value.findIndex((f) => f.id === id);
   files.value = files.value.filter((f) => f.id !== id);
@@ -240,7 +241,7 @@ onMounted(async () => {
     settings.value = value;
     applyTheme();
   });
-  cleanups.push(window.localPreview.onRemove(closeTab));
+  cleanups.push(window.localPreview.onRemove(id=>{void closeTab(id,true);}));
   cleanups.push(
     window.localPreview.onPreviewPrintFile((file) => {
       if (!files.value.some((f) => f.id === file.id))

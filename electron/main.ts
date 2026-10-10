@@ -1,3 +1,5 @@
+import {setupModifiedFiles,hasModified,confirmModified,forgetModified} from './modifiedFiles';
+import {setupExcelCopy} from './excelCopy';
 import {setupPrintWindow} from "./printing/window";
 import { setupPdfExport } from './pdfExport';
 import { setupPrinting } from "./printing";
@@ -157,6 +159,10 @@ function createWindow(preview: boolean) {
     }
   });
   win.on("close", (event) => {
+    if(preview&&!quitting&&!forceClose.has(win.id)&&hasModified(id)){
+      if(!confirmModified(win,id)){event.preventDefault();return;}
+      forgetModified(id);
+    }
     if (!preview && !quitting && !forceClose.has(win.id)) {
       event.preventDefault();
       void requestClose(win);
@@ -245,6 +251,7 @@ export const ready = owner
       );
       Menu.setApplicationMenu(null);
       setupTransfers();
+      setupModifiedFiles();setupExcelCopy();
       setupFullscreen();
       local = await createLocalSession(path.resolve(__dirname, "../dist"));
       setupPrinting(local);
@@ -314,7 +321,7 @@ export const ready = owner
       ipcMain.handle('pdf:password',(event,id:string,password:string)=>{trusted(event);rememberPdfPassword(event.sender.id,id,password);});
       ipcMain.on("preview:close", (event) => {
         const win = BrowserWindow.fromWebContents(event.sender);
-        if (win) closePreview(win);
+        if (win) win.close();
       });
       ipcMain.handle("settings:get", (event) => {
         trusted(event);
@@ -330,7 +337,12 @@ export const ready = owner
       return root;
     })
   : Promise.resolve(undefined);
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  if(hasModified()){
+    const win=BrowserWindow.getAllWindows().find(w=>!w.isDestroyed());
+    if(win&&!confirmModified(win)){event.preventDefault();quitting=false;return;}
+    for(const window of BrowserWindow.getAllWindows())forgetModified(window.webContents.id);
+  }
   quitting = true;
 });
 app.on("window-all-closed", () => {

@@ -11,6 +11,7 @@ import visual from "./suites/visual";
 import bulk from "./suites/bulk";
 import zoom from "./suites/zoom";
 import word from "../src/modules/word/tests/e2e";
+import exceledit from '../src/modules/excel/tests/editing';
 import excel from "../src/modules/excel/tests/e2e";
 import ppt from "../src/modules/ppt/tests/e2e";
 import pdf from "../src/modules/pdf/tests/e2e";
@@ -47,6 +48,7 @@ const suites: Record<string, Suite> = {
   zoom,
   word,
   excel,
+  exceledit,
   ppt,
   pdf,
   text,

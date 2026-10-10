@@ -2,7 +2,7 @@
 import PageNavigation from "../../components/PageNavigation.vue";
 import type { PreviewProps } from "../types";
 import { usePreview } from "./usePreview";
-import { ref } from "vue";
+import { ref, nextTick } from "vue";
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];
@@ -10,7 +10,7 @@ const emit = defineEmits<{
   "update:zoom": [value: number];
 }>();
 const {
-  warning,
+  warning,editor,
   pane,
   scroll,
   onScroll,
@@ -43,6 +43,16 @@ const {
   resizeColumn,
   XLSX,
 } = usePreview(props, emit);
+const cellInput=ref<HTMLTextAreaElement>();
+function selectSheet(name:string){if(!editor.finishCell())return;sheetName.value=name;rowPage.value=colPage.value=0;if(editor.editing.value)editor.select('A1',name);}
+async function selectCell(address:string,focus=false){if(editor.saving.value||!editor.select(address))return;if(focus){await nextTick();cellInput.value?.focus();cellInput.value?.select();}}
+function pasteCells(event:ClipboardEvent){if(!editor.editing.value||editor.saving.value)return;if(!event.clipboardData?.types.includes('text/plain'))return;const text=event.clipboardData.getData('text/plain');if(text!==undefined){event.preventDefault();editor.paste(text);}}
+function editKey(event:KeyboardEvent){if(!editor.editing.value||editor.saving.value)return;
+  if(event.target instanceof HTMLElement&&event.target.closest('input,textarea,select'))return;
+  if(event.ctrlKey&&event.key.toLowerCase()==='z'){event.preventDefault();editor.undo();}
+  else if(event.ctrlKey&&event.key.toLowerCase()==='y'){event.preventDefault();editor.redo();}
+}
+function inputKey(event:KeyboardEvent){if(event.key==='Enter'&&!event.altKey&&!event.shiftKey){event.preventDefault();editor.finishCell();}else if(event.key==='Escape'){event.preventDefault();editor.cancelInput();cellInput.value?.blur();}}
 const locateRef = ref("");
 const locateMsg = ref("");
 async function locate() {
@@ -51,17 +61,34 @@ async function locate() {
 }
 </script>
 <template>
-  <section ref="pane" class="excel">
+  <section ref="pane" class="excel" @keydown="editKey">
+    <Teleport :to="`[data-file-id='${props.file.id}'] .module-tools`" defer>
+      <span class="excel-edit-tools">
+        <button type="button" class="excel-edit-toggle" :aria-pressed="editor.editing.value" :disabled="!editor.canEdit.value||editor.saving.value" :title="editor.canEdit.value?'基础编辑（源文件只读）':'XLS 只支持预览'" @click="editor.toggle()">{{editor.editing.value?'回到预览':'编辑副本'}}</button>
+        <button type="button" class="excel-save-copy" :disabled="!editor.canEdit.value||editor.saving.value" @click="editor.save()">{{editor.saving.value?'保存中…':'另存副本'}}</button>
+        <select v-model="editor.format.value" aria-label="副本格式" :disabled="editor.saving.value"><option value="xlsx">XLSX</option><option value="csv">CSV（当前工作表）</option><option value="tsv">TSV（当前工作表）</option></select>
+        <span class="excel-dirty" role="status">{{editor.dirty.value?'有未保存修改':editor.changes.value.length?'副本已保存 · 源文件只读':'源文件只读'}}</span>
+      </span>
+    </Teleport>
+    <div v-if="editor.editing.value" class="excel-editor-bar">
+      <span class="excel-cell-address">{{sheetName}}!{{editor.address.value}}</span>
+      <textarea ref="cellInput" v-model="editor.input.value" class="excel-cell-input" aria-label="单元格内容" rows="2" :disabled="editor.saving.value" placeholder="文字、数字或 =公式；以 ' 开头强制文字" @keydown="inputKey"></textarea>
+      <button type="button" class="excel-apply-cell" :disabled="editor.saving.value" @click="editor.finishCell()">应用</button>
+      <button type="button" class="excel-undo" :disabled="editor.saving.value||(!editor.pending.value&&!editor.undoStack.value.length)" @click="editor.undo()">撤销</button>
+      <button type="button" class="excel-redo" :disabled="editor.saving.value||editor.pending.value||!editor.redoStack.value.length" @click="editor.redo()">重做</button>
+      <button type="button" class="excel-discard" :disabled="editor.saving.value" @click="editor.discard()">恢复源内容</button>
+      <small>Enter 应用；Shift/Alt+Enter 换行。选中单元格后粘贴表格。公式显示表达式，XLSX 副本需在表格软件中重算。</small>
+    </div>
+    <p v-if="editor.error.value" class="excel-edit-error" role="alert">{{editor.error.value}}</p>
+    <p v-if="editor.status.value" class="excel-edit-status" role="status">{{editor.status.value}}</p>
     <div v-if="warning" class="notice" role="status">{{ warning }}</div>
     <nav class="sheets" aria-label="工作表">
       <button
         v-for="name in book?.SheetNames"
         :key="name"
         :class="{ active: name === sheetName }"
-        @click="
-          sheetName = name;
-          rowPage = colPage = 0;
-        "
+        :disabled="editor.saving.value"
+        @click="selectSheet(name)"
       >
         {{ name }}
       </button>
@@ -103,7 +130,7 @@ async function locate() {
       >
       <small v-if="locateMsg" class="locate-status" role="status">{{ locateMsg }}</small>
     </div>
-    <div ref="scroll" class="table-wrap" @scroll.passive="onScroll">
+    <div ref="scroll" class="table-wrap" @scroll.passive="onScroll" @paste="pasteCells">
       <div
         v-if="rows.length"
         class="sheet-surface"
@@ -163,6 +190,12 @@ async function locate() {
               <td
                 v-for="cell in row.cells"
                 :key="cell.c"
+                :data-address="cell.address"
+                :tabindex="editor.editing.value?0:undefined"
+                :class="{'excel-selected-cell':editor.editing.value&&editor.address.value===cell.address,'excel-changed-cell':cell.modified}"
+                @click="selectCell(cell.address)"
+                @dblclick="selectCell(cell.address,true)"
+                @keydown.enter.prevent="selectCell(cell.address,true)"
                 :style="[
                   cell.style,
                   cell.c - startCol < freezeCols

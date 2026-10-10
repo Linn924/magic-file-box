@@ -1,8 +1,18 @@
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
+export function readBasicWorkbook(bytes:Uint8Array,ext:string){
+  if(ext==='csv'||ext==='tsv'){
+    let text:string;
+    if(bytes[0]===255&&bytes[1]===254)text=new TextDecoder('utf-16le',{fatal:true}).decode(bytes);
+    else if(bytes[0]===254&&bytes[1]===255)text=new TextDecoder('utf-16be',{fatal:true}).decode(bytes);
+    else {try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{text=new TextDecoder('gb18030',{fatal:true}).decode(bytes);}}
+    return XLSX.read(text,{type:'string',raw:true,FS:ext==='tsv'?'\t':undefined,cellStyles:true,cellText:true,cellHTML:false,sheetStubs:true});
+  }
+  return XLSX.read(bytes,{type:'array',cellStyles:true,cellText:true,cellHTML:false,sheetStubs:true});
+}
 export async function loadWorkbook(bytes: Uint8Array, ext: string) {
   // Basic cell data remains available when the optional style engine rejects a file.
-  const book = XLSX.read(bytes, { type: 'array', cellStyles: true, cellText: true, cellHTML: false });
+  const book=readBasicWorkbook(bytes,ext);
   let styled: ExcelJS.Workbook | undefined;
   let warning = '';
   if (ext === 'xlsx') {

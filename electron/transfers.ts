@@ -1,3 +1,4 @@
+import {forgetModified,transferModified} from './modifiedFiles';
 import { ipcMain, webContents, type WebContents } from "electron";
 import { trusted } from "./security";
 import type { PreviewFile } from "../shared/contracts";
@@ -20,6 +21,7 @@ export function registerFiles(sender: number, files: PreviewFile[]) {
   for (const file of files) owners.set(file.id, sender);
 }
 export function releaseWindow(sender: number) {
+  forgetModified(sender);
   releasePreparedOwner(sender);
   for (const [id, owner] of owners) if (owner === sender)owners.delete(id);
   for (const [id, p] of pending)
@@ -64,11 +66,13 @@ export function setupTransfers() {
     clearTimeout(p.timer);
     pending.delete(id);
     owners.set(id, p.target);
+    transferModified(p.source,p.target,id);
     // Retain destination before source tab acknowledges its removal.
     transferPreparedReference(p.source,p.target,id);
     webContents.fromId(p.source)?.send("tabs:remove", id);
   });
   ipcMain.on("tabs:release", (event, id: string) => {
+    forgetModified(event.sender.id,id);
     releasePreparedReference(event.sender.id,id);
     if (owners.get(id) === event.sender.id)owners.delete(id);
   });

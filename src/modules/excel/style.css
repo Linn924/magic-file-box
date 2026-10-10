@@ -281,3 +281,14 @@
   position: sticky;
   z-index: 3;
 }
+
+.excel-edit-tools{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
+.excel-edit-tools select{max-width:150px;background:var(--well);color:var(--text);border:1px solid var(--line);border-radius:4px;height:28px}
+.excel-dirty{font-size:11px;color:var(--muted)}
+.excel-editor-bar{display:flex;gap:6px;align-items:center;flex-wrap:wrap;padding:8px 10px;background:var(--panel);border-bottom:1px solid var(--line)}
+.excel-cell-address{font-size:12px;max-width:160px;overflow-wrap:anywhere}
+.excel-cell-input{flex:1;min-width:150px;max-height:100px;padding:5px;border:1px solid var(--line);border-radius:4px;background:var(--well);color:var(--text);font:inherit}
+.excel-editor-bar small{flex-basis:100%;color:var(--muted);font-size:11px}
+.excel-edit-error,.excel-edit-status{margin:0;padding:5px 10px;font-size:12px;overflow-wrap:anywhere}.excel-edit-error{color:var(--danger)}
+.excel-selected-cell{outline:2px solid var(--accent);outline-offset:-2px}
+.excel-changed-cell{box-shadow:inset 3px 0 #16803c}

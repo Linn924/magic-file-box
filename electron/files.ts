@@ -1,4 +1,4 @@
-import { open } from "node:fs/promises";
+import { realpath,stat,open } from "node:fs/promises";
 import path from "node:path";
 import { previewError } from '../shared/previewError';
 import { randomUUID } from "node:crypto";
@@ -103,6 +103,16 @@ export async function loadPreparedFile(file: PreviewFile): Promise<PreviewFile> 
 }
 
 export function releasePreparedFile(id: string) { selectedPaths.delete(id);passwords.delete(id);readControllers.get(id)?.abort(); }
+export function preparedFileName(owner:number,id:string){return ownsPreparedFile(owner,id)?path.basename(selectedPaths.get(id)||''):'';}
+export async function isPreparedSourceTarget(target:string){
+  if(isPreparedSourcePath(target))return true;
+  const actual=await realpath(target).catch(()=>path.resolve(target));const info=await stat(target).catch(()=>undefined);
+  for(const source of selectedPaths.values()){
+    const resolved=await realpath(source).catch(()=>path.resolve(source));if(actual.toLowerCase()===resolved.toLowerCase())return true;
+    if(info){const original=await stat(source).catch(()=>undefined);if(original&&info.ino!==0&&info.ino===original.ino&&info.dev===original.dev)return true;}
+  }
+  return false;
+}
 export function ownsPreparedFile(owner:number,id:string){return references.get(id)?.has(owner)??false;}
 export function isPreparedSourcePath(filePath:string){const target=path.resolve(filePath).toLowerCase();return [...selectedPaths.values()].some(source=>path.resolve(source).toLowerCase()===target);}
 export function preparedFileCount() { return selectedPaths.size; }

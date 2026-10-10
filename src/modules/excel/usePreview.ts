@@ -10,6 +10,7 @@ import {
 } from "vue";
 import * as XLSX from "xlsx";
 import ExcelJS from "exceljs";
+import {useEditor} from './useEditor';
 import { loadWorkbook } from './loadWorkbook';
 import { previewError } from '../../../shared/previewError';
 import type { PreviewFile } from "../../types";
@@ -21,6 +22,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   const warning = ref('');
   const restored = props.file.view?.excel;
   const sheetName = ref("");
+  const editor=useEditor(props.file,book,sheetName);
   const rowPage = ref(0);
   const colPage = ref(0);
   const pageRows = 200,
@@ -59,8 +61,8 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       ? XLSX.utils.decode_range(sheet.value["!ref"])
       : undefined,
   );
-  const rowCount = computed(() => (range.value ? range.value.e.r + 1 : 0));
-  const colCount = computed(() => (range.value ? range.value.e.c + 1 : 0));
+  const rowCount = computed(() => Math.max(range.value?range.value.e.r+1:0,editor.extent(sheetName.value).rows,editor.editing.value?20:0));
+  const colCount = computed(() => Math.max(range.value?range.value.e.c+1:0,editor.extent(sheetName.value).cols,editor.editing.value?12:0));
   const startRow = computed(() => 0);
   /** Highest row the user has reached (for progressive jump targets). */
   const loadedRowCount = ref(200);
@@ -309,13 +311,14 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     const cell = styledSheet.value?.getCell(r + 1, c + 1);
     const basic = sheet.value?.[XLSX.utils.encode_cell({ r, c })];
     const s = cell?.style;
+    const changed=editor.patchMap.value.get(JSON.stringify([sheetName.value,XLSX.utils.encode_cell({r,c})]));
     const result: CSSProperties = {
       ...fontStyle(s?.font),
       textAlign:
         s?.alignment?.horizontal === "centerContinuous"
           ? "center"
           : (s?.alignment?.horizontal as CSSProperties["textAlign"]) ||
-            (basic?.t === "n" ? "right" : "left"),
+            (changed?(changed.kind==='number'?'right':'left'):(basic?.t === "n" ? "right" : "left")),
       verticalAlign:
         s?.alignment?.vertical === "middle"
           ? "middle"
@@ -369,6 +372,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     }
     return spans;
   });
+  function editedNumber(value:number,r:number,c:number){const format=styledSheet.value?.getCell(r+1,c+1).numFmt;try{return format?XLSX.SSF.format(format,value):String(value);}catch{return String(value);}}
   const rows = computed(() =>
     rowNumbers.value
       .filter((r) => rowHeight(r) > 0)
@@ -384,14 +388,17 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
             sheet.value?.[
               XLSX.utils.encode_cell({ r: sourceRow, c: sourceCol })
             ];
-          const rich = styledSheet.value?.getCell(
+          const cellAddress=XLSX.utils.encode_cell({r:sourceRow,c:sourceCol});
+          const patch=editor.patchMap.value.get(JSON.stringify([sheetName.value,cellAddress]));
+          const rich = patch?undefined:styledSheet.value?.getCell(
             sourceRow + 1,
             sourceCol + 1,
           ).value;
           return [
             {
-              c,
-              text: value ? XLSX.utils.format_cell(value) : "",
+              c,address:cellAddress,
+              modified:!!patch,
+              text:patch?(patch.kind==='blank'?'':patch.kind==='formula'?'='+patch.value:patch.kind==='number'?editedNumber(patch.value,sourceRow,sourceCol):String(patch.value)):(value?.f&&(editor.changes.value.length||editor.editing.value||value.t==='z'||value.v===undefined||(rich&&typeof rich==='object'&&('formula' in rich||'sharedFormula' in rich)&&rich.result===undefined))?'='+value.f:value?XLSX.utils.format_cell(value):''),
               style: styleAt(sourceRow, sourceCol),
               rowspan: merge?.rows || 1,
               colspan: merge?.cols || 1,
@@ -486,7 +493,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       loadedRowCount.value = Math.min(rowCount.value, Math.max(200, restored?.rows ?? 200));
       await nextTick();
       initialized = true;
-      onScroll();
+      onScroll();editor.initialize();
       emit("ready");
     } catch (e) {
       emit(
@@ -503,7 +510,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   });
 
   return {
-    warning,
+    warning,editor,
     pane,
     scroll,
     onScroll,
