@@ -5,10 +5,10 @@ import {randomUUID} from 'node:crypto';
 import {trusted} from './security';
 import {ownsPreparedFile,preparedFileName,isPreparedSourceTarget} from './files';
 export function setupExcelCopy(){
-  ipcMain.handle('excel:clipboard',(event,id:string,operation:string,text?:string)=>{
+  ipcMain.handle('excel:clipboard',async(event,id:string,operation:string,text?:string)=>{
     trusted(event);if(!ownsPreparedFile(event.sender.id,id)||!['.xlsx','.csv','.tsv'].includes(path.extname(preparedFileName(event.sender.id,id)).toLowerCase()))throw Error('文件已关闭或不支持编辑。');
-    if(operation==='copy'&&typeof text==='string'&&text.length<=1000000){clipboard.writeText(text);return '';}
-    if(operation==='paste'){const value=clipboard.readText();if(value.length>1000000)throw Error('一次粘贴最多 100 万字符。');return value;}
+    if(operation==='copy'&&typeof text==='string'&&text.length<=1000000){await clipboard.writeText(text);return '';}
+    if(operation==='paste'){const value=await clipboard.readText();if(value.length>1000000)throw Error('一次粘贴最多 100 万字符。');return value;}
     throw Error('剪贴板操作无效。');
   });
   ipcMain.handle('excel:save-copy',async(event,id:string,format:string,data:Uint8Array)=>{

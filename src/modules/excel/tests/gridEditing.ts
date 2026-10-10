@@ -10,7 +10,7 @@ import {checkResize} from '../../../../tests/resize';
 const suite:Suite=async c=>{
   const name='edit-grid.xlsx';if(!existsSync(c.fixture(name))){const book=new ExcelJS.Workbook();await book.xlsx.load(readFileSync(c.fixture('edit-basic.xlsx')) as any);book.getWorksheet('Other')!.getCell('B1').value={formula:'Data!B2',result:2};writeFileSync(c.fixture(name),Buffer.from(await book.xlsx.writeBuffer()));}
   const source=readFileSync(c.fixture(name)),realSave=dialog.showSaveDialog,realRead=clipboard.readText,realWrite=clipboard.writeText;let clip='',savePath=path.resolve('outputs/verification/edit-grid-copy.xlsx');
-  dialog.showSaveDialog=(async()=>({canceled:false,filePath:savePath})) as typeof realSave;clipboard.readText=(()=>clip) as typeof realRead;clipboard.writeText=((text:string)=>{clip=text;}) as typeof realWrite;
+  dialog.showSaveDialog=(async()=>({canceled:false,filePath:savePath})) as typeof realSave;clipboard.readText=(async()=>clip) as typeof realRead;clipboard.writeText=(async(text:string)=>{clip=text;}) as typeof realWrite;
   const win=await c.open(name),cell=(address:string)=>`.spreadsheet td[data-address="${address}"]`;
   const dbl=async(address:string)=>c.evaluate(win,`document.querySelector(${JSON.stringify(cell(address))}).dispatchEvent(new MouseEvent('dblclick',{bubbles:true}))`);
   const type=async(value:string)=>c.evaluate(win,`(()=>{const i=document.querySelector('.excel-inline-input');i.value=${JSON.stringify(value)};i.dispatchEvent(new Event('input',{bubbles:true}))})()`);
