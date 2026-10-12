@@ -392,7 +392,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
             {
               c,address:cellAddress,
               modified:!!patch||editor.alignmentMap.value.has(JSON.stringify([sheetName.value,cellAddress])),
-              rotation:Number(logicalStyle(sheetName.value,cellAddress)?.alignment?.textRotation)||0,rotationHeight:rotatedHeights.value.get(cellAddress)??(()=>{const style=logicalStyle(sheetName.value,cellAddress),angle=Math.abs(Number(style.alignment?.textRotation)||0)*Math.PI/180,pixels=(style.font?.size||11)*4/3,width=Array.from(text).reduce((n,c)=>n+(c.codePointAt(0)!>255?1:.55)*pixels,0);return Math.ceil(Math.sin(angle)*width+Math.cos(angle)*pixels*1.3)+4;})(),text,title:formula?'='+formula+'\n'+(calculated?.error==='#UNSUPPORTED!'?'暂不支持此公式；未使用旧缓存结果':calculated?.error==='#LIMIT!'?'计算超出范围限制':calculated?.error==='#CYCLE!'?'循环引用':text):text,
+              rotation:Number(logicalStyle(sheetName.value,cellAddress)?.alignment?.textRotation)||0,rotationHeight:rotatedHeights.value.get(cellAddress)??(()=>{const style=logicalStyle(sheetName.value,cellAddress),angle=Math.abs(Number(style.alignment?.textRotation)||0)*Math.PI/180,pixels=(style.font?.size||11)*4/3,width=Array.from(text as string).reduce<number>((n,c: any)=>n+(String(c).codePointAt(0)!>255?1:.55)*pixels,0);return Math.ceil(Math.sin(angle)*width+Math.cos(angle)*pixels*1.3)+4;})(),text,title:formula?'='+formula+'\n'+(calculated?.error==='#UNSUPPORTED!'?'暂不支持此公式；未使用旧缓存结果':calculated?.error==='#LIMIT!'?'计算超出范围限制':calculated?.error==='#CYCLE!'?'循环引用':text):text,
               style: styleAt(sourceRow, sourceCol),
               rowspan: merge?.rows || 1,
               colspan: merge?.cols || 1,
