@@ -1,0 +1,32 @@
+import assert from 'node:assert/strict';
+import {dialog} from 'electron';
+import {readFileSync,writeFileSync,existsSync} from 'node:fs';
+import path from 'node:path';
+import type {Suite} from '../../../../tests/context';
+import {styleFixture} from './xlsStylesFixture';
+import {readBasicWorkbook} from '../loadWorkbook';
+const suite:Suite=async c=>{
+  const name='edit-xls-styles.xls',source=styleFixture();writeFileSync(c.fixture(name),source);
+  const realSave=dialog.showSaveDialog;let calls=0,target=path.resolve('outputs/verification/edit-xls-styles-copy.xls');
+  dialog.showSaveDialog=(async()=>{calls++;return {canceled:false,filePath:target};}) as typeof realSave;
+  const win=await c.open(name);const edit=async(a:string,value:string,w=win)=>{await c.click(w,`.spreadsheet td[data-address="${a}"]`);await c.evaluate(w,`(()=>{const i=document.querySelector('.excel-cell-input');i.value=${JSON.stringify(value)};i.dispatchEvent(new Event('input',{bubbles:true}))})()`);await c.click(w,'.excel-apply-cell');};
+  try{
+    await c.check(win,'XLS common font fill and border are visible before editing',"(()=>{const x=document.querySelector('.spreadsheet td[data-address=B2]'),s=getComputedStyle(x);return s.fontWeight==='700'&&s.fontStyle==='italic'&&s.color==='rgb(18, 52, 86)'&&s.backgroundColor==='rgb(255, 192, 128)'&&s.borderLeftColor==='rgb(255, 0, 0)'&&s.borderTopStyle==='double'})()");
+    await c.click(win,'.excel-edit-toggle');await edit('B2','9.5');await c.click(win,'.excel-save-copy');await c.check(win,'plain styled XLS saves without invented warnings',"!document.querySelector('.xls-save-review')&&document.querySelector('.excel-edit-status')?.textContent.includes('已另存')");assert.equal(calls,1);
+    let book=readBasicWorkbook(readFileSync(target),'xls');assert.equal(book.Sheets['样式表'].B2.v,9.5);assert.equal(book.Sheets['样式表'].B2.s.font.color.argb,'FF123456');assert.equal(book.Sheets['样式表'].B2.s.border.top.style,'double');assert.equal(book.Sheets['样式表'].F2.s.fill.fgColor.argb,'FFFFC080');
+    await c.evaluate(win,"document.querySelector('.spreadsheet td[data-address=B2]').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true,clientX:120,clientY:200}))");await c.click(win,'.excel-context-menu [data-action=insert-above]');await c.check(win,'XLS common styles follow row insertion',"(()=>{const x=document.querySelector('.spreadsheet td[data-address=B3]'),s=getComputedStyle(x);return x.textContent==='9.50'&&s.fontWeight==='700'&&s.backgroundColor==='rgb(255, 192, 128)'&&s.borderTopStyle==='double'})()");
+    target=path.resolve('outputs/verification/edit-xls-styles-moved.xls');await c.click(win,'.excel-save-copy');await c.check(win,'XLS structural save preserves styles',"document.querySelector('.excel-edit-status')?.textContent.includes('已另存')");book=readBasicWorkbook(readFileSync(target),'xls');assert.equal(book.Sheets['样式表'].B3.s.font.name,'宋体');assert.equal(book.Sheets['样式表'].B3.s.border.right.color.argb,'FF0000FF');assert.equal(book.Sheets['样式表'].B3.s.fill.fgColor.argb,'FFFFC080');assert.equal(book.Sheets['样式表'].B3.z,'0.00');
+    await c.click(win,'.excel-undo');await c.check(win,'XLS structural undo restores the original styled cell',"document.querySelector('.spreadsheet td[data-address=B2]').textContent==='9.50'");await c.click(win,'.excel-redo');await c.check(win,'XLS structural redo keeps styles',"getComputedStyle(document.querySelector('.spreadsheet td[data-address=B3]')).backgroundColor==='rgb(255, 192, 128)'");
+    const reopened=await c.program.openPath(target);await c.check(reopened,'saved XLS styles survive reopening',"document.querySelector('.spreadsheet td[data-address=B3]')?.textContent==='9.50'&&getComputedStyle(document.querySelector('.spreadsheet td[data-address=B3]')).borderTopStyle==='double'");c.close(reopened);assert.deepEqual(readFileSync(c.fixture(name)),Buffer.from(source));c.close(win);
+    const riskName='edit-xls-macro-warning.xls',riskSource=styleFixture('macro');writeFileSync(c.fixture(riskName),riskSource);const risk=await c.open(riskName);
+    try{
+      target=path.resolve('outputs/verification/edit-xls-unchanged.xls');await c.click(risk,'.excel-save-copy');await c.check(risk,'unchanged XLS copy preserves all bytes without a loss prompt',"!document.querySelector('.xls-save-review')&&document.querySelector('.excel-edit-status')?.textContent.includes('已另存')");assert.deepEqual(readFileSync(target),Buffer.from(riskSource));
+      await c.click(risk,'.excel-edit-toggle');await edit('B2','15',risk);target=path.resolve('outputs/verification/edit-xls-risk-copy.xls');const before=calls;
+      await c.click(risk,'.excel-save-copy');await c.check(risk,'actual macro loss is listed before the native save dialog',"document.querySelector('.xls-save-review')?.textContent.includes('VBA 宏')&&!document.querySelector('.xls-save-review').textContent.includes('图表及图表工作表')&&document.activeElement.textContent==='取消'");assert.equal(calls,before);await c.snapshot(risk,'excel-xls-save-review');
+      await c.evaluate(risk,"document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");await c.check(risk,'canceling compatibility review preserves draft and returns focus',"!document.querySelector('.xls-save-review')&&document.querySelector('.excel-dirty').textContent.includes('未保存')&&document.activeElement===document.querySelector('.excel-save-copy')");assert.equal(calls,before);
+      await c.click(risk,'.excel-save-copy');await c.check(risk,'loss review repeats before an edited copy is written',"!!document.querySelector('.xls-save-review')");await c.click(risk,'.xls-save-continue');await c.check(risk,'explicitly accepted XLS copy saves and clears its checkpoint',"!document.querySelector('.xls-save-review')&&!document.querySelector('.excel-dirty').textContent.includes('未保存')&&document.querySelector('.excel-edit-status')?.textContent.includes('已另存')");assert.equal(calls,before+1);assert.ok(existsSync(target));assert.equal(readBasicWorkbook(readFileSync(target),'xls').Sheets['样式表'].B2.v,15);assert.deepEqual(readFileSync(c.fixture(riskName)),Buffer.from(riskSource));
+    }finally{c.close(risk);}
+    c.pass('XLS style preservation, structure/undo/reopen, concrete loss review, cancel/focus, unchanged-copy exception and source protection');
+  }finally{dialog.showSaveDialog=realSave;if(!win.isDestroyed())c.close(win);}
+};
+export default suite;

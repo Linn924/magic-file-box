@@ -295,15 +295,15 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   function styleAt(r: number, c: number): CSSProperties {
     const cell = styledSheet.value?.getCell(r + 1, c + 1);
     const basic = sheet.value?.[XLSX.utils.encode_cell({ r, c })];
-    const s = cell?.style;
+    const s = cell?.style || basic?.s;
     const changed=editor.patchMap.value.get(JSON.stringify([sheetName.value,XLSX.utils.encode_cell({r,c})]));
     const result: CSSProperties = {
       ...fontStyle(s?.font),
       textAlign:editor.alignmentMap.value.get(JSON.stringify([sheetName.value,XLSX.utils.encode_cell({r,c})]))||(
         s?.alignment?.horizontal === "centerContinuous"
           ? "center"
-          : (s?.alignment?.horizontal as CSSProperties["textAlign"]) ||
-            basic?.s?.alignment?.horizontal ||
+          : (s?.alignment?.horizontal!=="general"?s?.alignment?.horizontal as CSSProperties["textAlign"]:undefined) ||
+            (basic?.s?.alignment?.horizontal!=="general"?basic?.s?.alignment?.horizontal:undefined) ||
             (changed?.kind==='formula'||!changed&&basic?.f?typeof editor.calculator.value?.result(sheetName.value,XLSX.utils.encode_cell({r,c}),false).value==='number'?'right':'left':changed?(changed.kind==='number'?'right':'left'):(basic?.t === "n" ? "right" : "left"))),
       verticalAlign:
         s?.alignment?.vertical === "middle"

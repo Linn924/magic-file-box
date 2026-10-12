@@ -6,6 +6,7 @@ import {useGridInteraction} from './useGridInteraction';
 import ExcelToolButton from '../../components/ToolButton.vue';
 import ExcelIcon from '../../components/ToolbarIcon.vue';
 import FormulaPicker from './FormulaPicker.vue';
+import XlsSaveReview from './XlsSaveReview.vue';
 import { ref,computed,watch,nextTick,onBeforeUnmount } from "vue";
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
@@ -44,6 +45,9 @@ const {
   XLSX,
 } = usePreview(props, emit);
 const cellInput=ref<HTMLTextAreaElement>();
+let restoreSaveFocus=false;
+function answerCopy(accept:boolean){restoreSaveFocus=true;editor.confirmCopy(accept);}
+watch(editor.saving,value=>{if(!value&&restoreSaveFocus){restoreSaveFocus=false;void nextTick(()=>pane.value?.querySelector<HTMLButtonElement>('.excel-save-copy')?.focus({preventScroll:true}));}});
 const grid=useGridInteraction(props.file,editor,rowCount,colCount,address=>locateCell(address,true));
 const actionMenu=ref<'insert'|'delete'|'more'|null>(null);
 const alignment=computed(()=>rows.value.flatMap(row=>row.cells).find(cell=>cell.address===editor.address.value)?.style.textAlign||'left');
@@ -106,7 +110,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
     <p v-if="editor.error.value" class="excel-edit-error" role="alert">{{editor.error.value}}</p>
     <span v-if="editor.status.value" class="excel-edit-status sr-only" role="status">{{editor.status.value}}</span>
     <div v-if="warning" class="notice" role="status">{{ warning }}</div>
-    <div v-if="editor.editing.value&&props.file.ext==='xls'" class="notice" role="note">XLS 副本保留数据、支持的公式和基本布局；宏、图表及复杂样式不保证保留。源文件不变。</div>
+    <XlsSaveReview v-if="editor.saveWarnings.value" :warnings="editor.saveWarnings.value" :format="editor.format.value" @answer="answerCopy" />
     <div v-show="!editor.editing.value" class="sheet-tools" role="toolbar" aria-label="表格定位与冻结">
       <label class="cell-locate"
         >定位<input

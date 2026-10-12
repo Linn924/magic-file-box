@@ -10,13 +10,13 @@ export function readBasicWorkbook(bytes:Uint8Array,ext:string){
     return XLSX.read(text,{type:'string',raw:true,FS:ext==='tsv'?'\t':undefined,cellStyles:true,cellText:true,cellHTML:false,sheetStubs:true});
   }
   const book=XLSX.read(bytes,{type:'array',cellStyles:true,cellNF:true,cellText:true,cellHTML:false,sheetStubs:true});
-  if(ext==='xls')readXlsAlignments(bytes,book);return book;
+  if(ext==='xls')try{readXlsAlignments(bytes,book);}catch{(book as XLSX.WorkBook&{xlsStyleWarning?:string}).xlsStyleWarning='部分 XLS 样式无法识别，已保留基础数据；另存前会提示兼容性。';}return book;
 }
 export async function loadWorkbook(bytes: Uint8Array, ext: string) {
   // Basic cell data remains available when the optional style engine rejects a file.
   const book=readBasicWorkbook(bytes,ext);
   let styled: ExcelJS.Workbook | undefined;
-  let warning = '';
+  let warning = (book as XLSX.WorkBook&{xlsStyleWarning?:string}).xlsStyleWarning||'';
   if (ext === 'xlsx') {
     try {
       styled = new ExcelJS.Workbook();

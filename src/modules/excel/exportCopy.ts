@@ -2,6 +2,7 @@ import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import {readBasicWorkbook} from './loadWorkbook';
 import {exportXlsCopy} from './xlsCopy';
+import {hydrateXlsxStyles,styledXlsx} from './xlsStyles';
 import {createFormulaCalculator} from './formula';
 import type {ExcelChange,ExcelCopyFormat,ExcelValue} from '../../../shared/excelEditing';
 const MAIN='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -19,13 +20,7 @@ export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelC
   const workbook=readBasicWorkbook(bytes,ext);
   for(const change of changes){const sheet=workbook.Sheets[change.sheet];if(!sheet)throw Error('工作表已不存在。');if(!change.alignmentOnly)applyValue(sheet,change.address,change.value);else if(change.alignment){sheet[change.address]??={t:"z"};const position=XLSX.utils.decode_cell(change.address),range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):{s:position,e:position};range.s.r=Math.min(range.s.r,position.r);range.s.c=Math.min(range.s.c,position.c);range.e.r=Math.max(range.e.r,position.r);range.e.c=Math.max(range.e.c,position.c);sheet['!ref']=XLSX.utils.encode_range(range);}}
   if(format==='xls'){
-    if(ext==='xlsx'){
-      const zip=await JSZip.loadAsync(bytes),styles=zip.file('xl/styles.xml');
-      if(styles){const xfs=elements(xml(await styles.async('string')),'cellXfs')[0];
-        const metadata=xml(await zip.file('xl/workbook.xml')!.async('string')),relations=xml(await zip.file('xl/_rels/workbook.xml.rels')!.async('string'));
-        for(const info of elements(metadata,'sheet')){const id=info.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships','id'),target=Array.from(relations.documentElement.children).find(n=>n.getAttribute('Id')===id)?.getAttribute('Target');if(!target)continue;const segments=(target.startsWith('/')?target.slice(1):'xl/'+target).split('/'),parts:string[]=[];for(const part of segments){if(part==='..')parts.pop();else if(part&&part!=='.')parts.push(part);}const entry=zip.file(parts.join('/'));if(!entry)continue;for(const cell of elements(xml(await entry.async('string')),'c')){const address=cell.getAttribute('r')!,xf=xfs?.children[Number(cell.getAttribute('s')||0)],alignment=xf?elements(xf,'alignment')[0]?.getAttribute('horizontal'):undefined;if(['left','center','right'].includes(alignment||'')){const basic=workbook.Sheets[info.getAttribute('name')!][address];if(basic)basic.s={...basic.s,alignment:{horizontal:alignment}};}}}
-      }
-    }
+    if(ext==='xlsx')await hydrateXlsxStyles(bytes,workbook);
     return exportXlsCopy(workbook,changes);
   }
   if(format!=='xlsx'){
@@ -43,7 +38,7 @@ export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelC
     }
     return new TextEncoder().encode('\uFEFF'+rows.join('\r\n'));
   }
-  const base=ext==='xlsx'?bytes:new Uint8Array(XLSX.write(workbook,{type:'array',bookType:'xlsx'}));
+  const base=ext==='xlsx'?bytes:ext==='xls'?await styledXlsx(workbook):new Uint8Array(XLSX.write(workbook,{type:'array',bookType:'xlsx'}));
   const zip=await JSZip.loadAsync(base),workbookEntry=zip.file('xl/workbook.xml'),relsEntry=zip.file('xl/_rels/workbook.xml.rels');
   const calculator=createFormulaCalculator(workbook);
   if(!workbookEntry||!relsEntry)throw Error('工作簿结构不完整。');

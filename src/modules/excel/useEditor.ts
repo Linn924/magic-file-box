@@ -1,4 +1,4 @@
-import {computed,ref,watch,toRaw,type Ref} from 'vue';
+import {computed,ref,watch,toRaw,onBeforeUnmount,type Ref} from 'vue';
 import * as XLSX from 'xlsx';
 import type {PreviewFile} from '../../../shared/contracts';
 import type {ExcelChange,ExcelValue,ExcelDraft,ExcelCopyFormat,ExcelTransaction,ExcelBefore,ExcelGridState,ExcelStructure,ExcelAlignment} from '../../../shared/excelEditing';
@@ -6,6 +6,7 @@ import {parseExcelInput,parseTablePaste,excelInput,changeKey,changeSignature} fr
 import {exportExcelCopy} from './exportCopy';
 import {changeStructure,moveIndex} from './structure';
 import {createFormulaCalculator,formulaReferences,parseFormula} from './formula';
+import {inspectXlsSave,type XlsWarning} from './xlsCompatibility';
 export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,sheetName:Ref<string>,install:(bytes:Uint8Array,ext:string,widths?:Record<string,number>)=>Promise<void>,getWidths:()=>Record<string,number>){
   const restored=file.view?.excelDraft;
   const editing=ref(restored?.editing??false),changes=ref<ExcelChange[]>(restored?.changes??[]),undoStack=ref<ExcelTransaction[]>(restored?.undo??[]),redoStack=ref<ExcelTransaction[]>(restored?.redo??[]);
@@ -15,6 +16,10 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
   const address=ref(restored?.address||'A1'),selectedSheet=ref(restored?.sheet||''),input=ref(restored?.input??''),error=ref(''),status=ref(''),saving=ref(false),format=ref<ExcelCopyFormat>(file.ext==='xls'?'xls':file.ext==='csv'?'csv':file.ext==='tsv'?'tsv':'xlsx');
   const canEdit=computed(()=>!!book.value&&['xlsx','xls','csv','tsv'].includes(file.ext));
   const calculator=computed(()=>book.value?createFormulaCalculator(book.value,changes.value):undefined);
+  const saveWarnings=ref<XlsWarning[]|undefined>();let resolveSave:((accept:boolean)=>void)|undefined;
+  function confirmCopy(accept:boolean){saveWarnings.value=undefined;resolveSave?.(accept);resolveSave=undefined;}
+  onBeforeUnmount(()=>confirmCopy(false));
+  function reviewCopy(warnings:XlsWarning[]){if(!warnings.length)return Promise.resolve(true);saveWarnings.value=warnings;return new Promise<boolean>(resolve=>{resolveSave=resolve;});}
   const patchMap=computed(()=>new Map(changes.value.filter(change=>!change.alignmentOnly).map(change=>[changeKey(change.sheet,change.address),change.value])));
   const alignmentMap=computed(()=>new Map(changes.value.filter(change=>change.alignment).map(change=>[changeKey(change.sheet,change.address),change.alignment!])));
   function original(sheet:string,cellAddress:string):ExcelValue {
@@ -86,10 +91,17 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
     if(saving.value||!finishCell())return;saving.value=true;error.value='';status.value='';
     const copyFormat=format.value,copySheet=sheetName.value;
     const snapshot=changes.value.map(change=>({...toRaw(change),value:{...toRaw(change.value)}})),saved=signature(snapshot);
-    try{const bytes=await exportExcelCopy(baseBytes.value??file.bytes,baseBytes.value?'xlsx':file.ext,snapshot,copyFormat,copySheet);const result=await window.localPreview.saveExcelCopy(file.id,copyFormat,bytes);if(result==='saved'){savedSignature.value=['xlsx','xls'].includes(copyFormat)?saved:changeSignature([...(JSON.parse(savedSignature.value) as ExcelChange[]).filter(change=>change.sheet!==copySheet),...(JSON.parse(saved) as ExcelChange[]).filter(change=>change.sheet===copySheet)]);status.value=['xlsx','xls'].includes(copyFormat)?'已另存副本，源文件未改变':'当前工作表已另存，其余工作表不包含在此副本中';}else status.value='已取消另存';}
+    try{
+      const current=baseBytes.value??file.bytes,ext=baseBytes.value?'xlsx':file.ext;
+      const unchanged=!baseBytes.value&&!snapshot.length&&copyFormat===file.ext;
+      if(file.ext==='xls'&&!unchanged&&['xls','xlsx'].includes(copyFormat)){
+        const warnings=await inspectXlsSave(file.bytes,current,ext,copyFormat);
+        if(!await reviewCopy(warnings)){status.value='已取消另存，草稿保留';return;}
+      }
+      const bytes=await exportExcelCopy(current,ext,snapshot,copyFormat,copySheet);const result=await window.localPreview.saveExcelCopy(file.id,copyFormat,bytes);if(result==='saved'){savedSignature.value=['xlsx','xls'].includes(copyFormat)?saved:changeSignature([...(JSON.parse(savedSignature.value) as ExcelChange[]).filter(change=>change.sheet!==copySheet),...(JSON.parse(saved) as ExcelChange[]).filter(change=>change.sheet===copySheet)]);status.value=['xlsx','xls'].includes(copyFormat)?'已另存副本，源文件未改变':'当前工作表已另存，其余工作表不包含在此副本中';}else status.value='已取消另存';}
     catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();}
   }
   function initialize(){ready=true;if(!selectedSheet.value||!book.value?.Sheets[selectedSheet.value]){selectedSheet.value=sheetName.value;refreshInput();}persist();}
   function extent(sheet:string){let rows=0,cols=0;for(const change of changes.value)if(change.sheet===sheet){const cell=XLSX.utils.decode_cell(change.address);rows=Math.max(rows,cell.r+1);cols=Math.max(cols,cell.c+1);}return {rows,cols};}
-  return {editing,changes,calculator,baseBytes,revisions,dirty,pending,selectedSheet,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,alignmentMap,align,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent,structure};
+  return {editing,changes,calculator,saveWarnings,confirmCopy,baseBytes,revisions,dirty,pending,selectedSheet,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,alignmentMap,align,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent,structure};
 }
