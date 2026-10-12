@@ -24,7 +24,7 @@ function decodeXf(data:Uint8Array,fonts:any[],colors:string[]):any{
     alignment:{horizontal:['general','left','center','right','fill','justify','centerContinuous','distributed'][a&7],vertical:['top','middle','bottom','justify','distributed'][(a>>4)&7]||'bottom',wrapText:!!(a&8),textRotation:((a>>8)&255)===255?'vertical':((a>>8)&255)>90?90-((a>>8)&255):((a>>8)&255),indent:(a>>16)&15,shrinkToFit:!!(a&(1<<20)),readingOrder:((a>>22)&3)===1?'ltr':((a>>22)&3)===2?'rtl':undefined},
     border:{left:side(b&15,(b>>16)&127),right:side((b>>4)&15,(b>>23)&127),top:side((b>>8)&15,c&127),bottom:side((b>>12)&15,(c>>7)&127),diagonal:side((c>>21)&15,(c>>14)&127)},
     fill:{type:'pattern',pattern:patterns[c>>>26]||'none',fgColor:color(d&127),bgColor:color((d>>7)&127)}};
-  if(own.border.diagonal){own.border.diagonal.up=!!(b&0x80000000);own.border.diagonal.down=!!(b&0x40000000);}
+  if(own.border.diagonal){(own.border.diagonal as any).up=!!(b&0x80000000);(own.border.diagonal as any).down=!!(b&0x40000000);}
   // fAtr bits control future updates from the parent, not whether stored fields are used now (MS-XLS CellXF).
   return own;
 }
@@ -73,6 +73,6 @@ export async function hydrateXlsxStyles(bytes:Uint8Array,book:XLSX.WorkBook){con
 export async function styledXlsx(book:XLSX.WorkBook){
   const styled=new ExcelJS.Workbook();styled.properties.date1904=!!book.Workbook?.WBProps?.date1904;for(const name of book.SheetNames){const input=book.Sheets[name],hidden=book.Workbook?.Sheets?.[book.SheetNames.indexOf(name)]?.Hidden,sheet=styled.addWorksheet(name,{state:hidden===2?'veryHidden':hidden===1?'hidden':'visible'});for(const merge of input['!merges']||[])sheet.mergeCells(XLSX.utils.encode_range(merge));
     for(const [address,cell] of Object.entries(input))if(!address.startsWith('!')){const out=sheet.getCell(address);if(!out.isMerged||out.master.address===address)out.value=cell.f?{formula:cell.f,result:cell.v}:cell.t==='e'?{error:({0:'#NULL!',7:'#DIV/0!',15:'#VALUE!',23:'#REF!',29:'#NAME?',36:'#NUM!',42:'#N/A'} as any)[cell.v]||'#VALUE!'}:cell.v??null;out.style=cell.s||{};if(cell.z)out.numFmt=cell.z;}
-    for(const [r,row] of (input['!rows']||[]).entries())if(row){sheet.getRow(r+1).height=row.hpt??(row.hpx?row.hpx*.75:undefined);sheet.getRow(r+1).hidden=!!row.hidden;}for(const [c,col] of (input['!cols']||[]).entries())if(col){sheet.getColumn(c+1).width=col.wch??col.width??(col.wpx?(col.wpx-5)/7:undefined);sheet.getColumn(c+1).hidden=!!col.hidden;}
+    for(const [r,row] of (input['!rows']||[]).entries())if(row){const h=row.hpt??(row.hpx?row.hpx*.75:undefined);if(h!==undefined)sheet.getRow(r+1).height=h;sheet.getRow(r+1).hidden=!!row.hidden;}for(const [c,col] of (input['!cols']||[]).entries())if(col){const w=col.wch??col.width??(col.wpx?(col.wpx-5)/7:undefined);if(w!==undefined)sheet.getColumn(c+1).width=w;sheet.getColumn(c+1).hidden=!!col.hidden;}
   }return new Uint8Array(await styled.xlsx.writeBuffer());
 }
