@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer, shell, webUtils } from "electron";
 import type { DesktopBridge, Settings } from "../shared/contracts";
 
 const bridge: DesktopBridge = {
+  followMarkdownLink:(id,href)=>ipcRenderer.invoke('markdown:follow',id,href),
   markModified:(id,dirty)=>ipcRenderer.invoke('preview:modified',id,dirty),
   confirmDiscard:(id,force)=>ipcRenderer.invoke('preview:confirm-discard',id,force),
   saveExcelCopy:(id,format,data)=>ipcRenderer.invoke('excel:save-copy',id,format,data),

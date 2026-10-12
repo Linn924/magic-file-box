@@ -18,6 +18,10 @@ const { pane, encoding, raw, pretty, invalidJson, html } = usePreview(
   props,
   emit,
 );
+const linkError=ref('');
+function jumpAnchor(fragment:string,decoded=false){const article=pane.value?.querySelector<HTMLElement>('.markdown');if(!article)return false;let anchor:string;try{anchor=decoded?fragment:decodeURIComponent(fragment.replace(/^#/,''));}catch{linkError.value='链接位置编码无效。';return false;}if(!anchor){textScroll.value?.scrollTo({top:0});return true;}const target=Array.from(article.querySelectorAll<HTMLElement>('[data-md-anchor],[id]')).find(n=>n.dataset.mdAnchor===anchor||n.dataset.mdOriginal===anchor||n.id===anchor);if(!target){linkError.value='找不到文档中的链接位置。';return false;}target.scrollIntoView({block:'start'});return true;}
+async function followLink(event:MouseEvent){const link=(event.target as Element)?.closest<HTMLAnchorElement>('a');if(!link)return;event.preventDefault();const href=link.getAttribute('data-md-href')??link.getAttribute('href');if(!href)return;linkError.value='';if(href.startsWith('#')){jumpAnchor(href);return;}try{await window.localPreview.followMarkdownLink(props.file.id,href);}catch(e){linkError.value=String(e).replace(/^Error:.*?Error: /,'');}}
+onMounted(()=>{const anchor=props.file.view?.markdownAnchor;if(props.file.ext==='md'&&anchor){delete props.file.view!.markdownAnchor;requestAnimationFrame(()=>requestAnimationFrame(()=>jumpAnchor(anchor,true)));}});
 const query = ref("");
 const showLines = ref(true);
 const showSearch = ref(false);
@@ -141,6 +145,7 @@ const showHtml = computed(
     <div v-if="invalidJson" class="notice">
       JSON 格式不完整，按原始文本显示。
     </div>
+    <p v-if="linkError" class="notice" role="alert">{{linkError}}</p>
     <div
       ref="textScroll"
       class="text-scroll"
@@ -150,7 +155,7 @@ const showHtml = computed(
         v-if="showHtml"
         class="markdown preview-content"
         :style="{ fontSize: (15 * zoom) / 100 + 'px' }"
-        @click.prevent
+        @click="followLink"
         v-html="html"
       ></article>
       <div

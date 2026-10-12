@@ -1,6 +1,5 @@
 import { computed, onMounted, ref, watch } from "vue";
-import DOMPurify from "dompurify";
-import { marked } from "marked";
+import {renderMarkdown} from './markdown';
 import type { PreviewFile } from "../../types";
 import type { PreviewProps, PreviewEmit } from "../types";
 export function usePreview(props: PreviewProps, emit: PreviewEmit) {
@@ -45,22 +44,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       return true;
     }
   });
-  const html = computed(() =>
-    props.file.ext === "md"
-      ? DOMPurify.sanitize(marked.parse(raw.value, { async: false }), {
-          FORBID_TAGS: [
-            "iframe",
-            "object",
-            "embed",
-            "form",
-            "input",
-            "button",
-            "style",
-          ],
-          FORBID_ATTR: ["srcset"],
-        })
-      : "",
-  );
+  const html=computed(()=>props.file.ext==='md'?renderMarkdown(raw.value):'');
   onMounted(() => emit("ready"));
 
   return { pane, encoding, raw, pretty, invalidJson, html };

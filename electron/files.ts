@@ -104,6 +104,7 @@ export async function loadPreparedFile(file: PreviewFile): Promise<PreviewFile> 
 
 export function releasePreparedFile(id: string) { selectedPaths.delete(id);passwords.delete(id);readControllers.get(id)?.abort(); }
 export function preparedFileName(owner:number,id:string){return ownsPreparedFile(owner,id)?path.basename(selectedPaths.get(id)||''):'';}
+export function preparedFilePath(owner:number,id:string){if(!ownsPreparedFile(owner,id))throw Error('来源文件已关闭。');return selectedPaths.get(id)||'';}
 export async function isPreparedSourceTarget(target:string){
   if(isPreparedSourcePath(target))return true;
   const actual=await realpath(target).catch(()=>path.resolve(target));const info=await stat(target).catch(()=>undefined);

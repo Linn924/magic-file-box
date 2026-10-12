@@ -21,6 +21,7 @@ export interface PreviewFile {
     pdfReading?: {page:number;fraction:number};
     image?: {rotate:0|90|180|270;originalPixels:boolean};
     excelDraft?: import("./excelEditing").ExcelDraft;
+    markdownAnchor?:string;
     excel?: {
       sheet: string;
       columns: number;
@@ -129,6 +130,7 @@ export interface DesktopBridge {
   loadPreview(file:PreviewFile):Promise<PreviewFile>;
   setPdfPassword(id:string,password:string):Promise<void>;
   openExternal(url: string): Promise<void>;
+  followMarkdownLink(id:string,href:string):Promise<void>;
   openPrintPanel(files:PreviewFile[]):Promise<void>;
   printPanelFiles():Promise<PreviewFile[]>;
   onPrintIncoming(handler:()=>void):()=>void;

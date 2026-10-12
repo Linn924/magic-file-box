@@ -1,5 +1,6 @@
 import {setupModifiedFiles,hasModified,confirmModified,forgetModified} from './modifiedFiles';
 import {setupExcelCopy} from './excelCopy';
+import {setupMarkdownLinks} from './markdownLinks';
 import {setupPrintWindow} from "./printing/window";
 import { setupPdfExport } from './pdfExport';
 import { setupPrinting } from "./printing";
@@ -180,7 +181,7 @@ async function createHome() {
   await home.loadURL("preview://local/index.html");
   return home;
 }
-export async function openPaths(paths: string[], mode?: "tabs" | "windows") {
+export async function openPaths(paths: string[], mode?: "tabs" | "windows",view?:PreviewFile['view']) {
   if (!paths.length) return [];
   if (!mode) {
     const preference = settings.get().multiFileMode;
@@ -204,7 +205,7 @@ export async function openPaths(paths: string[], mode?: "tabs" | "windows") {
   const created: BrowserWindow[] = [];
   for (const group of groups) {
     const files: PreviewFile[] = [];
-    for (const name of group) files.push(await preparePreviewFile(name));
+    for (const name of group){const file=await preparePreviewFile(name);if(view)file.view=view;files.push(file);}
     const win = createWindow(true);
     registerFiles(win.webContents.id, files);
     payloads.set(win.webContents.id, files);
@@ -252,6 +253,7 @@ export const ready = owner
       Menu.setApplicationMenu(null);
       setupTransfers();
       setupModifiedFiles();setupExcelCopy();
+      setupMarkdownLinks(async(target,anchor)=>{await openPaths([target],'windows',anchor?{zoom:100,scroll:[],markdownAnchor:anchor}:undefined);});
       setupFullscreen();
       local = await createLocalSession(path.resolve(__dirname, "../dist"));
       setupPrinting(local);

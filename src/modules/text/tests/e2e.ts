@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {writeFileSync} from 'node:fs';
 import type { Suite } from "../../../../tests/context";
+import markdownLinks from './markdownLinks';
 const suite: Suite = async (c) => {
   const source='const item = "quoted 42"; // return 7\nspan class <node> &lt;';
   writeFileSync(c.fixture('audit-highlight.js'),source);
@@ -97,5 +98,6 @@ const suite: Suite = async (c) => {
   );
   await c.click(md,'.text-search-toggle');await c.check(md,'Markdown query switches to source lines with usable line control',"!document.querySelector('.text-lines-toggle').disabled&&!!document.querySelector('.line-no')");await c.click(md,'.search-close');await c.check(md,'closing Markdown query restores layout and line-control state',"!!document.querySelector('.markdown h1')&&document.querySelector('.text-lines-toggle').disabled");
   c.close(md);
+  await markdownLinks(c);
 };
 export default suite;
