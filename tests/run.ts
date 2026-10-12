@@ -10,6 +10,7 @@ const names = [
   "word",
   "excel",
   "exceledit",
+  "excelgrid",
   "ppt",
   "pdf",
   "text",
@@ -49,7 +50,7 @@ if(selected.includes('pdfspread')||selected.includes('pdfenhancements')||selecte
   run(process.execPath,['--import','tsx','src/modules/pdf/tests/optimization.ts']);
   run(process.execPath,['--import','tsx','src/modules/pdf/tests/rowsUnit.ts']);
 }
-if(selected.includes('exceledit')||selected.includes('excel'))run(process.execPath,['--import','tsx','src/modules/excel/tests/editModelUnit.ts']);
+if(selected.includes('exceledit')||selected.includes('excelgrid')||selected.includes('excel'))run(process.execPath,['--import','tsx','src/modules/excel/tests/editModelUnit.ts']);
 if (selected.includes('all') || selected.includes('excel'))
   run(process.execPath, ['--import', 'tsx', 'tests/excel-fallback.ts']);
 mkdirSync(".test-build", { recursive: true });

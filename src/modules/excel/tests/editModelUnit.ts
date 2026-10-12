@@ -1,5 +1,6 @@
 import './formulaUnit';
 import './xlsStylesUnit';
+import './selectionUnit';
 import assert from 'node:assert/strict';
 import {parseExcelInput,parseTablePaste,excelInput,changeSignature} from '../editModel';
 import {moveIndex,moveRange,moveFormula} from '../structure';

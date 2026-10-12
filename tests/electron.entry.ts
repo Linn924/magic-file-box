@@ -12,6 +12,7 @@ import bulk from "./suites/bulk";
 import zoom from "./suites/zoom";
 import word from "../src/modules/word/tests/e2e";
 import exceledit from '../src/modules/excel/tests/editing';
+import excelgrid from '../src/modules/excel/tests/selectionEditing';
 import excel from "../src/modules/excel/tests/e2e";
 import ppt from "../src/modules/ppt/tests/e2e";
 import pdf from "../src/modules/pdf/tests/e2e";
@@ -49,6 +50,7 @@ const suites: Record<string, Suite> = {
   word,
   excel,
   exceledit,
+  excelgrid,
   ppt,
   pdf,
   text,
@@ -62,7 +64,7 @@ const suites: Record<string, Suite> = {
 const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
 const selected =
   requested === "all"
-    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf")
+    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid")
     : requested.split(",");
 const output = path.resolve("outputs/verification");
 const fixtureRoot = path.resolve("work/fixtures");
