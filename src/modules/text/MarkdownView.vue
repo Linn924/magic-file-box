@@ -38,7 +38,7 @@ async function loadImages(root:HTMLElement,valid:()=>boolean){
       const result=await window.localPreview.markdownImage(props.file.id,image.dataset.mdImage||'');if(!valid())return;
       total+=result.data.byteLength;if(total>64*1024*1024)throw Error('本页图片合计超过 64 MB。');
       const data=result.mime==='image/svg+xml'?safeSvg(new TextDecoder().decode(result.data)):result.data;
-      const url=URL.createObjectURL(new Blob([data],{type:result.mime}));urls.push(url);image.src=url;try{await image.decode();}catch{if(valid())imageError(image,'无法解码此图片。');}if(valid())updateActive();
+      const url=URL.createObjectURL(new Blob([data as any],{type:result.mime}));urls.push(url);image.src=url;try{await image.decode();}catch{if(valid())imageError(image,'无法解码此图片。');}if(valid())updateActive();
     }catch(e){if(valid())imageError(image,String(e).replace(/^Error:.*?Error: /,''));}
   }
 }

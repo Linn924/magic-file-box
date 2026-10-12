@@ -11,7 +11,7 @@ renderer.image=({href,title,text})=>`<img data-md-image="${escapeHtml(href)}" al
 renderer.checkbox=({checked})=>`<span class="md-task" role="img" aria-label="${checked?'已完成':'未完成'}">${checked?'☑':'☐'}</span> `;
 let mathCount=0;
 const math=katex({throwOnError:false,trust:false,maxExpand:1000,maxSize:20,strict:'warn'});
-for(const extension of math.extensions||[]){const render=extension.renderer;if(render)extension.renderer=function(token){if(++mathCount>500||String(token.text).length>10000)return `<code title="公式超过渲染额度，显示源码">${escapeHtml(String(token.raw))}</code>`;return render.call(this,token);};}
+for(const extension of math.extensions||[]){const ext=extension as any;const render=ext.renderer;if(render)ext.renderer=function(token: any){if(++mathCount>500||String(token.text).length>10000)return `<code title="公式超过渲染额度，显示源码">${escapeHtml(String(token.raw))}</code>`;return render.call(this,token);};}
 const parser=new Marked({renderer,gfm:true}).use(footnote({description:'脚注',backRefLabel:'返回正文'})).use(math);
 export function renderMarkdown(text:string){
   mathCount=0;const template=document.createElement('template');
