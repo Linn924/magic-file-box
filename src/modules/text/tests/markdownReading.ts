@@ -1,0 +1,46 @@
+import assert from 'node:assert/strict';
+import {BrowserWindow,dialog,clipboard} from 'electron';
+import {existsSync,readFileSync,writeFileSync} from 'node:fs';
+import type {Suite} from '../../../../tests/context';
+const suite:Suite=async c=>{
+  const image='md-local 中文.png',name='md-reading.md',file=c.fixture(name);
+  if(!existsSync(c.fixture(image)))writeFileSync(c.fixture(image),Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=','base64'));
+  const source=['# 阅读增强','## 起始章节','跨**格式**搜索 与 跨格式搜索','- [x] 已完成任务','- [ ] 待办任务','脚注引用[^note]','![本地图片](md-local%20%E4%B8%AD%E6%96%87.png)','![缺失图片](md-no-image.png)','![远程图片](https://example.com/image.png)','行内公式 $x^2 + y^2$','$$\n\\frac{1}{2}\n$$','```js\nconst value = "原样复制 <tag>";\n\nconsole.log(value);\n```','```mermaid\nflowchart LR\n A[开始] --> B[结束]\n```','```mermaid\nsequenceDiagram\n A->>B: 消息\n```','```mermaid\nthis is not a chart\n```','[标签文件](text.txt)','[目标章节](#远处章节)',...Array.from({length:100},()=> '阅读段落'), '## 远处章节','远处章节内容','## 远处章节','同名标题','[^note]: 脚注解释内容','<script>window.MD_BAD=true</script><input onclick="window.MD_BAD=true"><img src="https://example.com/raw.png" onerror="window.MD_BAD=true">'].join('\n\n');
+  if(!existsSync(file))writeFileSync(file,source);const before=readFileSync(file),settings=c.program.settings.get();
+  const realCopy=clipboard.writeText,realDialog=dialog.showMessageBox;let copied='';clipboard.writeText=((text:string)=>{copied=text;}) as typeof realCopy;
+  const win=await c.open(name);let receiver:BrowserWindow|undefined;
+  try{
+    await c.check(win,'Markdown task markers are read-only and HTML cannot execute',"document.querySelectorAll('.md-task').length===2&&!document.querySelector('.markdown input')&&!window.MD_BAD");
+    await c.check(win,'Markdown inline and block math render locally',"document.querySelectorAll('.katex').length===2&&!!document.querySelector('.katex-display')");
+    await c.check(win,'Markdown relative Unicode image decodes in memory',"document.querySelector('img[alt=本地图片]')?.naturalWidth===1&&document.querySelector('img[alt=本地图片]').src.startsWith('blob:')");
+    await c.check(win,'Markdown missing and remote images show local errors',"document.querySelectorAll('.md-image-error').length>=3");
+    await c.check(win,'Markdown Mermaid flow and sequence diagrams render in isolated roots',"[...document.querySelectorAll('.md-diagram')].filter(el=>el.shadowRoot?.querySelector('svg')).length===2&&!!document.querySelector('.md-diagram-error')");
+    await c.click(win,'.md-diagram-toggle');await c.check(win,'Markdown diagram source icon expands with an accessible hint',"document.querySelector('.md-diagram-toggle').getAttribute('aria-expanded')==='true'&&!!document.querySelector('.md-diagram-source.md-source-visible')");await c.click(win,'.md-diagram-toggle');
+    await c.click(win,'.md-outline-toggle');await c.check(win,'Markdown outline preserves heading hierarchy and duplicate anchors',"[...document.querySelectorAll('.md-outline button')].filter(b=>b.textContent==='远处章节').length===2");
+    await c.click(win,'.md-outline button','远处章节');await c.check(win,'Markdown outline locates and highlights a distant heading',"document.querySelector('.text-scroll').scrollTop>300&&document.querySelector('.md-outline [aria-current]')?.textContent==='远处章节'");
+    await c.click(win,'.markdown a[data-footnote-ref]');await c.check(win,'Markdown footnote reference locates its definition',"!document.querySelector('[role=alert]')&&document.querySelector('.text-scroll').scrollTop>300");await c.click(win,'.markdown a[data-footnote-backref]');
+    await c.click(win,'.md-copy-code');assert.equal(copied,'const value = "原样复制 <tag>";\n\nconsole.log(value);\n');c.pass('Markdown code copy preserves exact text and line breaks');
+    await c.click(win,'.text-search-toggle');await c.evaluate(win,"(()=>{const i=document.querySelector('.text-search-input');i.value='跨格式搜索';i.dispatchEvent(new Event('input',{bubbles:true}))})()");
+    await c.check(win,'Markdown rendered search spans inline markup without source switching',"!!document.querySelector('.markdown')&&document.querySelector('.text-search-count').textContent.includes('1 / 2')&&document.querySelectorAll('mark.md-render-hit').length===4");
+    await c.click(win,'.md-find-next');await c.check(win,'Markdown next/previous matching navigation',"document.querySelector('.text-search-count').textContent.includes('2 / 2')");await c.click(win,'.md-find-previous');
+    await c.click(win,'.search-close');await c.check(win,'Markdown closing search clears highlights and retains markup',"!document.querySelector('mark.md-render-hit')&&document.querySelector('.markdown strong').textContent==='格式'");
+    await c.snapshot(win,'markdown-enhanced-light');
+    await c.evaluate(win,"(()=>{window.MD_REVOKED=[];const revoke=URL.revokeObjectURL;URL.revokeObjectURL=url=>{window.MD_REVOKED.push(url);revoke.call(URL,url)}})()");const blob=await c.evaluate<string>(win,"document.querySelector('img[alt=本地图片]').src");
+    await c.click(win,'.md-source-toggle');await c.check(win,'Markdown source switch preserves original source',`[...document.querySelectorAll('.line-body')].map(n=>n.textContent).join('\\n')===${JSON.stringify(source)}`);assert.ok(await c.evaluate(win,`window.MD_REVOKED.includes(${JSON.stringify(blob)})`),'leaving rendered mode releases image blobs');
+    await c.click(win,'.md-source-toggle');await c.check(win,'Markdown return to reading recreates bounded images and diagrams',"!!document.querySelector('.markdown')&&!!document.querySelector('.md-outline')");
+    await c.evaluate(c.home,"window.localPreview.setSettings({multiFileMode:'tabs',theme:'dark'})");
+    await c.check(win,'Markdown diagrams adapt to a live dark theme change',"[...document.querySelectorAll('.md-diagram')].filter(el=>el.shadowRoot?.querySelector('svg')).length===2");
+    const ids=new Set(BrowserWindow.getAllWindows().map(w=>w.id));await c.click(win,'.markdown a','标签文件');await c.check(win,'Markdown links obey tabs setting in the source window',"document.querySelectorAll('.tab').length===2&&document.querySelector('.tab.active').textContent.includes('text.txt')");assert.equal(BrowserWindow.getAllWindows().filter(w=>!ids.has(w.id)).length,0);
+    await c.click(win,'.tab .tab-name',name);await c.check(win,'Markdown directory state survives a tab switch',"!!document.querySelector('.md-outline')");await c.snapshot(win,'markdown-enhanced-dark');
+    await c.evaluate(c.home,"window.localPreview.setSettings({multiFileMode:'ask'})");dialog.showMessageBox=(async()=>({response:2,checkboxChecked:false})) as typeof realDialog;await c.click(win,'.markdown a','标签文件');await c.check(win,'Markdown ask setting can cancel without opening a file',"document.querySelectorAll('.tab').length===2");
+    dialog.showMessageBox=(async()=>({response:0,checkboxChecked:false})) as typeof realDialog;await c.click(win,'.markdown a','标签文件');await c.check(win,'Markdown ask choice appends a tab and remembers setting',"document.querySelectorAll('.tab').length===3");assert.equal(c.program.settings.get().multiFileMode,'tabs');
+    await c.click(win,'.tab .tab-name',name);const id=await c.evaluate<string>(win,"[...document.querySelectorAll('.preview-tab')].find(el=>el.querySelector('.md-outline-toggle')).dataset.fileId");receiver=await c.open('data.json');
+    await c.evaluate(receiver,`(()=>{const d=new DataTransfer();d.setData('application/x-file-preview-tab',${JSON.stringify(id)});document.querySelector('main').dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}))})()`);
+    await c.check(receiver,'Markdown transfer retains directory mode and local image ownership',"!!document.querySelector('.md-outline')&&document.querySelector('img[alt=本地图片]')?.naturalWidth===1");
+    await c.click(receiver,'.md-source-toggle');await c.check(receiver,'Markdown transferred source switch retains original content',`[...document.querySelectorAll('.line-body')].map(n=>n.textContent).join('\\n')===${JSON.stringify(source)}`);await c.click(receiver,'.md-source-toggle');
+    await c.evaluate(receiver,"document.querySelector('.text-scroll').scrollTop=850");await c.snapshot(receiver,'markdown-enhanced-diagrams-dark');
+    receiver.unmaximize();receiver.setSize(720,700);await c.snapshot(receiver,'markdown-enhanced-narrow');await c.check(receiver,'Markdown narrow window keeps toolbar and outline usable',"[...document.querySelectorAll('.text-tools button')].every(b=>b.getBoundingClientRect().right<=innerWidth)&&document.querySelector('.text-scroll').clientWidth>300");
+    assert.deepEqual(readFileSync(file),before);c.pass('Markdown enhancement source remains unchanged');
+  }finally{clipboard.writeText=realCopy;dialog.showMessageBox=realDialog;if(receiver&&!receiver.isDestroyed())c.close(receiver);c.close(win);await c.evaluate(c.home,`window.localPreview.setSettings(${JSON.stringify({multiFileMode:settings.multiFileMode,theme:settings.theme})})`);}
+};
+export default suite;

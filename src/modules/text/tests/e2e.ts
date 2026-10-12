@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {writeFileSync} from 'node:fs';
 import type { Suite } from "../../../../tests/context";
 import markdownLinks from './markdownLinks';
+import markdownReading from './markdownReading';
 const suite: Suite = async (c) => {
   const source='const item = "quoted 42"; // return 7\nspan class <node> &lt;';
   writeFileSync(c.fixture('audit-highlight.js'),source);
@@ -96,8 +97,9 @@ const suite: Suite = async (c) => {
     "text wheel does not zoom",
     "document.querySelector('.zoom-control input').value==='100'",
   );
-  await c.click(md,'.text-search-toggle');await c.check(md,'Markdown query switches to source lines with usable line control',"!document.querySelector('.text-lines-toggle').disabled&&!!document.querySelector('.line-no')");await c.click(md,'.search-close');await c.check(md,'closing Markdown query restores layout and line-control state',"!!document.querySelector('.markdown h1')&&document.querySelector('.text-lines-toggle').disabled");
+  await c.click(md,'.text-search-toggle');await c.check(md,'Markdown query keeps rendered reading and line-control state',"document.querySelector('.text-lines-toggle').disabled&&!!document.querySelector('.markdown h1')");await c.click(md,'.search-close');await c.click(md,'.md-source-toggle');await c.check(md,'Markdown source view has usable line numbers',"!document.querySelector('.text-lines-toggle').disabled&&!!document.querySelector('.line-no')");await c.click(md,'.md-source-toggle');await c.check(md,'Markdown rendered view restores line-control state',"!!document.querySelector('.markdown h1')&&document.querySelector('.text-lines-toggle').disabled");
   c.close(md);
   await markdownLinks(c);
+  await markdownReading(c);
 };
 export default suite;

@@ -26,6 +26,7 @@ const paths:Record<string,string>={
   undo:'M5 2 2 5l3 3M2 5h6a4 4 0 0 1 0 8',
   redo:'M11 2l3 3-3 3M14 5H8a4 4 0 0 0 0 8',
   copy:'M6 5h8v9H6V5ZM10 5V2H2v9h4',
+  code:'m5 4-4 4 4 4M11 4l4 4-4 4M9 2 7 14',
   paste:'M6 3H3v11h10V3h-3M6 2h4v3H6V2M6 8h4M6 11h4',
   clear:'m2 9 6-6 6 6-5 5H7L2 9ZM5 6l6 6M9 14h5',
   left:'M2 3h12M2 6h8M2 9h12M2 12h8',

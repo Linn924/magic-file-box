@@ -1,5 +1,4 @@
 import { computed, onMounted, ref, watch } from "vue";
-import {renderMarkdown} from './markdown';
 import type { PreviewFile } from "../../types";
 import type { PreviewProps, PreviewEmit } from "../types";
 export function usePreview(props: PreviewProps, emit: PreviewEmit) {
@@ -44,8 +43,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       return true;
     }
   });
-  const html=computed(()=>props.file.ext==='md'?renderMarkdown(raw.value):'');
   onMounted(() => emit("ready"));
 
-  return { pane, encoding, raw, pretty, invalidJson, html };
+  return { pane, encoding, raw, pretty, invalidJson };
 }

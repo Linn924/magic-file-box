@@ -20,7 +20,7 @@ import {
 } from "electron";
 import path from "node:path";
 import { SettingsStore } from "./settings";
-import { preparePreviewFile, loadPreparedFile, fileArguments, preparedFileCount,rememberPdfPassword } from "./files";
+import { preparePreviewFile, loadPreparedFile, fileArguments, preparedFileCount,rememberPdfPassword,ownsPreparedFile,discardUnownedFiles } from "./files";
 import { createLocalSession, protectWindow, trusted } from "./security";
 import {
   extensions,
@@ -253,7 +253,14 @@ export const ready = owner
       Menu.setApplicationMenu(null);
       setupTransfers();
       setupModifiedFiles();setupExcelCopy();
-      setupMarkdownLinks(async(target,anchor)=>{await openPaths([target],'windows',anchor?{zoom:100,scroll:[],markdownAnchor:anchor}:undefined);});
+      setupMarkdownLinks(async(target,anchor,sender,id)=>{
+        let mode=settings.get().multiFileMode;
+        if(mode==='ask'){const result=await dialog.showMessageBox(BrowserWindow.fromWebContents(sender)!,{type:'question',title:'打开链接文件',message:'在哪里打开此文件？',buttons:['当前窗口，新增标签','新窗口','取消'],defaultId:0,cancelId:2});if(result.response===2)return;mode=result.response===0?'tabs':'windows';updateSettings({multiFileMode:mode});}
+        if(sender.isDestroyed()||!ownsPreparedFile(sender.id,id))return;
+        const view=anchor?{zoom:100,scroll:[],markdownAnchor:anchor}:undefined;
+        if(mode==='windows'){await openPaths([target],'windows',view);return;}
+        const file=await preparePreviewFile(target);if(sender.isDestroyed()||!ownsPreparedFile(sender.id,id)){discardUnownedFiles([file]);return;}if(view)file.view=view;registerFiles(sender.id,[file]);if(!sender.isDestroyed())sender.send('preview:incoming',file);
+      });
       setupFullscreen();
       local = await createLocalSession(path.resolve(__dirname, "../dist"));
       setupPrinting(local);

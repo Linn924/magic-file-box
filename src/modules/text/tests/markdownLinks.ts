@@ -9,6 +9,7 @@ const suite:Suite=async c=>{
   const sourcePath=c.fixture('md-links.md'),target='md-link-target 中文.md',targetPath=c.fixture(target);
   const source='# 起点\n\n[网页](https://example.com/docs) [本页](#末尾) [文件](md-link-target%20%E4%B8%AD%E6%96%87.md#目标) [文本](text.txt) [缺失](missing-md-link.txt) [危险](javascript:alert(1))\n\n'+('普通段落\n\n'.repeat(100))+'# 末尾\n';
   if(!readFileSyncSafe(sourcePath))writeFileSync(sourcePath,source);if(!readFileSyncSafe(targetPath))writeFileSync(targetPath,'# 开始\n\n'+('目标前的段落\n\n'.repeat(100))+'# 目标\n\n链接目标内容');
+  const previous=c.program.settings.get().multiFileMode;await c.evaluate(c.home,"window.localPreview.setSettings({multiFileMode:'windows'})");
   const before=readFileSync(sourcePath),real=shell.openExternal;let external='';shell.openExternal=(async url=>{external=url;}) as typeof real;
   const win=await c.open('md-links.md'),opened:BrowserWindow[]=[];
   try{
@@ -21,7 +22,7 @@ const suite:Suite=async c=>{
     await c.click(win,'.markdown a','缺失');await c.check(win,'missing local link reports an error without replacing source',"document.querySelector('[role=alert]')?.textContent.includes('不存在')&&document.querySelector('.markdown h1').textContent==='起点'");
     await c.click(win,'.markdown a','危险');await c.check(win,'unsafe link scheme cannot launch a program',"document.querySelector('[role=alert]')?.textContent.includes('协议')");assert.equal(external,'https://example.com/docs');assert.deepEqual(readFileSync(sourcePath),before);
     await c.snapshot(win,'markdown-link-errors');c.pass('Markdown relative Unicode file links, cross-document anchors, source protection and protocol rejection');
-  }finally{shell.openExternal=real;for(const w of opened)if(!w.isDestroyed())c.close(w);c.close(win);}
+  }finally{shell.openExternal=real;for(const w of opened)if(!w.isDestroyed())c.close(w);c.close(win);await c.evaluate(c.home,`window.localPreview.setSettings({multiFileMode:${JSON.stringify(previous)}})`);}
 };
 function readFileSyncSafe(p:string){try{return readFileSync(p);}catch{return undefined;}}
 export default suite;

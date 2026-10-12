@@ -3,6 +3,9 @@ import type { DesktopBridge, Settings } from "../shared/contracts";
 
 const bridge: DesktopBridge = {
   followMarkdownLink:(id,href)=>ipcRenderer.invoke('markdown:follow',id,href),
+  markdownImage:(id,href)=>ipcRenderer.invoke('markdown:image',id,href),
+  markdownCopy:(id,text)=>ipcRenderer.invoke('markdown:copy',id,text),
+  onPreviewIncoming:handler=>{const listener=(_event:Electron.IpcRendererEvent,file:import('../shared/contracts').PreviewFile)=>handler(file);ipcRenderer.on('preview:incoming',listener);return ()=>ipcRenderer.removeListener('preview:incoming',listener);},
   markModified:(id,dirty)=>ipcRenderer.invoke('preview:modified',id,dirty),
   confirmDiscard:(id,force)=>ipcRenderer.invoke('preview:confirm-discard',id,force),
   saveExcelCopy:(id,format,data)=>ipcRenderer.invoke('excel:save-copy',id,format,data),

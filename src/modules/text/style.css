@@ -226,3 +226,13 @@ html[data-theme="dark"] .text-hit {
 .text .preview-content {
   color-scheme: inherit;
 }
+.text-body{display:flex;flex:1;min-height:0;overflow:hidden}.text-body>.text-scroll{min-width:0}
+.md-outline{flex:0 0 210px;max-width:30%;overflow:auto;border-right:1px solid var(--line);padding:8px 4px;background:var(--well)}
+.md-outline button{display:block;width:100%;border:0;border-radius:4px;background:transparent;color:var(--text);text-align:left;padding:7px 8px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer}.md-outline button:hover,.md-outline button:focus-visible{background:var(--panel);color:var(--accent)}.md-outline-empty{font-size:12px;color:var(--muted);padding:8px}
+.markdown pre{position:relative;padding-top:36px}.md-copy-code{position:absolute;right:7px;top:6px;display:grid;place-items:center;width:26px;height:26px;border:1px solid var(--line);border-radius:4px;color:var(--muted);background:var(--panel);cursor:pointer}.md-copy-code:hover{color:var(--accent)}.md-copy-code svg{width:16px;height:16px}
+.md-task{user-select:none;color:var(--accent)}.md-image-error,.md-diagram-error{display:block;color:var(--muted);font-size:12px;padding:8px;border:1px dashed var(--line);overflow-wrap:anywhere}.md-diagram-source:not(.md-source-visible){display:none}.md-diagram{padding:12px 0}.md-diagram-toggle{font-size:12px;color:var(--muted);background:var(--well);border:1px solid var(--line);border-radius:4px;padding:4px 8px;cursor:pointer}
+.md-render-hit{color:inherit;background:#fde68a;border-radius:2px}.md-current-hit{outline:2px solid var(--accent)}html[data-theme="dark"] .md-render-hit{background:#854d0e;color:#fff}
+.markdown .katex-display{overflow:auto;padding:8px 0}.markdown .katex{font-size:1.1em}.markdown .footnotes{border-top:1px solid var(--line);margin-top:24px;font-size:.9em}.markdown img[hidden]{display:none}
+.md-outline button[aria-current]{background:var(--panel);color:var(--accent);font-weight:600}
+.markdown .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.md-diagram-toggle{display:grid;place-items:center;width:28px;height:28px;margin:6px 0 0 auto;padding:4px}.md-diagram-toggle svg{width:16px;height:16px}.md-diagram-toggle[aria-expanded="true"]{color:var(--accent)}

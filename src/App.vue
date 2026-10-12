@@ -247,6 +247,7 @@ onMounted(async () => {
     applyTheme();
   });
   cleanups.push(window.localPreview.onRemove(id=>{void closeTab(id,true);}));
+  cleanups.push(window.localPreview.onPreviewIncoming(file=>{if(!files.value.some(f=>f.id===file.id))files.value=[...files.value,file];active.value=file.id;tabAlignMode='center';void alignActiveTab('center');}));
   cleanups.push(
     window.localPreview.onPreviewPrintFile((file) => {
       if (!files.value.some((f) => f.id === file.id))

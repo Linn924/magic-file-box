@@ -8,20 +8,25 @@ import {renderTextLine,textMatches} from './highlight';
 import {LineHeights} from './lineHeights';
 import ToolButton from '../../components/ToolButton.vue';
 import PreviewPanel from '../../components/PreviewPanel.vue';
+import MarkdownView from './MarkdownView.vue';
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];
   error: [message: string];
   "update:zoom": [value: number];
 }>();
-const { pane, encoding, raw, pretty, invalidJson, html } = usePreview(
+const { pane, encoding, raw, pretty, invalidJson } = usePreview(
   props,
   emit,
 );
 const linkError=ref('');
-function jumpAnchor(fragment:string,decoded=false){const article=pane.value?.querySelector<HTMLElement>('.markdown');if(!article)return false;let anchor:string;try{anchor=decoded?fragment:decodeURIComponent(fragment.replace(/^#/,''));}catch{linkError.value='链接位置编码无效。';return false;}if(!anchor){textScroll.value?.scrollTo({top:0});return true;}const target=Array.from(article.querySelectorAll<HTMLElement>('[data-md-anchor],[id]')).find(n=>n.dataset.mdAnchor===anchor||n.dataset.mdOriginal===anchor||n.id===anchor);if(!target){linkError.value='找不到文档中的链接位置。';return false;}target.scrollIntoView({block:'start'});return true;}
-async function followLink(event:MouseEvent){const link=(event.target as Element)?.closest<HTMLAnchorElement>('a');if(!link)return;event.preventDefault();const href=link.getAttribute('data-md-href')??link.getAttribute('href');if(!href)return;linkError.value='';if(href.startsWith('#')){jumpAnchor(href);return;}try{await window.localPreview.followMarkdownLink(props.file.id,href);}catch(e){linkError.value=String(e).replace(/^Error:.*?Error: /,'');}}
-onMounted(()=>{const anchor=props.file.view?.markdownAnchor;if(props.file.ext==='md'&&anchor){delete props.file.view!.markdownAnchor;requestAnimationFrame(()=>requestAnimationFrame(()=>jumpAnchor(anchor,true)));}});
+const mdReader=ref<InstanceType<typeof MarkdownView>>();
+const sourceMode=ref(props.file.view?.markdown?.source??false),showOutline=ref(props.file.view?.markdown?.outline??false);
+const headings=ref<Array<{anchor:string;text:string;level:number}>>([]),renderedHits=ref({count:0,index:-1}),activeHeading=ref('');
+watch([sourceMode,showOutline],()=>{props.file.view??={zoom:props.zoom,scroll:[]};props.file.view.markdown={source:sourceMode.value,outline:showOutline.value};},{flush:'sync'});
+let sourceTop=0,readingTop=0;
+async function toggleSource(){if(textScroll.value){if(sourceMode.value)sourceTop=textScroll.value.scrollTop;else readingTop=textScroll.value.scrollTop;}sourceMode.value=!sourceMode.value;await nextTick();if(textScroll.value)textScroll.value.scrollTop=sourceMode.value?sourceTop:readingTop;}
+function jumpHeading(anchor:string){linkError.value='';mdReader.value?.jumpAnchor(anchor,true);}
 const query = ref("");
 const showLines = ref(true);
 const showSearch = ref(false);
@@ -109,13 +114,14 @@ const hitCount = computed(() => {
 const isCode = computed(() => textModule.extensions.includes(props.file.ext));
 function markSearch(line:string) {return renderTextLine(line,isCode.value?props.file.ext:'',query.value);}
 const showHtml = computed(
-  () => props.file.ext === "md" && !showSearch.value,
+  () => props.file.ext === "md" && !sourceMode.value,
 );
 </script>
 <template>
   <section ref="pane" class="text">
     <Teleport :to="`[data-file-id='${props.file.id}'] .module-tools`" defer>
       <span class="text-tools filebar-inline" data-text-tools>
+        <span v-if="file.ext==='md'" class="preview-tool-group" data-text-group="reading"><ToolButton class="md-outline-toggle" icon="navigation" title="显示 / 隐藏标题目录" :pressed="showOutline" :disabled="sourceMode" @click="showOutline=!showOutline" /><ToolButton class="md-source-toggle" :icon="sourceMode?'preview':'code'" :title="sourceMode?'查看 Markdown 排版':'查看 Markdown 源码'" :pressed="sourceMode" @click="toggleSource" /></span>
         <span class="preview-tool-group" data-text-group="query"><ToolButton class="text-search-toggle" icon="search" :pressed="showSearch" :aria-expanded="showSearch" aria-haspopup="dialog" :title="showSearch?'收起查找窗口':'查找文本内容（Ctrl+F）'" @click="showSearch=!showSearch" /><ToolButton class="text-lines-toggle" icon="lines" :pressed="!showHtml&&showLines" :disabled="showHtml" :title="showHtml?'Markdown 排版预览不显示行号':'显示 / 隐藏行号'" @click="showLines=!showLines" /></span>
         <label class="tool-field" title="文本编码"
           >
@@ -137,27 +143,24 @@ const showHtml = computed(
           class="text-search-input"
           aria-label="搜索文本"
           placeholder="搜索"
+          @keydown.enter.prevent="showHtml&&mdReader?.findNext($event.shiftKey?-1:1)"
         />
         <ToolButton icon="clear" title="清除搜索" :disabled="!query" @click="query=''" /></div>
-        <div class="query-results"><span class="text-search-count" aria-live="polite">{{query.trim()?hitCount+' 行匹配':'输入内容开始查找'}}</span></div>
+        <div class="query-results"><span class="text-search-count" aria-live="polite">{{query.trim()?(showHtml?(renderedHits.count?(renderedHits.index+1)+' / '+renderedHits.count+' 处匹配':'0 处匹配'):hitCount+' 行匹配'):'输入内容开始查找'}}</span><template v-if="showHtml"><ToolButton class="md-find-previous" icon="up" title="上一处匹配（Shift+Enter）" :disabled="!renderedHits.count" @click="mdReader?.findNext(-1)"/><ToolButton class="md-find-next" icon="down" title="下一处匹配（Enter）" :disabled="!renderedHits.count" @click="mdReader?.findNext(1)"/></template></div>
       </div>
     </PreviewPanel>
     <div v-if="invalidJson" class="notice">
       JSON 格式不完整，按原始文本显示。
     </div>
     <p v-if="linkError" class="notice" role="alert">{{linkError}}</p>
+    <div class="text-body">
+    <nav v-if="showHtml&&showOutline" class="md-outline" aria-label="标题目录"><p v-if="!headings.length" class="md-outline-empty">文档没有标题</p><button v-for="heading in headings" :key="heading.anchor" type="button" :title="heading.text" :aria-current="activeHeading===heading.anchor?'location':undefined" :style="{paddingLeft:10+(heading.level-1)*12+'px'}" @click="jumpHeading(heading.anchor)">{{heading.text}}</button></nav>
     <div
       ref="textScroll"
       class="text-scroll"
       @scroll.passive="updateVirtual"
     >
-      <article
-        v-if="showHtml"
-        class="markdown preview-content"
-        :style="{ fontSize: (15 * zoom) / 100 + 'px' }"
-        @click="followLink"
-        v-html="html"
-      ></article>
+      <MarkdownView v-if="showHtml" ref="mdReader" :file="file" :raw="raw" :query="query" :zoom="zoom" @headings="headings=$event" @active="activeHeading=$event" @hits="renderedHits=$event" @error="linkError=$event" />
       <div
         v-else
         class="text-code preview-content"
@@ -190,6 +193,7 @@ const showHtml = computed(
           aria-hidden="true"
         ></div>
       </div>
+    </div>
     </div>
     <footer class="pane-footer text-footer"><span>{{raw.length.toLocaleString()}} 字 · {{lines.length.toLocaleString()}} 行</span></footer>
   </section>

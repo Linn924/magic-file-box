@@ -22,6 +22,7 @@ export interface PreviewFile {
     image?: {rotate:0|90|180|270;originalPixels:boolean};
     excelDraft?: import("./excelEditing").ExcelDraft;
     markdownAnchor?:string;
+    markdown?:{source:boolean;outline:boolean};
     excel?: {
       sheet: string;
       columns: number;
@@ -131,6 +132,9 @@ export interface DesktopBridge {
   setPdfPassword(id:string,password:string):Promise<void>;
   openExternal(url: string): Promise<void>;
   followMarkdownLink(id:string,href:string):Promise<void>;
+  markdownImage(id:string,href:string):Promise<{data:Uint8Array;mime:string}>;
+  markdownCopy(id:string,text:string):Promise<void>;
+  onPreviewIncoming(handler:(file:PreviewFile)=>void):()=>void;
   openPrintPanel(files:PreviewFile[]):Promise<void>;
   printPanelFiles():Promise<PreviewFile[]>;
   onPrintIncoming(handler:()=>void):()=>void;
