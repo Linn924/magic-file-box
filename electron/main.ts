@@ -79,7 +79,7 @@ function showWindows() {
   }
   windows.at(-1)?.focus();
 }
-function hideToTray() {
+function hideToTray(win:BrowserWindow) {
   if (!tray) {
     tray = new Tray(nativeImage.createFromPath(icon));
     tray.setToolTip("File Preview");
@@ -98,7 +98,7 @@ function hideToTray() {
     tray.on("double-click", showWindows);
     tray.on("click", showWindows);
   }
-  for (const win of BrowserWindow.getAllWindows()) win.hide();
+  if(!win.isDestroyed())win.hide();
 }
 async function requestClose(win: BrowserWindow) {
   if (closePrompt) return;
@@ -117,6 +117,7 @@ async function requestClose(win: BrowserWindow) {
         checkboxLabel: "记住我的选择，以后可在设置中修改",
         checkboxChecked: true,
       });
+      if(win.isDestroyed())return;
       if (result.response === 2) return;
       action = result.response === 0 ? "quit" : "tray";
       if (result.checkboxChecked) updateSettings({ closeAction: action });
@@ -124,7 +125,7 @@ async function requestClose(win: BrowserWindow) {
     if (action === "quit") {
       quitting = true;
       app.quit();
-    } else hideToTray();
+    } else hideToTray(win);
   } finally {
     closePrompt = false;
   }

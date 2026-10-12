@@ -191,7 +191,17 @@ const suite: Suite = async (c) => {
   await c.evaluate(fitTarget, `(()=>{const d=new DataTransfer();d.setData('application/x-file-preview-tab',${JSON.stringify(fitId)});document.querySelector('main').dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}))})()`);
   await c.check(fitTarget, 'transfer retains page fit mode', `document.querySelector('[data-file-id="${fitId}"] [aria-label=页面适配]')?.value==='width'`);
   c.close(fitTarget);
+  const retained=await c.open('text.txt'),retainedOther=await c.open('data.json');
   c.program.updateSettings({ closeAction: "ask" });
+  dialog.showMessageBox=(async()=>{prompts++;return {response:2,checkboxChecked:false};}) as typeof dialog.showMessageBox;
+  c.home.close();await c.pause(150);
+  if(!c.home.isVisible()||!retained.isVisible()||!retainedOther.isVisible()||c.program.settings.get().closeAction!=='ask')throw Error('Canceling home close must preserve all windows and the unconfigured setting');
+  c.pass('unconfigured home close cancel preserves previews');
+  dialog.showMessageBox=(async()=>{prompts++;return {response:1,checkboxChecked:false};}) as typeof dialog.showMessageBox;
+  c.home.close();await c.pause(150);
+  if(c.home.isVisible()||!retained.isVisible()||!retainedOther.isVisible()||retained.isDestroyed()||retainedOther.isDestroyed()||c.program.settings.get().closeAction!=='ask')throw Error('Home-only tray hide must preserve preview visibility without saving an unchecked choice');
+  await c.check(retained,'preview remains usable after hiding an unconfigured home',"document.querySelector('.line-body')?.textContent.length>0");
+  c.home.showInactive();
   dialog.showMessageBox = (async () => {
     prompts++;
     return { response: 1, checkboxChecked: true };
@@ -205,8 +215,11 @@ const suite: Suite = async (c) => {
   c.home.close();
   await c.pause(200);
   if (prompts !== promptCount) throw Error("Repeated close prompt");
+  if(!retained.isVisible()||!retainedOther.isVisible()||retained.isDestroyed()||retainedOther.isDestroyed())throw Error('Remembered tray choice must hide only home');
   c.home.showInactive();
   c.pass("close-to-tray remembered without exiting");
+  c.pass('remembered home close retains both preview windows');
+  c.close(retained);c.close(retainedOther);
   dialog.showMessageBox = real;
   await c.check(
     c.home,

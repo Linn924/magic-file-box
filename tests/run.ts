@@ -80,4 +80,5 @@ if (selected.includes("core") || selected.includes("all")) {
     target: "node22",
   });
   run(electron as unknown as string, [".test-build/quit.cjs"]);
+  run(electron as unknown as string, [".test-build/quit.cjs","--configured-quit"]);
 }
