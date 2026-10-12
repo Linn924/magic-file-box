@@ -1,0 +1,10 @@
+import assert from 'node:assert/strict';
+import {validateFormat,borderFor} from '../formatModel';
+import {beginFileEdit,waitForFileEdits} from '../../../composables/pendingEdits';
+const range={s:{r:1,c:1},e:{r:3,c:3}},border={preset:'outer' as const,style:'thin',color:'FF0000'};
+assert.deepEqual(Object.keys(borderFor(range,{r:1,c:1},border)),['left','top']);assert.deepEqual(borderFor(range,{r:2,c:2},border),{});
+assert.deepEqual(borderFor(range,{r:2,c:2},{...border,preset:'left'}),{});assert.deepEqual(Object.keys(borderFor(range,{r:2,c:1},{...border,preset:'left'})),['left']);
+assert.equal(Object.keys(borderFor(range,{r:2,c:2},{...border,preset:'inner'})).length,4);
+for(const patch of [{font:{size:0}},{font:{size:Infinity}},{font:{name:''}},{font:{color:'oops'}},{alignment:{indent:16}},{alignment:{textRotation:91}},{numFmt:'\u0000'}])assert.throws(()=>validateFormat(patch));validateFormat({font:{size:16,bold:true},fill:'00FF00',numFmt:'0.00%',alignment:{wrapText:true}});
+console.log('PASS Excel format validation and border edge selection');
+const file={},endA=beginFileEdit(file),endB=beginFileEdit(file);let exported=false;const ready=waitForFileEdits(file).then(()=>{exported=true;});endA();await Promise.resolve();assert.equal(exported,false);endB();await ready;assert.equal(exported,true);endB();await waitForFileEdits(file);console.log('PASS pending file edits settle before transfer snapshot');

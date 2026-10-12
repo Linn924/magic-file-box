@@ -7,6 +7,8 @@ import ExcelToolButton from '../../components/ToolButton.vue';
 import ExcelIcon from '../../components/ToolbarIcon.vue';
 import FormulaPicker from './FormulaPicker.vue';
 import XlsSaveReview from './XlsSaveReview.vue';
+import FormatPanel from './FormatPanel.vue';
+import {regionTargets} from './selection';
 import { ref,computed,watch,nextTick,onBeforeUnmount } from "vue";
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
@@ -15,7 +17,7 @@ const emit = defineEmits<{
   "update:zoom": [value: number];
 }>();
 const {
-  warning,editor,
+  warning,editor,cellStyle,
   pane,
   scroll,
   onScroll,
@@ -49,6 +51,8 @@ let restoreSaveFocus=false;
 function answerCopy(accept:boolean){restoreSaveFocus=true;editor.confirmCopy(accept);}
 watch(editor.saving,value=>{if(!value&&restoreSaveFocus){restoreSaveFocus=false;void nextTick(()=>pane.value?.querySelector<HTMLButtonElement>('.excel-save-copy')?.focus({preventScroll:true}));}});
 const grid=useGridInteraction(props.file,editor,rowCount,colCount,address=>locateCell(address,true),scroll,onScroll,()=>book.value?.Sheets[sheetName.value]?.['!merges']||[]);
+const formatStyles=()=>regionTargets(grid.range.value,book.value?.Sheets[sheetName.value]?.['!merges']||[]).map(address=>cellStyle(address));
+const applyStyle=(patch:import('./formatModel').FormatPatch)=>editor.applyFormat(grid.range.value,editor.selection.value.mode,patch);
 const actionMenu=ref<'insert'|'delete'|'more'|null>(null);
 const alignment=computed(()=>rows.value.flatMap(row=>row.cells).find(cell=>cell.address===editor.address.value)?.style.textAlign||'left');
 function toggleActions(menu:'insert'|'delete'|'more'){if(!grid.commit()||!editor.finishCell())return;grid.closeAll();actionMenu.value=actionMenu.value===menu?null:menu;void nextTick(()=>pane.value?.querySelector<HTMLButtonElement>('.excel-actions-menu button')?.focus({preventScroll:true}));}
@@ -93,7 +97,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
       <span class="excel-command-group" data-group="save"><ExcelToolButton class="excel-save-copy" icon="save" title="另存副本（源文件不变）" :disabled="editor.saving.value" @click="editor.save()" /><select v-model="editor.format.value" aria-label="副本格式" title="副本格式；CSV/TSV 只保存当前工作表" :disabled="editor.saving.value"><option v-if="props.file.ext==='xls'" value="xls">XLS</option><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="tsv">TSV</option></select></span>
       <span class="excel-command-group" data-group="history"><ExcelToolButton class="excel-undo" icon="undo" title="撤销（表格内 Ctrl+Z）" :disabled="editor.saving.value||(!editor.pending.value&&!editor.undoStack.value.length)" @click="editor.undo()" /><ExcelToolButton class="excel-redo" icon="redo" title="重做（表格内 Ctrl+Y）" :disabled="editor.saving.value||editor.pending.value||!editor.redoStack.value.length" @click="editor.redo()" /></span>
       <span class="excel-command-group" data-group="clipboard"><ExcelToolButton icon="copy" title="复制选区（Ctrl+C）" :disabled="editor.saving.value" @click="copyCell" /><ExcelToolButton icon="paste" title="粘贴到选中单元格（Ctrl+V）" :disabled="editor.saving.value" @click="grid.paste()" /><ExcelToolButton icon="clear" title="清空选区（Delete）" :disabled="editor.saving.value" @click="grid.clear()" /></span>
-      <span class="excel-command-group" data-group="alignment"><ExcelToolButton v-for="option in [{value:'left',label:'内容居左'},{value:'center',label:'内容居中'},{value:'right',label:'内容居右'}] as const" :key="option.value" :icon="option.value" :title="option.label" :pressed="alignment===option.value" :disabled="editor.saving.value" @click="grid.align(option.value)" /></span>
+      <span class="excel-command-group" data-group="format"><FormatPanel :disabled="editor.saving.value" :prepare="()=>grid.commit()&&editor.finishCell()" :styles="formatStyles" :apply="applyStyle" :message="editor.error.value" /></span><span class="excel-command-group" data-group="alignment"><ExcelToolButton v-for="option in [{value:'left',label:'内容居左'},{value:'center',label:'内容居中'},{value:'right',label:'内容居右'}] as const" :key="option.value" :icon="option.value" :title="option.label" :pressed="alignment===option.value" :disabled="editor.saving.value" @click="grid.align(option.value)" /></span>
       <span class="excel-command-group" data-group="structure">
         <span class="excel-actions"><ExcelToolButton class="excel-insert-toggle" icon="insert" title="插入行或列" aria-haspopup="menu" :aria-expanded="actionMenu==='insert'" :disabled="editor.saving.value" @click="toggleActions('insert')" /><div v-if="actionMenu==='insert'" class="excel-actions-menu" role="menu" aria-label="插入行列" @keydown="menuKey"><button role="menuitem" @click="actionStructure('row','insert','before')"><ExcelIcon name="above" />上方插入行</button><button role="menuitem" @click="actionStructure('row','insert','after')"><ExcelIcon name="below" />下方插入行</button><button role="menuitem" @click="actionStructure('column','insert','before')"><ExcelIcon name="before" />左侧插入列</button><button role="menuitem" @click="actionStructure('column','insert','after')"><ExcelIcon name="after" />右侧插入列</button><hr /><button role="menuitem" class="excel-custom-insert" @click="customInsert"><ExcelIcon name="custom" />自定义插入…</button></div></span>
         <span class="excel-actions"><ExcelToolButton class="excel-delete-toggle" icon="delete" title="删除行或列" aria-haspopup="menu" :aria-expanded="actionMenu==='delete'" :disabled="editor.saving.value" @click="toggleActions('delete')" /><div v-if="actionMenu==='delete'" class="excel-actions-menu" role="menu" aria-label="删除行列" @keydown="menuKey"><button role="menuitem" @click="actionStructure('row','delete','before')"><ExcelIcon name="row" />删除当前行</button><button role="menuitem" @click="actionStructure('column','delete','before')"><ExcelIcon name="column" />删除当前列</button></div></span>
@@ -192,14 +196,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
                 :title="cell.title"
               >
                 <textarea v-if="grid.inline.value&&editor.address.value===cell.address" :ref="(el:any)=>{grid.inlineInput.value=el;}" v-model="editor.input.value" class="excel-inline-input" aria-label="单元格内编辑" :disabled="editor.saving.value" @click.stop @dblclick.stop @keydown.stop="grid.inlineKey" @blur="grid.inlineBlur"></textarea>
-                <template v-else-if="cell.rich"
-                  ><span
-                    v-for="(run, i) in cell.rich"
-                    :key="i"
-                    :style="fontStyle(run.font)"
-                    >{{ run.text }}</span
-                  ></template
-                ><template v-else>{{ cell.text }}</template>
+                <span v-else class="excel-text-box" :class="{'excel-text-rotated':!!cell.rotation}" :data-angle="cell.rotation" :style="cell.rotation?{height:cell.rotationHeight+'px'}:undefined"><span :style="cell.rotation?{display:'inline-block',transform:'rotate('+(-cell.rotation)+'deg)',whiteSpace:'pre'}:undefined"><template v-if="cell.rich"><span v-for="(run,i) in cell.rich" :key="i" :style="fontStyle(run.font)">{{run.text}}</span></template><template v-else>{{cell.text}}</template></span></span>
               </td>
             </tr>
             </template>

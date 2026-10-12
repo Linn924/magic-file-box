@@ -37,7 +37,8 @@ export async function exportXlsCopy(book:XLSX.WorkBook,changes:ExcelChange[]){
         output.push(rec);if(!result.error&&typeof result.value==='string'&&result.value!==''){if(result.value.length>4000)throw Error('XLS 公式结果文本过长，请保存 XLSX。');output.push({id:0x0207,data:join([word(result.value.length),new Uint8Array([1]),unicode(result.value)])});}continue;
       }
     }
-    if(rec.id===0x0200){for(const [r,row] of (book.Sheets[name]['!rows']||[]).entries())if(row){const data=new Uint8Array(16),v=new DataView(data.buffer);v.setUint16(0,r,true);v.setUint16(6,Math.round((row.hpt??((row.hpx??24)*.75))*20),true);v.setUint32(12,0x40|(row.hidden?0x20:0),true);output.push({id:0x0208,data});}}
+    if(rec.id===0x007d&&rec.data.length>=8){const v=new DataView(rec.data.buffer),c=v.getUint16(0,true),style=book.Sheets[name]['!cols']?.[c]?.s;if(style)v.setUint16(6,writer.style(16,style),true);}
+    if(rec.id===0x0200){for(const [r,row] of (book.Sheets[name]['!rows']||[]).entries())if(row){const data=new Uint8Array(16),v=new DataView(data.buffer);v.setUint16(0,r,true);v.setUint16(6,Math.round((row.hpt??((row.hpx??24)*.75))*20),true);const style=row.s?writer.style(16,row.s):undefined;v.setUint32(12,0x40|(row.hidden?0x20:0)|(style!==undefined?0x80|(style<<16):0),true);output.push({id:0x0208,data});}}
     output.push(rec);
   }return join(output.map(rec=>record(rec.id,rec.data)));});
   const supbook=join([word(book.SheetNames.length),word(0x0401)]),extern=join([word(book.SheetNames.length),...book.SheetNames.map((_,i)=>join([word(0),word(i),word(i)]))]);

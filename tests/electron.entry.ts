@@ -13,6 +13,7 @@ import zoom from "./suites/zoom";
 import word from "../src/modules/word/tests/e2e";
 import exceledit from '../src/modules/excel/tests/editing';
 import excelgrid from '../src/modules/excel/tests/selectionEditing';
+import excelformat from '../src/modules/excel/tests/formatEditing';
 import excel from "../src/modules/excel/tests/e2e";
 import ppt from "../src/modules/ppt/tests/e2e";
 import pdf from "../src/modules/pdf/tests/e2e";
@@ -51,6 +52,7 @@ const suites: Record<string, Suite> = {
   excel,
   exceledit,
   excelgrid,
+  excelformat,
   ppt,
   pdf,
   text,
@@ -64,7 +66,7 @@ const suites: Record<string, Suite> = {
 const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
 const selected =
   requested === "all"
-    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid")
+    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid" && n !== "excelformat")
     : requested.split(",");
 const output = path.resolve("outputs/verification");
 const fixtureRoot = path.resolve("work/fixtures");

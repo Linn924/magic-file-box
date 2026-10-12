@@ -1,9 +1,15 @@
 import {parseFormula} from './formula';
 import type {ExcelValue,ExcelChange} from '../../../shared/excelEditing';
 export function parseExcelInput(input:string):ExcelValue {
+  validateExcelText(input);
+  return parsedInput(input);
+}
+export function validateExcelText(input:string){
   if(input.length>32767)throw Error('单元格最多 32767 个字符。');
-  if(input==='')return {kind:'blank'};
   if(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/.test(input))throw Error('单元格包含无法保存的控制字符。');
+}
+function parsedInput(input:string):ExcelValue {
+  if(input==='')return {kind:'blank'};
   if(input.startsWith("'"))return {kind:'text',value:input.slice(1)};
   if(input.startsWith('=')){
     const formula=input.slice(1).trim();

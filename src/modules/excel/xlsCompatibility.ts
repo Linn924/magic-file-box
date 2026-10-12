@@ -43,8 +43,6 @@ export function inspectBiffCompatibility(bytes:Uint8Array):XlsWarning[]{
       if(rec.id===0x31&&rec.data.length>=8&&![400,700].includes(v(rec.data).getUint16(6,true)))add('font-weight','特殊字体字重','普通和粗体保留，其他字重将按普通或粗体近似还原。','','approximate');
       if(rec.id===0x31&&rec.data.length>=11&&![0,1,2,33,34].includes(rec.data[10]))add('underline','特殊下划线','此下划线类型无法保留。');
       if(rec.id===0xe0&&rec.data.length===20){const b=v(rec.data).getUint32(10,true),c=v(rec.data).getUint32(14,true);if([b&15,(b>>4)&15,(b>>8)&15,(b>>12)&15,(c>>21)&15].some(id=>id>13))add('border-style','不支持的边框样式','此边框样式无法保留。','');if(c>>>26>=19)add('fill-pattern','不支持的填充图案','此填充图案无法保留。','');if(rec.data[6]&128)add('last-line','分散对齐的末行设置','末行分散对齐设置无法保留。');}
-      if(rec.id===0x7d&&rec.data.length>=8&&![0,15].includes(v(rec.data).getUint16(6,true)))add('column-style','整列默认样式','已有单元格样式保留，整列对新单元格的默认样式无法保留。',sheet);
-      if(rec.id===0x208&&rec.data.length>=16&&v(rec.data).getUint32(12,true)&0x80)add('row-style','整行默认样式','已有单元格样式保留，整行对新单元格的默认样式无法保留。',sheet);
     }
     try{if(richStrings(list))add('rich-text','单元格内多种文字样式','文本保留，但同一格内不同字符的字体、颜色等格式会合并为单元格样式。');}catch{add('rich-text-check','富文本检查未完成','字符串记录超出当前检查能力，无法确认字符级格式是否完整。','','unknown');}
   }catch{add('unrecognized','无法完整识别的 XLS 内容','仅能提取基础数据，无法确认此文件的样式和对象是否完整保留。','','unknown');}

@@ -2,6 +2,7 @@
 import { onMounted, onBeforeUnmount, provide, ref, shallowRef, nextTick } from "vue";
 import { useImmersive } from "./composables/useImmersive";
 import {useTabStrip} from './composables/useTabStrip';
+import {waitForFileEdits} from './composables/pendingEdits';
 import ToolbarIcon from './components/ToolbarIcon.vue';
 import PreviewTab from "./components/PreviewTab.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
@@ -256,9 +257,11 @@ onMounted(async () => {
     }),
   );
   cleanups.push(
-    window.localPreview.onExport((id) => {
+    window.localPreview.onExport(async (id) => {
       const file = files.value.find((f) => f.id === id);
       if (!file) return;
+      await waitForFileEdits(file);
+      if(!files.value.includes(file))return;
       const tab = document.querySelector(`[data-file-id="${id}"]`);
       const zoom =
         Number(

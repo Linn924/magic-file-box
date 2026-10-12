@@ -275,6 +275,7 @@
 .spreadsheet td.excel-range-cell{box-shadow:inset 0 0 0 999px #0f6cbd20}
 .spreadsheet:has(.excel-selected-cell){user-select:none}.spreadsheet .excel-inline-input{user-select:text}
 .excel-selection-summary{padding:2px 8px;font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+.excel-text-box{display:block}.excel-text-rotated{display:flex;align-items:center;justify-content:center;overflow:hidden;width:100%}
 .excel-changed-cell{box-shadow:inset 3px 0 #16803c}
 .spreadsheet td:has(.excel-inline-input){position:relative;overflow:visible!important;padding:0!important}
 .excel-inline-input{display:block;box-sizing:border-box;width:100%;min-width:40px;min-height:24px;height:100%;margin:0;resize:none;border:2px solid var(--accent);border-radius:0;padding:2px;background:#fff;color:#20262e;font:inherit;line-height:inherit;outline:none;white-space:pre-wrap}
