@@ -67,7 +67,7 @@ async function decorate(){
   const anchor=props.file.view?.markdownAnchor;if(anchor){delete props.file.view!.markdownAnchor;await loading;if(valid())jumpAnchor(anchor,true);}
 }
 watch(()=>props.raw,()=>{html.value=renderMarkdown(props.raw);void decorate();});
-watch(()=>props.query,()=>{void nextTick().then(search);});
+watch(()=>props.query,()=>{void nextTick().then(()=>search());});
 onMounted(()=>{void decorate();scrollRoot=article.value?.closest('.text-scroll')||null;scrollRoot?.addEventListener('scroll',updateActive,{passive:true});for(const type of ['wheel','pointerdown','keydown','touchstart'])scrollRoot?.addEventListener(type,userMoved,{passive:true});themeObserver=new MutationObserver(()=>{const theme=document.documentElement.dataset.theme;if(theme===lastTheme)return;lastTheme=theme;const root=article.value,token=revision;if(root)void diagrams(root,()=>!disposed&&revision===token).then(()=>{if(!disposed){search(false);updateActive();}});});themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});});
 onBeforeUnmount(()=>{disposed=true;revision++;diagramRevision++;release();scrollRoot?.removeEventListener('scroll',updateActive);for(const type of ['wheel','pointerdown','keydown','touchstart'])scrollRoot?.removeEventListener(type,userMoved);themeObserver?.disconnect();cancelAnimationFrame(activeFrame);for(const timer of timers)clearTimeout(timer);});
 defineExpose({jumpAnchor,findNext});

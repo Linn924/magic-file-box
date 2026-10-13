@@ -245,7 +245,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
       <button role="menuitem" data-action="edit" title="编辑单元格（F2）" @click="grid.select(editor.address.value,true)"><ExcelIcon name="edit" />编辑单元格 <small>F2</small></button>
       <button role="menuitem" data-action="cut" title="剪切（Ctrl+X）" @click="grid.copy(true)"><ExcelIcon name="cut" />剪切 <small>Ctrl+X</small></button>
       <button role="menuitem" data-action="copy" title="复制（Ctrl+C）" @click="grid.copy()"><ExcelIcon name="copy" />复制 <small>Ctrl+C</small></button>
-      <button role="menuitem" data-action="paste" title="粘贴（Ctrl+V）" @click="grid.paste"><ExcelIcon name="paste" />粘贴 <small>Ctrl+V</small></button>
+      <button role="menuitem" data-action="paste" title="粘贴（Ctrl+V）" @click="grid.paste()"><ExcelIcon name="paste" />粘贴 <small>Ctrl+V</small></button>
       <button role="menuitem" data-action="clear" title="清空内容（Delete）" @click="grid.clear"><ExcelIcon name="clear" />清空内容 <small>Delete</small></button>
       <button role="menuitem" data-action="paste-options" title="选择性粘贴" class="excel-grid-command" @click="advanced?.openPaste($event);grid.closeAll()"><ExcelIcon name="paste" />选择性粘贴…</button>
       <button role="menuitem" data-action="layout" title="行高、列宽与隐藏行列" @click="advanced?.openLayout()"><ExcelIcon name="layout" />行列布局…</button>
