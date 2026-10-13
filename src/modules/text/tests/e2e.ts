@@ -3,6 +3,7 @@ import {writeFileSync} from 'node:fs';
 import type { Suite } from "../../../../tests/context";
 import markdownLinks from './markdownLinks';
 import markdownReading from './markdownReading';
+import markdownOptimization from './markdownOptimization';
 const suite: Suite = async (c) => {
   const source='const item = "quoted 42"; // return 7\nspan class <node> &lt;';
   writeFileSync(c.fixture('audit-highlight.js'),source);
@@ -101,5 +102,6 @@ const suite: Suite = async (c) => {
   c.close(md);
   await markdownLinks(c);
   await markdownReading(c);
+  await markdownOptimization(c);
 };
 export default suite;

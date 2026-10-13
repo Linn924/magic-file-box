@@ -15,8 +15,8 @@ function applyValue(sheet:XLSX.WorkSheet,address:string,value:ExcelValue){
   if(value.kind==='formula')sheet[address].f=value.value;
   const cell=XLSX.utils.decode_cell(address),range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):{s:cell,e:cell};range.s.r=Math.min(range.s.r,cell.r);range.s.c=Math.min(range.s.c,cell.c);range.e.r=Math.max(range.e.r,cell.r);range.e.c=Math.max(range.e.c,cell.c);sheet['!ref']=XLSX.utils.encode_range(range);
 }
-export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelChange[],format:ExcelCopyFormat,currentSheet:string){
-  if(!changes.length&&format===ext)return bytes.slice();
+export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelChange[],format:ExcelCopyFormat,currentSheet:string,refresh=false){
+  if(!changes.length&&format===ext&&!refresh)return bytes.slice();
   const workbook=readBasicWorkbook(bytes,ext);
   for(const change of changes){const sheet=workbook.Sheets[change.sheet];if(!sheet)throw Error('工作表已不存在。');if(!change.alignmentOnly)applyValue(sheet,change.address,change.value);else if(change.alignment){sheet[change.address]??={t:"z"};const position=XLSX.utils.decode_cell(change.address),range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):{s:position,e:position};range.s.r=Math.min(range.s.r,position.r);range.s.c=Math.min(range.s.c,position.c);range.e.r=Math.max(range.e.r,position.r);range.e.c=Math.max(range.e.c,position.c);sheet['!ref']=XLSX.utils.encode_range(range);}}
   if(format==='xls'){
@@ -78,7 +78,7 @@ export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelC
       changed=true;
     }
     // Dependencies may have changed; never leave a stale numeric formula cache.
-    if(changes.some(change=>!change.alignmentOnly)||ext!=='xlsx')for(const cell of elements(sheetDoc,'c'))if(elements(cell,'f').length){
+    if(refresh||changes.some(change=>!change.alignmentOnly)||ext!=='xlsx')for(const cell of elements(sheetDoc,'c'))if(elements(cell,'f').length){
       for(const cache of elements(cell,'v'))cache.remove();cell.removeAttribute('t');const result=calculator.result(name,cell.getAttribute('r')!);
       if(result.error){if(['#NULL!','#REF!','#DIV/0!','#N/A','#VALUE!','#NAME?','#NUM!'].includes(result.error)){cell.setAttribute('t','e');const v=sheetDoc.createElementNS(MAIN,'v');v.textContent=result.error;cell.append(v);}}
       else {const v=sheetDoc.createElementNS(MAIN,'v');if(typeof result.value==='string')cell.setAttribute('t','str');else if(typeof result.value==='boolean')cell.setAttribute('t','b');v.textContent=typeof result.value==='boolean'?String(Number(result.value)):String(result.value??0);cell.append(v);}changed=true;

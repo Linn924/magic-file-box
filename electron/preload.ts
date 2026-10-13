@@ -10,6 +10,7 @@ const bridge: DesktopBridge = {
   confirmDiscard:(id,force)=>ipcRenderer.invoke('preview:confirm-discard',id,force),
   saveExcelCopy:(id,format,data)=>ipcRenderer.invoke('excel:save-copy',id,format,data),
   excelClipboard:(id,operation,text)=>ipcRenderer.invoke('excel:clipboard',id,operation,text),
+  excelRegionClipboard:(id,operation,payload)=>ipcRenderer.invoke('excel:region-clipboard',id,operation,payload),
   exportPdfNotes:(id,name,data)=>ipcRenderer.invoke('pdf:export-notes',id,name,data),
   pdfResources:()=>ipcRenderer.invoke('pdf:resources'),
   releasePdfResources:()=>ipcRenderer.send('pdf:resources-release'),

@@ -11,6 +11,10 @@ import {singleton,regionTargets} from './selection';
 import {formatWorkbook} from './formatWorkbook';
 import type {FormatPatch} from './formatModel';
 import {beginFileEdit} from '../../composables/pendingEdits';
+import {layoutWorkbook,mergeWorkbook,type LayoutChange} from './layoutWorkbook';
+import {captureRegion,pasteRegion as pasteWorkbook} from './regionWorkbook';
+import type {ExcelRegionClipboard,ExcelPasteMode} from '../../../shared/excelEditing';
+import {contains} from './selection';
 export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,sheetName:Ref<string>,install:(bytes:Uint8Array,ext:string,widths?:Record<string,number>)=>Promise<void>,getWidths:()=>Record<string,number>,getNumFmt:(sheet:string,address:string)=>string|undefined=()=>undefined){
   const restored=file.view?.excelDraft;
   const editing=ref(restored?.editing??false),changes=ref<ExcelChange[]>(restored?.changes??[]),undoStack=ref<ExcelTransaction[]>(restored?.undo??[]),redoStack=ref<ExcelTransaction[]>(restored?.redo??[]);
@@ -23,6 +27,10 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
   const canEdit=computed(()=>!!book.value&&['xlsx','xls','csv','tsv'].includes(file.ext));
   const calculator=computed(()=>book.value?createFormulaCalculator(book.value,changes.value):undefined);
   const saveWarnings=ref<XlsWarning[]|undefined>();let resolveSave:((accept:boolean)=>void)|undefined;
+  const confirmation=ref<{kind:'merge'|'overwrite';cells:Array<{address:string;text:string}>;count:number;selected:string}|undefined>();let resolveRange:((answer:string|false)=>void)|undefined;
+  function answerRange(answer:string|false){confirmation.value=undefined;resolveRange?.(answer);resolveRange=undefined;}
+  onBeforeUnmount(()=>answerRange(false));
+  function confirmRange(kind:'merge'|'overwrite',cells:Array<{address:string;text:string}>){confirmation.value={kind,cells:cells.slice(0,200),count:cells.length,selected:cells[0]?.address||address.value};return new Promise<string|false>(resolve=>{resolveRange=resolve;});}
   function confirmCopy(accept:boolean){saveWarnings.value=undefined;resolveSave?.(accept);resolveSave=undefined;}
   onBeforeUnmount(()=>confirmCopy(false));
   function reviewCopy(warnings:XlsWarning[]){if(!warnings.length)return Promise.resolve(true);saveWarnings.value=warnings;return new Promise<boolean>(resolve=>{resolveSave=resolve;});}
@@ -84,7 +92,7 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
     if(!editing.value||saving.value||!finishCell())return false;const end=beginFileEdit(file);busyEdit.value=true;saving.value=true;error.value='';status.value='';
     try{const before:ExcelGridState={bytes:baseBytes.value,changes:[...changes.value],revisions:{...revisions.value},address:address.value,widths:{...getWidths()},formatted:[...formatted.value],selection:JSON.parse(JSON.stringify(selection.value))};
       const bytes=await exportExcelCopy(baseBytes.value??file.bytes,baseBytes.value?'xlsx':file.ext,changes.value,'xlsx',sheetName.value);
-      const result=await changeStructure(bytes,{...op,sheet:sheetName.value});if(result.bytes.length>100*1024*1024)throw Error('调整后工作簿超过 100 MB。');
+      const result=await changeStructure(bytes,{...op,sheet:sheetName.value});result.bytes=await exportExcelCopy(result.bytes,'xlsx',[],'xlsx',sheetName.value,true);if(result.bytes.length>100*1024*1024)throw Error('调整后工作簿超过 100 MB。');
       if((before.bytes?.length??0)+result.bytes.length>64*1024*1024)throw Error('此文件超出结构撤销的 64 MB 预算，请在表格软件中调整行列。');
       const versions={...revisions.value};for(const change of changes.value)versions[change.sheet]=++serial;for(const name of result.affected)versions[name]=++serial;
       const position=XLSX.utils.decode_cell(address.value),axis=op.axis==='row'?'r':'c';position[axis]=moveIndex(position[axis],{...op,sheet:sheetName.value})??op.index;
@@ -117,7 +125,30 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
     }catch(e){error.value=(e as Error).message;return false;}finally{busyEdit.value=false;saving.value=false;persist();end();}
   }
   function initialize(){ready=true;if(selection.value.sheet!==sheetName.value)selection.value=singleton(sheetName.value,address.value);if(!selectedSheet.value||!book.value?.Sheets[selectedSheet.value]){selectedSheet.value=sheetName.value;refreshInput();}persist();}
+  function occupied(range:XLSX.Range,exclude?:XLSX.Range){regionTargets(range,[]);const cells:Array<{address:string;text:string}>=[];for(const cellAddress of regionTargets(range,[])){if(exclude&&contains(exclude,cellAddress))continue;const value=valueAt(sheetName.value,cellAddress);if(value.kind!=='blank')cells.push({address:cellAddress,text:excelInput(value).slice(0,120)});}return cells;}
+  async function mutateGrid(run:(bytes:Uint8Array)=>Promise<{bytes:Uint8Array;affected:string[]}|undefined>,range?:XLSX.Range,clearColumns?:LayoutChange,formatTouched=true){
+    if(!editing.value||saving.value||!finishCell())return false;const end=beginFileEdit(file);busyEdit.value=true;saving.value=true;error.value='';status.value='';
+    try{const before:ExcelGridState={bytes:baseBytes.value,changes:[...changes.value],revisions:{...revisions.value},address:address.value,widths:{...getWidths()},formatted:[...formatted.value],selection:JSON.parse(JSON.stringify(selection.value))};const source=await exportExcelCopy(before.bytes??file.bytes,before.bytes?'xlsx':file.ext,changes.value,'xlsx',sheetName.value);const result=await run(source);if(!result){status.value='已取消，草稿保留';return false;}
+      result.bytes=await exportExcelCopy(result.bytes,'xlsx',[],'xlsx',sheetName.value,true);
+      if(result.bytes.length>100*1024*1024||(before.bytes?.length??0)+result.bytes.length>64*1024*1024)throw Error('编辑快照超过 64 MB 撤销预算，请另存后重新打开。');const versions={...revisions.value};for(const change of changes.value)versions[change.sheet]=++serial;for(const name of result.affected)versions[name]=++serial;
+      const widths={...before.widths};if(clearColumns?.axis==='column'&&(clearColumns.size!==undefined||clearColumns.sizes))for(const key of Object.keys(widths)){const c=Number(key.slice(key.lastIndexOf(':')+1));if(key.startsWith(sheetName.value+':')&&c>=clearColumns.start&&c<=clearColumns.end)delete widths[key];}
+      const after:ExcelGridState={...before,bytes:result.bytes,changes:[],revisions:versions,widths,formatted:[...new Set([...formatted.value,...(formatTouched?result.affected:[]),...changes.value.filter(c=>c.alignment).map(c=>c.sheet)])]};if(range){after.address=XLSX.utils.encode_cell(range.s);after.selection={sheet:sheetName.value,anchor:{...range.s},focus:{...range.e},mode:'cells'};}
+      await restoreGrid(after);undoStack.value.push({before:[],after:[],grid:{before,after}});redoStack.value=[];trimHistory();status.value='已完成，可撤销';return true;
+    }catch(e){error.value=(e as Error).message;return false;}finally{busyEdit.value=false;saving.value=false;persist();end();}
+  }
+  function layout(op:LayoutChange){if(file.ext==='xls'&&!op.unhideAll&&op.end>=(op.axis==='row'?65536:256)){error.value='XLS 行列范围不能超过 IV65536。';return Promise.resolve(false);}return mutateGrid(bytes=>layoutWorkbook(bytes,sheetName.value,op),undefined,op);}
+  async function merge(range:XLSX.Range,unmerge=false,center=false){return mutateGrid(async bytes=>{let keep=XLSX.utils.encode_cell(range.s);if(!unmerge){const values=occupied(range);if(values.length>1){const answer=await confirmRange('merge',values);if(answer===false)return;keep=answer;}else if(values.length)keep=values[0].address;}
+    const result=await mergeWorkbook(bytes,sheetName.value,range,keep,unmerge);if(center&&!unmerge)result.bytes=await formatWorkbook(result.bytes,sheetName.value,range,'cells',{alignment:{horizontal:'center'}},file.ext==='xls'?4000:64000);return result;},range);}
+  async function capture(range:XLSX.Range,text='',cut=false){if(!editing.value||saving.value||!finishCell())return;const end=beginFileEdit(file);saving.value=true;error.value='';status.value='';try{const bytes=await exportExcelCopy(baseBytes.value??file.bytes,baseBytes.value?'xlsx':file.ext,changes.value,'xlsx',sheetName.value);return await captureRegion(bytes,file.id,sheetName.value,range,text,signature(),cut,a=>calculator.value!.result(sheetName.value,a));}catch(e){error.value=(e as Error).message;}finally{saving.value=false;end();}}
+  async function copyRegion(range:XLSX.Range,text:string,cut=false){const data=await capture(range,text,cut);if(!data)return false;try{await window.localPreview.excelRegionClipboard(file.id,'copy',data);status.value=cut?'已剪切选区，粘贴成功后才移动':'已复制选区（内容、公式和格式）';return true;}catch(e){error.value=(e as Error).message;return false;}}
+  async function pasteRich(clip:ExcelRegionClipboard,range:XLSX.Range,mode:ExcelPasteMode='all',series?:'row'|'column'){
+    if(clip.cut&&(clip.file!==file.id||clip.signature!==signature())){error.value='剪切来源已改变或不在同一工作簿，请重新剪切。';return false;}
+    const maxRows=file.ext==='xls'?65536:Math.max(50000,(book.value?.Sheets[sheetName.value]?.['!ref']?XLSX.utils.decode_range(book.value.Sheets[sheetName.value]['!ref']!).e.r:0)+1),maxCols=file.ext==='xls'?256:16384;
+    const result=await mutateGrid(async bytes=>{if(mode!=='formats'){const values=occupied(range,clip.file===file.id&&clip.sheet===sheetName.value?clip.range:undefined);if(values.length&&await confirmRange('overwrite',values)===false)return;}return pasteWorkbook(bytes,sheetName.value,range,clip,mode,maxRows,maxCols,series);},range,undefined,mode==='all'||mode==='formats');
+    if(result&&clip.cut)await window.localPreview.excelRegionClipboard(file.id,'clear');return result;
+  }
+  async function fill(source:XLSX.Range,target:XLSX.Range,direction:'row'|'column',series=false){const clip=await capture(source);if(!clip)return false;return pasteRich(clip,target,'all',series?direction:undefined);}
   function bulk(range:XLSX.Range,operation:'clear'|ExcelAlignment){if(!editing.value||saving.value||!finishCell())return false;try{const targets=regionTargets(range,book.value?.Sheets[sheetName.value]?.['!merges']||[]),updates:ExcelChange[]=[];for(const cellAddress of targets){guardTarget(sheetName.value,cellAddress);const value=operation==='clear'?{kind:'blank' as const}:valueAt(sheetName.value,cellAddress);if(operation==='clear'&&valueAt(sheetName.value,cellAddress).kind==='blank')continue;updates.push({sheet:sheetName.value,address:cellAddress,value,alignment:operation==='clear'?alignmentMap.value.get(changeKey(sheetName.value,cellAddress)):operation});}if(updates.length)setValues(updates);error.value='';refreshInput();return true;}catch(e){error.value=(e as Error).message;return false;}}
   function extent(sheet:string){let rows=0,cols=0;for(const change of changes.value)if(change.sheet===sheet){const cell=XLSX.utils.decode_cell(change.address);rows=Math.max(rows,cell.r+1);cols=Math.max(cols,cell.c+1);}return {rows,cols};}
-  return {selection,bulk,applyFormat,editing,changes,calculator,saveWarnings,confirmCopy,baseBytes,revisions,dirty,pending,selectedSheet,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,alignmentMap,align,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent,structure};
+  return {numFmt:getNumFmt,confirmation,answerRange,layout,merge,capture,copyRegion,pasteRich,fill,selection,bulk,applyFormat,editing,changes,calculator,saveWarnings,confirmCopy,baseBytes,revisions,dirty,pending,selectedSheet,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,alignmentMap,align,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent,structure};
 }

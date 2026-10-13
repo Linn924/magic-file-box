@@ -6,7 +6,7 @@ declare module 'xlsx' {interface RowInfo {s?:any} interface ColInfo {s?:any}}
 import {xlsRecords,word,unicode,join,type BiffRecord} from './biff';
 export const borders=['','thin','medium','dashed','dotted','thick','double','hair','mediumDashed','dashDot','mediumDashDot','dashDotDot','mediumDashDotDot','slantDashDot'];
 export const patterns=['none','solid','mediumGray','darkGray','lightGray','darkHorizontal','darkVertical','darkDown','darkUp','darkGrid','darkTrellis','lightHorizontal','lightVertical','lightDown','lightUp','lightGrid','lightTrellis','gray125','gray0625'];
-const paletteHex=('000000 FFFFFF FF0000 00FF00 0000FF FFFF00 FF00FF 00FFFF '+
+export const paletteHex=('000000 FFFFFF FF0000 00FF00 0000FF FFFF00 FF00FF 00FFFF '+
  '000000 FFFFFF FF0000 00FF00 0000FF FFFF00 FF00FF 00FFFF 800000 008000 000080 808000 800080 008080 C0C0C0 808080 9999FF 993366 FFFFCC CCFFFF 660066 FF8080 0066CC CCCCFF 000080 FF00FF FFFF00 00FFFF 800080 800000 008080 0000FF 00CCFF CCFFFF CCFFCC FFFF99 99CCFF FF99CC CC99FF FFCC99 3366FF 33CCCC 99CC00 FFCC00 FF9900 FF6600 666699 969696 003366 339966 003300 333300 993300 993366 333399 333333').split(' ');
 const view=(data:Uint8Array)=>new DataView(data.buffer,data.byteOffset,data.byteLength);
 const hex=(bytes:Uint8Array)=>Array.from(bytes,v=>v.toString(16).padStart(2,'0')).join('').toUpperCase();

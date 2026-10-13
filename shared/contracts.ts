@@ -124,6 +124,7 @@ export interface DesktopBridge {
   confirmDiscard(id:string,force?:boolean):Promise<boolean>;
   saveExcelCopy(id:string,format:import('./excelEditing').ExcelCopyFormat,data:Uint8Array):Promise<'saved'|'cancelled'>;
   excelClipboard(id:string,operation:'copy'|'paste',text?:string):Promise<string>;
+  excelRegionClipboard(id:string,operation:'copy'|'paste'|'clear',payload?:import('./excelEditing').ExcelRegionClipboard):Promise<import('./excelEditing').ExcelRegionClipboard|undefined>;
   exportPdfNotes(id:string,name:string,data:Uint8Array):Promise<'saved'|'cancelled'>;
   pdfResources(): Promise<{pixels:number;bytes:number;documents:number}>;
   releasePdfResources(): void;

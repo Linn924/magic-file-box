@@ -30,16 +30,18 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   const measuredRows=shallowRef<Map<number,number>>(new Map());
   function logicalStyle(name:string,address:string){const input=book.value?.Sheets[name],p=XLSX.utils.decode_cell(address);return styled?.getWorksheet(name)?.getCell(address).style||input?.[address]?.s||{...input?.['!cols']?.[p.c]?.s,...input?.['!rows']?.[p.r]?.s};}
   const rowPage = ref(0);
+  const dragRows=ref<Record<number,number>>({});
   const colPage = ref(0);
   const pageRows = 200,
     pageCols = 100;
   let initialized = false;
   function resizeColumn(event: PointerEvent, c: number) {
+    if(editor.saving.value)return;
     event.preventDefault();
     event.stopPropagation();
     const element = event.currentTarget as HTMLElement,
       start = event.clientX,
-      width = colWidth(c);
+      width = colWidth(c),before={...widths.value};
     element.setPointerCapture(event.pointerId);
     const move = (e: PointerEvent) => {
       widths.value = {
@@ -50,15 +52,17 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
         ),
       };
     };
-    const up = () => {
+    const up = (e:PointerEvent) => {
       element.removeEventListener("pointermove", move);
       element.removeEventListener("pointerup", up);
       element.removeEventListener("pointercancel", up);
+      if(e.type==='pointercancel'){widths.value=before;return;}if(editor.editing.value){const final=colWidth(c);widths.value=before;void editor.layout({axis:'column',start:c,end:c,size:Math.max(1,Math.min(255,(final-5)/7))});}
     };
     element.addEventListener("pointermove", move);
     element.addEventListener("pointerup", up);
     element.addEventListener("pointercancel", up);
   }
+  function resizeRow(event:PointerEvent,r:number){if(!editor.editing.value||editor.saving.value)return;event.preventDefault();event.stopPropagation();const element=event.currentTarget as HTMLElement,start=event.clientY,height=rowHeight(r);element.setPointerCapture(event.pointerId);const move=(e:PointerEvent)=>{dragRows.value={[r]:Math.max(4,Math.min(409*4/3,height+(e.clientY-start)/(props.zoom/100)))};};const finish=(e:PointerEvent)=>{const size=(dragRows.value[r]??height)*.75;dragRows.value={};element.removeEventListener('pointermove',move);element.removeEventListener('pointerup',finish);element.removeEventListener('pointercancel',finish);if(e.type!=='pointercancel')void editor.layout({axis:'row',start:r,end:r,size});};element.addEventListener('pointermove',move);element.addEventListener('pointerup',finish);element.addEventListener('pointercancel',finish);}
   const sheet = computed(() => book.value?.Sheets[sheetName.value]);
   const styledSheet = computed(() => {book.value;return styled?.getWorksheet(sheetName.value);});
   const range = computed(() =>
@@ -211,7 +215,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     const fallback = sheet.value?.["!rows"]?.[r];
     return row?.hidden || fallback?.hidden
       ? 0
-      : Math.max(((row?.height || fallback?.hpt || 18) * 4) / 3,measuredRows.value.get(r)||0);
+      : dragRows.value[r]??(row?.height!==undefined||fallback?.hpt!==undefined?((row?.height??fallback?.hpt??18)*4)/3:Math.max(24,measuredRows.value.get(r)||0));
   }
   function colWidth(c: number) {
     const col = styledSheet.value?.getColumn(c + 1);
@@ -219,8 +223,20 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     return col?.hidden || fallback?.hidden
       ? 0
       : widths.value[sheetName.value + ":" + c] ||
-          fallback?.wpx ||
+          (col?.width!==undefined?col.width*7+5:undefined) || fallback?.wpx ||
           (col?.width || fallback?.wch || 12) * 7 + 5;
+  }
+  async function autoSize(axis:'row'|'column',start:number,end:number){
+    if(!editor.finishCell())return false;try{if(!Number.isInteger(start)||!Number.isInteger(end)||start<0||end<start||end-start>19999)throw Error('自动适应范围无效。');const canvas=document.createElement('canvas'),context=canvas.getContext('2d')!;const worksheet=sheet.value;if(!worksheet)return false;const keys=new Set([...Object.keys(worksheet).filter(k=>!k.startsWith('!')),...editor.changes.value.filter(c=>c.sheet===sheetName.value).map(c=>c.address)]),sizes:Record<number,number>={};for(let i=start;i<=end;i++)sizes[i]=axis==='row'?18:6;let count=0;
+      for(const address of keys){const p=XLSX.utils.decode_cell(address),index=axis==='row'?p.r:p.c;if(index<start||index>end)continue;if(++count>20000)throw Error('自动适应一次最多测量 20000 格。');if((worksheet['!merges']||[]).some(m=>p.r>=m.s.r&&p.r<=m.e.r&&p.c>=m.s.c&&p.c<=m.e.c&&(axis==='row'?m.e.r>m.s.r:m.e.c>m.s.c)))continue;
+        const value=editor.valueAt(sheetName.value,address),style=logicalStyle(sheetName.value,address),font=style.font||{},points=font.size||11;context.font=`${font.italic?'italic ':''}${font.bold?'bold ':''}${points*4/3}px "${String(font.name||'Calibri').replace(/["\\]/g,'')}", "Microsoft YaHei", sans-serif`;
+        const calculated=value.kind==='formula'?editor.calculator.value?.result(sheetName.value,address):undefined,content=value.kind==='blank'?'':value.kind==='formula'?String(calculated?.error||calculated?.value||''):value.kind==='number'?(()=>{try{return XLSX.SSF.format(style.numFmt||worksheet[address]?.z||'General',value.value);}catch{return String(value.value);}})():value.value;
+        const lines=String(content).split(/\r?\n/),width=Math.max(0,...lines.map(t=>context.measureText(t).width)),angle=Math.abs(Number(style.alignment?.textRotation)||0)*Math.PI/180,available=Math.max(8,colWidth(p.c)-8-(style.alignment?.indent||0)*8),lineCount=style.alignment?.wrapText?lines.reduce((n,t)=>n+Math.max(1,Math.ceil(context.measureText(t).width/available)),0):lines.length;
+        const pixels=axis==='column'?Math.abs(Math.cos(angle))*width+Math.abs(Math.sin(angle))*points*4/3+10:Math.abs(Math.sin(angle))*width+Math.abs(Math.cos(angle))*points*4/3*1.3*lineCount+8;
+        sizes[index]=Math.max(sizes[index],Math.min(axis==='row'?409:255,axis==='row'?Math.ceil(pixels*.75):Math.ceil((pixels-5)/7)));
+      }
+      return await editor.layout({axis,start,end,sizes});
+    }catch(e){editor.error.value=(e as Error).message;return false;}
   }
   const columns = computed(() =>
     Array.from(
@@ -390,7 +406,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
             patch?(patch.kind==='blank'?'':patch.kind==='number'?editedNumber(patch.value,sourceRow,sourceCol):String(patch.value)):value?XLSX.utils.format_cell(value):'';
           return [
             {
-              c,address:cellAddress,
+              c,address:cellAddress,clipHeight:styledSheet.value?.getRow(r+1).height!==undefined||sheet.value?.['!rows']?.[r]?.hpt!==undefined||dragRows.value[r]!==undefined?Math.max(0,Array.from({length:merge?.rows||1},(_,i)=>rowHeight(r+i)).reduce((n,h)=>n+h,0)-8):undefined,
               modified:!!patch||editor.alignmentMap.value.has(JSON.stringify([sheetName.value,cellAddress])),
               rotation:Number(logicalStyle(sheetName.value,cellAddress)?.alignment?.textRotation)||0,rotationHeight:rotatedHeights.value.get(cellAddress)??(()=>{const style=logicalStyle(sheetName.value,cellAddress),angle=Math.abs(Number(style.alignment?.textRotation)||0)*Math.PI/180,pixels=(style.font?.size||11)*4/3,width=Array.from(text as string).reduce<number>((n,c: any)=>n+(String(c).codePointAt(0)!>255?1:.55)*pixels,0);return Math.ceil(Math.sin(angle)*width+Math.cos(angle)*pixels*1.3)+4;})(),text,title:formula?'='+formula+'\n'+(calculated?.error==='#UNSUPPORTED!'?'暂不支持此公式；未使用旧缓存结果':calculated?.error==='#LIMIT!'?'计算超出范围限制':calculated?.error==='#CYCLE!'?'循环引用':text):text,
               style: styleAt(sourceRow, sourceCol),
@@ -534,7 +550,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     padTop,firstBodyRow,
     padBottom,
     virtualStart,
-    resizeColumn,
+    resizeColumn,resizeRow,autoSize,
     XLSX,
   };
 }

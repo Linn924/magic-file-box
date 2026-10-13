@@ -13,7 +13,7 @@ const suite:Suite=async c=>{
     await c.check(win,'Markdown task markers are read-only and HTML cannot execute',"document.querySelectorAll('.md-task').length===2&&!document.querySelector('.markdown input')&&!window.MD_BAD");
     await c.check(win,'Markdown inline and block math render locally',"document.querySelectorAll('.katex').length===2&&!!document.querySelector('.katex-display')");
     await c.check(win,'Markdown relative Unicode image decodes in memory',"document.querySelector('img[alt=本地图片]')?.naturalWidth===1&&document.querySelector('img[alt=本地图片]').src.startsWith('blob:')");
-    await c.check(win,'Markdown missing and remote images show local errors',"document.querySelectorAll('.md-image-error').length>=3");
+    await c.check(win,'Markdown missing and remote images near reading show local errors',"document.querySelectorAll('.md-image-error').length>=2");
     await c.check(win,'Markdown Mermaid flow and sequence diagrams render in isolated roots',"[...document.querySelectorAll('.md-diagram')].filter(el=>el.shadowRoot?.querySelector('svg')).length===2&&!!document.querySelector('.md-diagram-error')");
     await c.click(win,'.md-diagram-toggle');await c.check(win,'Markdown diagram source icon expands with an accessible hint',"document.querySelector('.md-diagram-toggle').getAttribute('aria-expanded')==='true'&&!!document.querySelector('.md-diagram-source.md-source-visible')");await c.click(win,'.md-diagram-toggle');
     await c.click(win,'.md-outline-toggle');await c.check(win,'Markdown outline preserves heading hierarchy and duplicate anchors',"[...document.querySelectorAll('.md-outline button')].filter(b=>b.textContent==='远处章节').length===2");

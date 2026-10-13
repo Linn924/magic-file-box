@@ -41,6 +41,9 @@ export async function changeStructure(bytes:Uint8Array,op:ExcelStructure){
     for(const cell of all(doc,'c'))for(const f of all(cell,'f')){if(f.hasAttribute('t')&&f.getAttribute('t')!=='normal')throw Error('共享、数组或数据表公式不支持结构编辑。');const formula=f.textContent||'',next=moveFormula(formula,name,op);if(next!==formula){f.textContent=next;affected.add(name);}for(const v of all(cell,'v'))v.remove();}
   }
   const doc=documents.get(op.sheet)!;
+  const inheritIndex=Math.max(0,op.index-1),inheritRow=all(doc,'row').find(row=>Number(row.getAttribute('r'))===inheritIndex+1)?.cloneNode(true) as Element|undefined;
+  const inheritCol=all(doc,'col').find(col=>Number(col.getAttribute('min'))<=inheritIndex+1&&Number(col.getAttribute('max'))>=inheritIndex+1)?.cloneNode(true) as Element|undefined;
+  const inheritCells=new Map(all(doc,'row').map(row=>[Number(row.getAttribute('r')),Array.from(row.children).find(cell=>cell.localName==='c'&&XLSX.utils.decode_cell(cell.getAttribute('r')!).c===inheritIndex)?.getAttribute('s')]));
   for(const tag of ['tableParts','conditionalFormatting','dataValidations','legacyDrawing','extLst','oleObjects','controls','sheetProtection','scenarios','rowBreaks','colBreaks'])if(all(doc,tag).length)throw Error('此工作表含表格对象、条件格式、验证、保护、分页设置或特殊对象，暂不支持行列调整。');
   const dimension=all(doc,'dimension')[0],range=dimension?.getAttribute('ref'),extent=range?XLSX.utils.decode_range(range).e:{r:0,c:0};
   const limit=op.axis==='row'?Math.max(50000,extent.r+1):16384,axis=op.axis==='row'?'r':'c';
@@ -53,6 +56,18 @@ export async function changeStructure(bytes:Uint8Array,op:ExcelStructure){
   for(const merge of all(doc,'mergeCell')){const next=moveRange(merge.getAttribute('ref')!,op);if(!next||!next.includes(':'))merge.remove();else merge.setAttribute('ref',next);}
   for(const merges of all(doc,'mergeCells')){if(merges.children.length)merges.setAttribute('count',String(merges.children.length));else merges.remove();}
   if(op.axis==='column')for(const col of all(doc,'col')){const next=moveRange(XLSX.utils.encode_range({s:{r:0,c:Number(col.getAttribute('min'))-1},e:{r:0,c:Number(col.getAttribute('max'))-1}}),op);if(!next){col.remove();continue;}const range=XLSX.utils.decode_range(next);if(range.s.c>=16384){col.remove();continue;}col.setAttribute('min',String(range.s.c+1));col.setAttribute('max',String(Math.min(16384,range.e.c+1)));}
+  if(op.kind==='insert'){
+    const data=all(doc,'sheetData')[0];let count=0;
+    if(op.axis==='row')for(let r=op.index;r<op.index+op.count;r++){
+      const row=doc.createElementNS(MAIN,'row');if(inheritRow)for(const attr of Array.from(inheritRow.attributes))if(!['r','hidden','spans'].includes(attr.name))row.setAttribute(attr.name,attr.value);row.setAttribute('r',String(r+1));
+      for(const prior of Array.from(inheritRow?.children||[]))if(prior.localName==='c'&&prior.hasAttribute('s')){if(++count>20000)throw Error('插入的样式继承超过 20000 格，请减少数量。');const cell=doc.createElementNS(MAIN,'c'),p=XLSX.utils.decode_cell(prior.getAttribute('r')!);cell.setAttribute('r',XLSX.utils.encode_cell({r,c:p.c}));cell.setAttribute('s',prior.getAttribute('s')!);row.append(cell);}data.insertBefore(row,Array.from(data.children).find(n=>Number(n.getAttribute('r'))>r+1)||null);
+    }
+    else{
+      let cols=all(doc,'cols')[0];if(!cols){cols=doc.createElementNS(MAIN,'cols');doc.documentElement.insertBefore(cols,data);}for(const col of Array.from(cols.children)){const start=Number(col.getAttribute('min')),end=Number(col.getAttribute('max')),lo=op.index+1,hi=op.index+op.count;if(start>hi||end<lo)continue;col.remove();for(const [a,b] of [[start,Math.min(end,lo-1)],[Math.max(start,hi+1),end]])if(a<=b){const copy=col.cloneNode(true) as Element;copy.setAttribute('min',String(a));copy.setAttribute('max',String(b));cols.append(copy);}}
+      const col=inheritCol||doc.createElementNS(MAIN,'col');col.removeAttribute('hidden');col.setAttribute('min',String(op.index+1));col.setAttribute('max',String(op.index+op.count));cols.append(col);const sorted=Array.from(cols.children).sort((a,b)=>Number(a.getAttribute('min'))-Number(b.getAttribute('min')));cols.replaceChildren(...sorted);
+      for(const row of all(doc,'row')){const style=inheritCells.get(Number(row.getAttribute('r')));if(style==null)continue;for(let c=op.index;c<op.index+op.count;c++){if(++count>20000)throw Error('插入的样式继承超过 20000 格，请减少数量。');const cell=doc.createElementNS(MAIN,'c');cell.setAttribute('r',XLSX.utils.encode_cell({r:Number(row.getAttribute('r'))-1,c}));cell.setAttribute('s',style);row.insertBefore(cell,Array.from(row.children).find(n=>XLSX.utils.decode_cell(n.getAttribute('r')!).c>c)||null);}}
+    }
+  }
   for(const tag of ['dimension','autoFilter','sortState','sortCondition','hyperlink'])for(const element of all(doc,tag)){const ref=element.getAttribute('ref');if(ref){const next=moveRange(ref,op);if(next)element.setAttribute('ref',next);else if(tag==='dimension')element.setAttribute('ref','A1');else element.remove();}}
   if(dimension&&op.kind==='insert'){const bounds=XLSX.utils.decode_range(dimension.getAttribute('ref')||'A1');bounds.e[axis]=Math.max(bounds.e[axis],op.index+op.count-1);dimension.setAttribute('ref',XLSX.utils.encode_range(bounds));}
   for(const element of [...all(doc,'pane'),...all(doc,'selection')]){

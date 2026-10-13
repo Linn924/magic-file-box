@@ -1,0 +1,13 @@
+import assert from 'node:assert/strict';
+import {copyFormula,cutFormula} from '../regionFormula';
+import {isoDate,formatSeriesDate} from '../dateSeries';
+const names=['Data','Other','A!B'];
+assert.equal(copyFormula('A1+$A$1+A$1+$A1',2,3,names),'D3+$A$1+D$1+$A3');
+assert.equal(copyFormula("'A!B'!A1",1,1,names),"'A!B'!B2");
+assert.throws(()=>copyFormula('A1',-1,0,names));assert.throws(()=>copyFormula('Unknown(A1)',1,0,names));assert.throws(()=>copyFormula('Missing!A1',1,0,names));
+const range={s:{r:0,c:0},e:{r:1,c:1}};
+assert.equal(cutFormula('A1+$B$2+C1','Data','Data',range,'Other',3,2,true),"C4+$D$5+'Data'!C1");
+assert.equal(cutFormula('Data!A1+Other!C1','Other','Data',range,'Other',3,2,false),"'Other'!C4+Other!C1");
+assert.throws(()=>cutFormula('SUM(A1:C3)','Data','Data',range,'Other',1,1,false));
+console.log('PASS Excel region copy/cut reference rules, quoted sheets and atomic refusal');
+const leap=isoDate('2024-02-28')!;assert.equal(formatSeriesDate(leap.day+1,leap.separator),'2024-02-29');assert.equal(formatSeriesDate(leap.day+2,leap.separator),'2024-03-01');assert.equal(isoDate('2023-02-29'),undefined);assert.equal(isoDate('02/03/2026'),undefined);assert.equal(formatSeriesDate(isoDate('0001/01/01')!.day,'/'),'0001/01/01');assert.throws(()=>formatSeriesDate(isoDate('9999-12-31')!.day+1,'-'));console.log('PASS Excel ISO date text sequences and calendar boundaries');

@@ -9,6 +9,7 @@ import {LineHeights} from './lineHeights';
 import ToolButton from '../../components/ToolButton.vue';
 import PreviewPanel from '../../components/PreviewPanel.vue';
 import MarkdownView from './MarkdownView.vue';
+import MarkdownOutline from './MarkdownOutline.vue';
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];
@@ -154,7 +155,7 @@ const showHtml = computed(
     </div>
     <p v-if="linkError" class="notice" role="alert">{{linkError}}</p>
     <div class="text-body">
-    <nav v-if="showHtml&&showOutline" class="md-outline" aria-label="标题目录"><p v-if="!headings.length" class="md-outline-empty">文档没有标题</p><button v-for="heading in headings" :key="heading.anchor" type="button" :title="heading.text" :aria-current="activeHeading===heading.anchor?'location':undefined" :style="{paddingLeft:10+(heading.level-1)*12+'px'}" @click="jumpHeading(heading.anchor)">{{heading.text}}</button></nav>
+    <MarkdownOutline v-if="showHtml&&showOutline" :headings="headings" :active="activeHeading" @jump="jumpHeading" />
     <div
       ref="textScroll"
       class="text-scroll"

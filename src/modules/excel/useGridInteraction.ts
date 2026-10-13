@@ -4,6 +4,8 @@ import type {useEditor} from './useEditor';
 import type {PreviewFile} from '../../../shared/contracts';
 import {excelInput} from './editModel';
 import {selectionRange,contains,regionTargets} from './selection';
+import type {ExcelPasteMode} from '../../../shared/excelEditing';
+import {isoDate} from './dateSeries';
 type Editor=ReturnType<typeof useEditor>;
 export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<number>,colCount:Ref<number>,locate:(address:string)=>Promise<boolean>,scroll:Ref<HTMLElement|undefined>,onScroll:()=>void,merges:()=>XLSX.Range[],pageCols=100){
   const inline=ref(false),inlineInput=ref<HTMLTextAreaElement>(),menu=ref<{x:number;y:number;axis?:'row'|'column';index:number}|null>(null);
@@ -36,6 +38,14 @@ export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<n
     if(drag.moved&&!paging&&Date.now()-lastPaging>350&&((dx>0&&atRight&&(focus.c+1)%pageCols===0&&focus.c+1<colCount.value)||(dx<0&&atLeft&&focus.c%pageCols===0&&focus.c>0))){paging=true;lastPaging=Date.now();const next={r:focus.r,c:focus.c+(dx>0?1:-1)};void locate(XLSX.utils.encode_cell(next)).then(()=>{if(drag)editor.selection.value={...editor.selection.value,focus:next};}).finally(()=>{paging=false;});}
   }
   function pointerDown(event:PointerEvent,address:string){if(event.button!==0||event.target instanceof Element&&event.target.closest('textarea,input'))return;if(!choose(address,event.shiftKey))return;const container=scroll.value;if(!container)return;endDrag();drag={id:event.pointerId,x:event.clientX,y:event.clientY,startX:event.clientX,startY:event.clientY,moved:false,container};window.addEventListener('pointermove',dragMove);window.addEventListener('pointerup',endDrag);window.addEventListener('pointercancel',endDrag);frame=requestAnimationFrame(autoScroll);}
+  let fillDrag:{id:number;source:XLSX.Range;selection:typeof editor.selection.value;x:number;y:number;direction:'row'|'column'}|undefined,fillFrame=0;
+  function fillCorner(address:string){if(!editor.editing.value)return false;const p=XLSX.utils.decode_cell(address),merge=merges().find(m=>contains(m,address)),end=merge?.e||p;return end.r===range.value.e.r&&end.c===range.value.e.c;}
+  function updateFill(){if(!fillDrag)return;const address=pointCell(fillDrag.x,fillDrag.y);if(!address)return;const p=XLSX.utils.decode_cell(address),source=fillDrag.source;fillDrag.direction=Math.max(0,p.r-source.e.r)>=Math.max(0,p.c-source.e.c)?'row':'column';const focus=fillDrag.direction==='row'?{r:Math.max(source.e.r,p.r),c:source.e.c}:{r:source.e.r,c:Math.max(source.e.c,p.c)};editor.selection.value={sheet:editor.selectedSheet.value,anchor:{...source.s},focus,mode:'cells'};}
+  function fillMove(event:PointerEvent){if(!fillDrag||event.pointerId!==fillDrag.id)return;fillDrag.x=event.clientX;fillDrag.y=event.clientY;updateFill();}
+  function fillScroll(){if(!fillDrag||!scroll.value)return;const bounds=scroll.value.getBoundingClientRect(),x=fillDrag.x>bounds.right-28?18:0,y=fillDrag.y>bounds.bottom-28?18:0;if(x||y){scroll.value.scrollBy(x,y);onScroll();void nextTick(updateFill);}fillFrame=requestAnimationFrame(fillScroll);}
+  function finishFill(event?:PointerEvent){if(!fillDrag)return;const current=fillDrag,target=JSON.parse(JSON.stringify(range.value)) as XLSX.Range;fillDrag=undefined;cancelAnimationFrame(fillFrame);window.removeEventListener('pointermove',fillMove);window.removeEventListener('pointerup',finishFill);window.removeEventListener('pointercancel',finishFill);try{scroll.value?.releasePointerCapture(current.id);}catch{}editor.selection.value=current.selection;if(!event||event.type==='pointercancel'||target.e.r===current.source.e.r&&target.e.c===current.source.e.c)return;const length=current.direction==='row'?current.source.e.r-current.source.s.r+1:current.source.e.c-current.source.s.c+1;const single=XLSX.utils.encode_cell(current.source.s),series=length===2||length===1&&current.source.s.r===current.source.e.r&&current.source.s.c===current.source.e.c&&(XLSX.SSF.is_date(editor.numFmt(editor.selectedSheet.value,single)||'')||(()=>{const value=editor.valueAt(editor.selectedSheet.value,single);return value.kind==='text'&&!!isoDate(value.value)})());void editor.fill(current.source,target,current.direction,series);}
+  function startFill(event:PointerEvent){if(event.button!==0||!commit()||!editor.finishCell()||editor.saving.value||!scroll.value)return;endDrag();fillDrag={id:event.pointerId,source:JSON.parse(JSON.stringify(range.value)),selection:JSON.parse(JSON.stringify(editor.selection.value)),x:event.clientX,y:event.clientY,direction:'row'};try{scroll.value.setPointerCapture(event.pointerId);}catch{}window.addEventListener('pointermove',fillMove);window.addEventListener('pointerup',finishFill);window.addEventListener('pointercancel',finishFill);fillFrame=requestAnimationFrame(fillScroll);}
+  onBeforeUnmount(()=>finishFill());watch(editor.editing,()=>finishFill());
   onBeforeUnmount(endDrag);watch(editor.editing,value=>{if(!value)endDrag();});watch(editor.selectedSheet,endDrag);
   function closeMenu(){menu.value=null;}
   function closeAll(){if(editor.saving.value)return;const wasCustom=custom.value;closeMenu();custom.value=false;if(wasCustom)void focusCell();}
@@ -61,10 +71,27 @@ export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<n
     else if(event.key==='Tab'){event.preventDefault();event.stopPropagation();tabDirection=event.shiftKey?-1:1;await move(0,tabDirection);}
   }
   function inlineBlur(event:FocusEvent){if(editor.saving.value||!inline.value)return;const target=event.relatedTarget as HTMLElement|null;if(target?.closest('.excel-cell-input')){inline.value=false;return;}commit();}
-  async function copy(){if(!commit()||!editor.finishCell())return;try{const allowed=new Set(regionTargets(range.value,merges())),rows:string[]=[];let size=0;for(let r=range.value.s.r;r<=range.value.e.r;r++){const values:string[]=[];for(let c=range.value.s.c;c<=range.value.e.c;c++){const address=XLSX.utils.encode_cell({r,c});let text=allowed.has(address)?excelInput(editor.valueAt(editor.selectedSheet.value,address)):'';if(/[\t\r\n"]/.test(text))text='"'+text.replace(/"/g,'""')+'"';size+=text.length+1;if(size>1000000)throw Error('复制内容最多 100 万字符。');values.push(text);}rows.push(values.join('\t'));}await window.localPreview.excelClipboard(file.id,'copy',rows.join('\r\n'));editor.error.value='';editor.status.value='已复制选区';}catch(e){editor.error.value=(e as Error).message;}closeMenu();}
-  async function paste(){if(!commit())return;closeMenu();try{editor.paste(await window.localPreview.excelClipboard(file.id,'paste'));}catch(e){editor.error.value=(e as Error).message;}await focusCell();}
+  async function copy(cut=false){
+    if(!commit()||!editor.finishCell())return;
+    try{
+      const allowed=new Set(regionTargets(range.value,merges())),rows:string[]=[];let size=0;
+      for(let r=range.value.s.r;r<=range.value.e.r;r++){
+        const values:string[]=[];
+        for(let c=range.value.s.c;c<=range.value.e.c;c++){
+          const address=XLSX.utils.encode_cell({r,c});let text=allowed.has(address)?excelInput(editor.valueAt(editor.selectedSheet.value,address)):'';
+          if(/[\t\r\n"]/.test(text))text='"'+text.replace(/"/g,'""')+'"';
+          size+=text.length+1;if(size>1000000)throw Error('复制内容最多 100 万字符。');values.push(text);
+        }
+        rows.push(values.join('\t'));
+      }
+      await editor.copyRegion(range.value,rows.join('\r\n'),cut);
+    }catch(e){editor.error.value=(e as Error).message;}
+    closeMenu();
+  }
+  async function paste(mode:ExcelPasteMode='all'){if(!commit()||!editor.finishCell())return;closeMenu();try{const clip=await window.localPreview.excelRegionClipboard(file.id,'paste');if(!clip){if(mode==='formats')throw Error('请先在本工具内复制带格式的选区。');editor.paste(await window.localPreview.excelClipboard(file.id,'paste'));}else {const p=XLSX.utils.decode_cell(editor.address.value),height=clip.range.e.r-clip.range.s.r+1,width=clip.range.e.c-clip.range.s.c+1,chosen=range.value;const repeat=!clip.cut&&(chosen.e.r-chosen.s.r+1)%height===0&&(chosen.e.c-chosen.s.c+1)%width===0;const merged=height===1&&width===1&&merges().some(m=>m.s.r===p.r&&m.s.c===p.c&&m.e.r===chosen.e.r&&m.e.c===chosen.e.c);if(!clip.cut&&!repeat&&!merged&&(chosen.s.r!==chosen.e.r||chosen.s.c!==chosen.e.c))throw Error('目标选区尺寸须与复制区域匹配或为其整倍数。');const target=merged?{s:p,e:p}:repeat?chosen:{s:p,e:{r:p.r+height-1,c:p.c+width-1}};await editor.pasteRich(clip,target,mode);}}catch(e){editor.error.value=(e as Error).message;}await focusCell();}
   function clear(){if(!commit())return;editor.bulk(range.value,'clear');closeMenu();void focusCell();}
   async function key(event:KeyboardEvent){if(!editor.editing.value||editor.saving.value||event.isComposing)return;
+    if(event.key==='Escape'&&fillDrag){event.preventDefault();finishFill();return;}
     if(event.key==='Escape'&&(menu.value||custom.value)){event.preventDefault();closeAll();return;}
     if(event.target instanceof Element&&event.target.closest('input,textarea,select,button'))return;
     if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='a'){event.preventDefault();all();}
@@ -72,6 +99,7 @@ export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<n
     else if(event.ctrlKey&&event.key.toLowerCase()==='z'){event.preventDefault();inline.value=false;await editor.undo();}
     else if(event.ctrlKey&&event.key.toLowerCase()==='y'){event.preventDefault();inline.value=false;await editor.redo();}
     else if(event.ctrlKey&&event.key.toLowerCase()==='c'){event.preventDefault();await copy();}
+    else if(event.ctrlKey&&event.key.toLowerCase()==='x'){event.preventDefault();await copy(true);}
     else if(event.key==='Delete'||event.key==='Backspace'){event.preventDefault();clear();}
     else if(event.key==='F2'){event.preventDefault();await select(editor.address.value,true);}
     else if(['Enter','Tab','ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();const movements:Record<string,number[]>={Enter:[event.shiftKey?-1:1,0],Tab:[0,event.shiftKey?-1:1],ArrowUp:[-1,0],ArrowDown:[1,0],ArrowLeft:[0,-1],ArrowRight:[0,1]};await move(movements[event.key][0],movements[event.key][1]);}
@@ -79,7 +107,7 @@ export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<n
   }
   async function context(event:MouseEvent,address:string,axis?:'row'|'column',index?:number){if(!editor.editing.value||editor.saving.value)return;event.preventDefault();if(!commit())return;if(axis)header(axis,index??0,event);else if(!selected(address)&&!editor.select(address))return;inline.value=false;
     const pos=XLSX.utils.decode_cell(address);menu.value={x:Math.max(4,Math.min(event.clientX,window.innerWidth-220)),y:Math.max(4,Math.min(event.clientY,window.innerHeight-440)),axis,index:index??(axis==='column'?pos.c:pos.r)};customAxis.value=axis??'row';customSide.value='before';customCount.value=1;
-    await nextTick();document.querySelector<HTMLElement>(`[data-file-id="${file.id}"] .excel-context-menu button`)?.focus();
+    await nextTick();const element=document.querySelector<HTMLElement>(`[data-file-id="${file.id}"] .excel-context-menu`);if(element&&menu.value){const rect=element.getBoundingClientRect();menu.value={...menu.value,x:Math.max(4,Math.min(menu.value.x,innerWidth-rect.width-4)),y:Math.max(4,Math.min(menu.value.y,innerHeight-rect.height-4))};element.querySelector<HTMLElement>('button')?.focus();}
   }
   async function structure(axis:'row'|'column',kind:'insert'|'delete',side:'before'|'after',count=1){
     const pos=XLSX.utils.decode_cell(editor.address.value),index=(axis==='row'?pos.r:pos.c)+(kind==='insert'&&side==='after'?1:0);closeMenu();
@@ -87,6 +115,6 @@ export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<n
   }
   function openCustom(){editor.error.value='';custom.value=true;closeMenu();void nextTick(()=>document.querySelector<HTMLInputElement>(`[data-file-id="${file.id}"] .excel-insert-count`)?.focus());}
   function align(value:'left'|'center'|'right'){if(!commit())return;editor.bulk(range.value,value);closeMenu();void focusCell();}
-  function pasteEvent(event:ClipboardEvent){if(!editor.editing.value||editor.saving.value||event.target instanceof Element&&event.target.closest('textarea,input'))return;if(!event.clipboardData?.types.includes('text/plain'))return;event.preventDefault();editor.paste(event.clipboardData.getData('text/plain'));}
-  return {range,rangeLabel,selected,choose,clickCell,header,all,pointerDown,inline,inlineInput,menu,custom,customAxis,customSide,customCount,select,commit,cancel,move,inlineKey,inlineBlur,key,context,copy,paste,clear,structure,openCustom,pasteEvent,closeAll,align};
+  function pasteEvent(event:ClipboardEvent){if(!editor.editing.value||editor.saving.value||event.target instanceof Element&&event.target.closest('textarea,input'))return;if(!event.clipboardData?.types.includes('text/plain'))return;event.preventDefault();if(event.clipboardData.getData('text/html').includes('file-preview-'))void paste();else editor.paste(event.clipboardData.getData('text/plain'));}
+  return {startFill,fillCorner,range,rangeLabel,selected,choose,clickCell,header,all,pointerDown,inline,inlineInput,menu,custom,customAxis,customSide,customCount,select,commit,cancel,move,inlineKey,inlineBlur,key,context,copy,paste,clear,structure,openCustom,pasteEvent,closeAll,align};
 }

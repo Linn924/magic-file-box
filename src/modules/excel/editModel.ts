@@ -22,7 +22,7 @@ export function excelInput(value:ExcelValue){return value.kind==='blank'?'':valu
 export function changeKey(sheet:string,address:string){return JSON.stringify([sheet,address]);}
 export function changeSignature(changes:ExcelChange[]){return JSON.stringify([...changes].sort((a,b)=>changeKey(a.sheet,a.address).localeCompare(changeKey(b.sheet,b.address))));}
 /** Excel clipboard TSV including quoted tabs/newlines and CRLF. */
-export function parseTablePaste(text:string){
+export function parseTablePaste(text:string,limit=10000){
   if(text.length>1000000)throw Error('一次粘贴最多 100 万字符。');
   const rows:string[][]=[[]];let value='',quoted=false,atStart=true;
   for(let i=0;i<text.length;i++){
@@ -33,5 +33,5 @@ export function parseTablePaste(text:string){
   }
   if(quoted)throw Error('粘贴内容的引号不完整。');
   rows.at(-1)!.push(value);if(rows.length>1&&rows.at(-1)!.length===1&&rows.at(-1)![0]===''&&/[\r\n]$/.test(text))rows.pop();
-  if(rows.reduce((sum,row)=>sum+row.length,0)>10000)throw Error('一次最多粘贴 10000 个单元格。');return rows;
+  if(rows.reduce((sum,row)=>sum+row.length,0)>limit)throw Error(`一次最多粘贴 ${limit} 个单元格。`);return rows;
 }
