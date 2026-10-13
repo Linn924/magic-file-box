@@ -1,6 +1,6 @@
 import { spawn } from "node:child_process";
-import { resolve } from "node:path";
-import { writeFileSync, mkdirSync } from "node:fs";
+import { resolve,dirname } from "node:path";
+import { writeFileSync, mkdirSync,existsSync,readFileSync } from "node:fs";
 type Target = {
   id: string;
   type: string;
@@ -11,9 +11,8 @@ type Command = (
   method: string,
   params?: Record<string, unknown>,
 ) => Promise<any>;
-const exe = resolve(
-  process.argv[2] || "outputs/release/win-unpacked/File Preview.exe",
-);
+const args=process.argv.slice(2),skipPrint=args.includes('--skip-print'),checkUpdates=args.includes('--updates');
+const exe = resolve(args.find(arg=>!arg.startsWith('--')) || "outputs/release/win-unpacked/File Preview.exe");
 const profile = resolve("work/test-profiles/package-" + process.pid);
 mkdirSync(profile, { recursive: true });
 mkdirSync("outputs/verification", { recursive: true });
@@ -99,6 +98,19 @@ try {
     "Packaged PDF render",
   );
   results.push("PASS command-line PDF file opened in packaged app");
+  // Keep smoke tests offline and avoid native close prompts in this test profile.
+  await evaluate(view,"window.localPreview.setSettings({checkUpdatesOnStart:false,closeAction:'quit'})");
+  if(checkUpdates){
+    const state=await evaluate(view,"window.localPreview.getUpdateState()"),version=JSON.parse(readFileSync('package.json','utf8')).version;
+    if(state.currentVersion!==version)throw Error('Packaged update version mismatch');
+    const installed=existsSync(resolve(dirname(exe),'Uninstall File Preview.exe'));
+    if(installed?state.phase==='unsupported':state.phase!=='unsupported')throw Error('Packaged updater installation detection mismatch');
+    await evaluate(view,"document.querySelector('.settings-button').click();true");
+    await waitFor(()=>evaluate(view,"!!document.querySelector('#check-updates')&&document.querySelector('.settings-panel .update-center').textContent.includes("+JSON.stringify(version)+")"),'Packaged update settings');
+    await evaluate(view,"document.querySelector('[aria-label=关闭设置]').click();true");
+    results.push(installed?'PASS installed updater loads, recognizes NSIS installation and exposes correct version/settings':'PASS unpacked updater exposes correct version and avoids automatic installation');
+  }
+  if(!skipPrint){
   await evaluate(view,"document.querySelector('.pdf-print-button').click()");
   const panelTarget=await waitFor(async()=>(await targets()).find(t=>t.url.includes("print-panel=1")),"Packaged independent print window");
   const panel=await connect(panelTarget.webSocketDebuggerUrl);
@@ -107,11 +119,12 @@ try {
   await waitFor(()=>evaluate(panel,"[...document.querySelector('[aria-label=打印纸张]').options].some(option=>option.value==='A5')"),"Packaged PDF print options");
   await evaluate(panel,"setTimeout(()=>window.localPreview.close(),100);true");
   await pause(150);
+  }
   await evaluate(view,"window.localPreview.setFullscreen(true)");
   await waitFor(()=>evaluate(view,"document.documentElement.classList.contains('immersive')"),'Packaged fullscreen');
   await evaluate(view,"window.localPreview.setFullscreen(false)");
   await waitFor(()=>evaluate(view,"!document.documentElement.classList.contains('immersive')"),'Packaged exit fullscreen');
-  results.push('PASS packaged fullscreen and PDF A5 print panel (no print job submitted)');
+  results.push(skipPrint?'PASS packaged fullscreen (printer UI not opened)':'PASS packaged fullscreen and PDF A5 print panel (no print job submitted)');
   const before = new Set((await targets()).map((t) => t.id));
   const second = spawn(
     exe,
