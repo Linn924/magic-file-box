@@ -9,6 +9,10 @@ import FormulaPicker from './FormulaPicker.vue';
 import XlsSaveReview from './XlsSaveReview.vue';
 import FormatPanel from './FormatPanel.vue';
 import AdvancedTools from './AdvancedTools.vue';
+import FindPanel from './FindPanel.vue';
+import FormulaAssist from './FormulaAssist.vue';
+import {useFind} from './useFind';
+import {useFormulaAssist} from './useFormulaAssist';
 import {regionTargets} from './selection';
 import { ref,computed,watch,nextTick,onBeforeUnmount } from "vue";
 const props = defineProps<PreviewProps>();
@@ -18,7 +22,7 @@ const emit = defineEmits<{
   "update:zoom": [value: number];
 }>();
 const {
-  warning,editor,cellStyle,
+  warning,editor,cellStyle,displayText,cellVisible,
   pane,
   scroll,
   onScroll,
@@ -53,6 +57,18 @@ let restoreSaveFocus=false;
 function answerCopy(accept:boolean){restoreSaveFocus=true;editor.confirmCopy(accept);}
 watch(editor.saving,value=>{if(!value&&restoreSaveFocus){restoreSaveFocus=false;void nextTick(()=>pane.value?.querySelector<HTMLButtonElement>('.excel-save-copy')?.focus({preventScroll:true}));}});
 const grid=useGridInteraction(props.file,editor,rowCount,colCount,address=>locateCell(address,true),scroll,onScroll,()=>book.value?.Sheets[sheetName.value]?.['!merges']||[]);
+const assist=useFormulaAssist(editor,sheetName,scroll,onScroll,()=>cellInput.value,colCount,address=>locateCell(address,true));
+const find=useFind(editor,book,sheetName,()=>grid.range.value,()=>grid.commit()&&editor.finishCell(),async address=>{if(editor.editing.value)editor.select(address,sheetName.value);return locateCell(address,true);},displayText,cellVisible);
+function findKey(event:KeyboardEvent){if(event.ctrlKey&&!event.altKey&&!event.isComposing&&event.key.toLowerCase()==='f'&&pane.value?.clientWidth){event.preventDefault();find.show();}}
+window.addEventListener('keydown',findKey);onBeforeUnmount(()=>window.removeEventListener('keydown',findKey));
+function confirmInput(){if(editor.finishCell())assist.finish();}
+function cancelInput(){editor.cancelInput();assist.finish();grid.cancel();}
+function saveCopy(){if(!grid.commit()||!editor.finishCell())return;assist.finish();void editor.save();}
+function cellPointer(event:PointerEvent,address:string){if(!assist.pointer(event,address))grid.pointerDown(event,address);}
+function cellClick(address:string,event:MouseEvent){if(!assist.click(event))void grid.clickCell(address,event);}
+function inlineKey(event:KeyboardEvent){if(assist.key(event))return;if(event.key==='Escape'||event.key==='Enter'&&!event.altKey&&!event.shiftKey||event.key==='Tab')assist.finish();void grid.inlineKey(event);}
+function inlineBlur(event:FocusEvent){if(assist.picking.value)return;assist.blur();grid.inlineBlur(event);}
+function sheetPointer(event:PointerEvent,name:string){if(!assist.active())return;const start=assist.caret.value,end=assist.end.value;grid.inline.value=false;assist.sheetPick(event,name);void nextTick(()=>{cellInput.value?.focus({preventScroll:true});cellInput.value?.setSelectionRange(start,end);if(cellInput.value)assist.update({target:cellInput.value} as unknown as Event);});}
 const formatStyles=()=>regionTargets(grid.range.value,book.value?.Sheets[sheetName.value]?.['!merges']||[]).map(address=>cellStyle(address));
 const applyStyle=(patch:import('./formatModel').FormatPatch)=>editor.applyFormat(grid.range.value,editor.selection.value.mode,patch);
 const actionMenu=ref<'insert'|'delete'|'more'|null>(null);
@@ -70,10 +86,10 @@ watch(actionMenu,()=>{void nextTick(()=>{pane.value?.querySelectorAll<HTMLButton
 function resizeFormula(){void nextTick(()=>{const input=cellInput.value;if(input){input.style.height='28px';input.style.height=Math.min(88,Math.max(28,input.scrollHeight+2))+'px';}});}
 watch([editor.input,editor.editing],resizeFormula,{immediate:true});
 watch(sheetName,()=>{void nextTick(()=>{const nav=pane.value?.querySelector<HTMLElement>('.sheets'),tab=nav?.querySelector<HTMLElement>('.active');if(!nav||!tab||!nav.clientWidth)return;const bounds=nav.getBoundingClientRect(),rect=tab.getBoundingClientRect();if(rect.left<bounds.left)nav.scrollLeft-=bounds.left-rect.left;else if(rect.right>bounds.right)nav.scrollLeft+=rect.right-bounds.right;});});
-function selectSheet(name:string){if(!grid.commit()||!editor.finishCell())return;grid.closeAll();sheetName.value=name;rowPage.value=colPage.value=0;if(editor.editing.value)editor.select('A1',name);}
+function selectSheet(name:string){if(assist.active())return;if(!grid.commit()||!editor.finishCell())return;assist.finish();grid.closeAll();sheetName.value=name;rowPage.value=colPage.value=0;if(editor.editing.value)editor.select('A1',name);}
 function headerAddress(axis:'row'|'column',index:number){const current=XLSX.utils.decode_cell(editor.address.value);return XLSX.utils.encode_cell(axis==='row'?{r:index,c:current.c}:{r:current.r,c:index});}
 function menuKey(event:KeyboardEvent){if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;event.preventDefault();const buttons=Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('button'));let index=buttons.indexOf(document.activeElement as HTMLButtonElement);index=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;buttons[index]?.focus();}
-function inputKey(event:KeyboardEvent){if(event.isComposing)return;if(event.key==='Enter'&&!event.altKey&&!event.shiftKey){event.preventDefault();editor.finishCell();}else if(event.key==='Escape'){event.preventDefault();editor.cancelInput();cellInput.value?.blur();}}
+function inputKey(event:KeyboardEvent){if(event.isComposing||assist.key(event))return;if(event.key==='Enter'&&!event.altKey&&!event.shiftKey){event.preventDefault();if(editor.finishCell())assist.finish();}else if(event.key==='Escape'){event.preventDefault();editor.cancelInput();assist.finish();cellInput.value?.blur();}}
 function dialogTab(event:KeyboardEvent){const fields=Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLElement>('input:not(:disabled),select:not(:disabled),button:not(:disabled)'));const current=fields.indexOf(document.activeElement as HTMLElement);if(event.shiftKey&&current===0){event.preventDefault();fields.at(-1)?.focus();}else if(!event.shiftKey&&current===fields.length-1){event.preventDefault();fields[0]?.focus();}}
 const locateRef = ref("");
 const locateMsg = ref("");
@@ -89,8 +105,9 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
   <section ref="pane" class="excel" @keydown="editorKey">
     <Teleport :to="`[data-file-id='${props.file.id}'] .module-tools`" defer>
       <span class="excel-edit-tools">
+        <ExcelToolButton class="excel-find-toggle" icon="search" title="查找与替换（Ctrl+F）" :pressed="find.open.value" :disabled="editor.saving.value" @click="find.show"/>
         <ExcelToolButton class="excel-edit-toggle" icon="edit" :pressed="editor.editing.value" :disabled="!editor.canEdit.value||editor.saving.value" :title="!editor.canEdit.value?'该格式暂不支持编辑':editor.editing.value?'结束编辑，切回预览（保留本次修改）':'编辑副本（源文件不变）'" @click="editor.toggle()" />
-        <template v-if="!editor.editing.value"><ExcelToolButton class="excel-save-copy" icon="save" title="另存副本" :disabled="!editor.canEdit.value||editor.saving.value" @click="editor.save()" />
+        <template v-if="!editor.editing.value"><ExcelToolButton class="excel-save-copy" icon="save" title="另存副本" :disabled="!editor.canEdit.value||editor.saving.value" @click="saveCopy" />
         <select v-model="editor.format.value" aria-label="副本格式" title="副本格式；CSV/TSV 只保存当前工作表" :disabled="!editor.canEdit.value||editor.saving.value"><option v-if="props.file.ext==='xls'" value="xls">XLS</option><option value="xlsx">XLSX</option><option value="csv">CSV</option><option value="tsv">TSV</option></select></template>
         <span class="excel-dirty" role="status">{{editor.dirty.value?'未保存':editor.changes.value.length||editor.baseBytes.value?'副本已保存':editor.editing.value?'编辑副本':'预览'}}</span>
       </span>
@@ -101,6 +118,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
       <span class="excel-command-group" data-group="clipboard"><ExcelToolButton class="excel-cut" icon="cut" title="剪切选区（Ctrl+X）" :disabled="editor.saving.value" @click="grid.copy(true)"/><ExcelToolButton icon="copy" title="复制选区（Ctrl+C）" :disabled="editor.saving.value" @click="copyCell" /><ExcelToolButton icon="paste" title="粘贴到选中单元格（Ctrl+V）" :disabled="editor.saving.value" @click="grid.paste()" /><ExcelToolButton class="excel-grid-command excel-paste-options" icon="expand" title="选择性粘贴" :disabled="editor.saving.value" @click="advanced?.openPaste($event)"/><ExcelToolButton icon="clear" title="清空选区（Delete）" :disabled="editor.saving.value" @click="grid.clear()" /></span>
       <span class="excel-command-group" data-group="format"><FormatPanel :disabled="editor.saving.value" :prepare="()=>grid.commit()&&editor.finishCell()" :styles="formatStyles" :apply="applyStyle" :message="editor.error.value" /><ExcelToolButton class="excel-brush" icon="brush" title="格式刷（选中来源后点击，再选择目标；再次点击取消）" :pressed="!!advanced?.brush" :disabled="editor.saving.value" @click="advanced?.paint()"/></span><span class="excel-command-group" data-group="alignment"><ExcelToolButton v-for="option in [{value:'left',label:'内容居左'},{value:'center',label:'内容居中'},{value:'right',label:'内容居右'}] as const" :key="option.value" :icon="option.value" :title="option.label" :pressed="alignment===option.value" :disabled="editor.saving.value" @click="grid.align(option.value)" /></span>
       <AdvancedTools ref="advanced" :editor="editor" :grid="grid" :file-id="file.id" :auto-size="autoSize" :row-size="r=>(book?.Sheets[sheetName]?.['!rows']?.[r]?.hpt||18)" :col-size="c=>(colWidth(c)-5)/7"/>
+      <span class="excel-command-group" data-group="formula"><button class="tool-icon-button excel-auto-sum" title="自动求和（多行各列写入下方，单行写入右侧；空白单格识别上方或左侧）" aria-label="自动求和（多行各列写入下方，单行写入右侧；空白单格识别上方或左侧）" :disabled="editor.saving.value" @click="grid.commit()&&editor.autoSum(grid.range.value)"><svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M13 3H4l5 5-5 5h9"/></svg></button></span>
       <span class="excel-command-group" data-group="structure">
         <span class="excel-actions"><ExcelToolButton class="excel-insert-toggle" icon="insert" title="插入行或列" aria-haspopup="menu" :aria-expanded="actionMenu==='insert'" :disabled="editor.saving.value" @click="toggleActions('insert')" /><div v-if="actionMenu==='insert'" class="excel-actions-menu" role="menu" aria-label="插入行列" @keydown="menuKey"><button role="menuitem" @click="actionStructure('row','insert','before')"><ExcelIcon name="above" />上方插入行</button><button role="menuitem" @click="actionStructure('row','insert','after')"><ExcelIcon name="below" />下方插入行</button><button role="menuitem" @click="actionStructure('column','insert','before')"><ExcelIcon name="before" />左侧插入列</button><button role="menuitem" @click="actionStructure('column','insert','after')"><ExcelIcon name="after" />右侧插入列</button><hr /><button role="menuitem" class="excel-custom-insert" @click="customInsert"><ExcelIcon name="custom" />自定义插入…</button></div></span>
         <span class="excel-actions"><ExcelToolButton class="excel-delete-toggle" icon="delete" title="删除行或列" aria-haspopup="menu" :aria-expanded="actionMenu==='delete'" :disabled="editor.saving.value" @click="toggleActions('delete')" /><div v-if="actionMenu==='delete'" class="excel-actions-menu" role="menu" aria-label="删除行列" @keydown="menuKey"><button role="menuitem" @click="actionStructure('row','delete','before')"><ExcelIcon name="row" />删除当前行</button><button role="menuitem" @click="actionStructure('column','delete','before')"><ExcelIcon name="column" />删除当前列</button></div></span>
@@ -109,11 +127,13 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
     </div>
     <div v-if="editor.editing.value" class="excel-editor-bar">
       <input v-model="locateRef" class="cell-locate-input excel-name-box" :placeholder="editor.address.value" aria-label="定位单元格" :title="sheetName+'!'+editor.address.value+'；输入地址后回车定位'" :disabled="editor.saving.value" @keydown.enter.prevent="locate" />
-      <ExcelToolButton class="excel-cancel-cell" icon="cancel" title="取消当前输入（Esc）" :disabled="editor.saving.value||!editor.pending.value" @click="grid.cancel()" />
-      <ExcelToolButton class="excel-apply-cell" icon="check" title="确认当前输入（Enter）" :disabled="editor.saving.value||!editor.pending.value" @click="editor.finishCell()" />
+      <ExcelToolButton class="excel-cancel-cell" icon="cancel" title="取消当前输入（Esc）" :disabled="editor.saving.value||!editor.pending.value" @click="cancelInput" />
+      <ExcelToolButton class="excel-apply-cell" icon="check" title="确认当前输入（Enter）" :disabled="editor.saving.value||!editor.pending.value" @click="confirmInput" />
       <FormulaPicker :disabled="editor.saving.value" @insert="value=>{editor.input.value=value;nextTick(()=>cellInput?.focus({preventScroll:true}))}" />
-      <textarea ref="cellInput" v-model="editor.input.value" class="excel-cell-input" aria-label="单元格内容" rows="1" :disabled="editor.saving.value" placeholder="输入内容或 =公式" @keydown="inputKey"></textarea>
+      <textarea ref="cellInput" v-model="editor.input.value" class="excel-cell-input" aria-label="单元格内容" rows="1" :disabled="editor.saving.value" placeholder="输入内容或 =公式" @keydown="inputKey" @input="assist.update" @click="assist.update" @select="assist.update" @keyup="assist.update" @focus="assist.update" @blur="assist.blur"></textarea>
     </div>
+    <FindPanel :find="find" :file-id="file.id" :editing="editor.editing.value" :disabled="editor.saving.value"/>
+    <FormulaAssist :assist="assist"/>
     <p v-if="editor.error.value" class="excel-edit-error" role="alert">{{editor.error.value}}</p>
     <span v-if="editor.status.value" class="excel-edit-status sr-only" role="status">{{editor.status.value}}</span>
     <div v-if="warning" class="notice" role="status">{{ warning }}</div>
@@ -190,16 +210,16 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
                 :key="cell.c"
                 :data-address="cell.address"
                 :tabindex="editor.editing.value?0:undefined"
-                :class="{'excel-range-cell':grid.selected(cell.address),'excel-selected-cell':editor.editing.value&&editor.address.value===cell.address,'excel-changed-cell':cell.modified}"
-                @pointerdown="grid.pointerDown($event,cell.address)" @click="grid.clickCell(cell.address,$event)"
-                @dblclick="grid.select(cell.address,true)"
+                :class="{'excel-range-cell':grid.selected(cell.address),'excel-selected-cell':editor.editing.value&&editor.selectedSheet.value===sheetName&&editor.address.value===cell.address,'excel-changed-cell':cell.modified,'excel-find-hit':find.marked(cell.address),'excel-formula-reference':assist.marked(cell.address)}"
+                @pointerdown="cellPointer($event,cell.address)" @click="cellClick(cell.address,$event)"
+                @dblclick="!assist.active()&&grid.select(cell.address,true)"
                 @contextmenu="grid.context($event,cell.address)"
                 :style="cell.style"
                 :rowspan="cell.rowspan"
                 :colspan="cell.colspan"
                 :title="cell.title"
               >
-                <textarea v-if="grid.inline.value&&editor.address.value===cell.address" :ref="(el:any)=>{grid.inlineInput.value=el;}" v-model="editor.input.value" class="excel-inline-input" aria-label="单元格内编辑" :disabled="editor.saving.value" @click.stop @dblclick.stop @keydown.stop="grid.inlineKey" @blur="grid.inlineBlur"></textarea>
+                <textarea v-if="grid.inline.value&&editor.address.value===cell.address" :ref="(el:any)=>{grid.inlineInput.value=el;}" v-model="editor.input.value" class="excel-inline-input" aria-label="单元格内编辑" :disabled="editor.saving.value" @click.stop="assist.update" @dblclick.stop @keydown.stop="inlineKey" @input="assist.update" @select="assist.update" @keyup="assist.update" @focus="assist.update" @blur="inlineBlur"></textarea>
                 <span v-else class="excel-text-box" :class="{'excel-text-rotated':!!cell.rotation}" :data-angle="cell.rotation" :style="{...(cell.rotation?{height:cell.rotationHeight+'px'}:{}),...(cell.clipHeight!==undefined?{maxHeight:cell.clipHeight+'px',overflow:'hidden'}:{})}"><span :style="cell.rotation?{display:'inline-block',transform:'rotate('+(-cell.rotation)+'deg)',whiteSpace:'pre'}:undefined"><template v-if="cell.rich"><span v-for="(run,i) in cell.rich" :key="i" :style="fontStyle(run.font)">{{run.text}}</span></template><template v-else>{{cell.text}}</template></span></span>
                 <span v-if="editor.editing.value&&!editor.saving.value&&grid.fillCorner(cell.address)" class="excel-fill-handle" title="拖动填充（两格数字按差值，单格日期逐日）" @pointerdown.stop.prevent="grid.startFill($event)"></span>
               </td>
@@ -227,7 +247,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
       <p v-else class="empty">此工作表没有数据</p>
     </div>
     <footer class="sheet-footer">
-      <span v-if="editor.editing.value" class="excel-selection-summary" aria-live="polite">{{grid.rangeLabel.value}}</span><nav class="sheets" aria-label="工作表"><button v-for="name in book?.SheetNames" :key="name" :class="{active:name===sheetName}" :title="name" :disabled="editor.saving.value" @click="selectSheet(name)">{{name}}</button></nav>
+      <span v-if="editor.editing.value" class="excel-selection-summary" aria-live="polite">{{grid.rangeLabel.value}}</span><nav class="sheets" aria-label="工作表"><button v-for="name in book?.SheetNames" :key="name" :class="{active:name===sheetName}" :title="name" :disabled="editor.saving.value" @pointerdown="sheetPointer($event,name)" @click="selectSheet(name)">{{name}}</button></nav>
       <span
         >{{ rowCount.toLocaleString() }} 行 ·
         {{ colCount.toLocaleString() }} 列</span

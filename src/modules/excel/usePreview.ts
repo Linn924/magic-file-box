@@ -378,6 +378,10 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     return spans;
   });
   function editedNumber(value:number,r:number,c:number){const format=styledSheet.value?.getCell(r+1,c+1).numFmt||sheet.value?.[XLSX.utils.encode_cell({r,c})]?.z||logicalStyle(sheetName.value,XLSX.utils.encode_cell({r,c}))?.numFmt;try{return format?XLSX.SSF.format(format,value):String(value);}catch{return String(value);}}
+  function displayText(address:string){const p=XLSX.utils.decode_cell(address),value=sheet.value?.[address],patch=editor.patchMap.value.get(JSON.stringify([sheetName.value,address])),formula=patch?.kind==='formula'?patch.value:!patch?value?.f:undefined;
+    if(formula){const result=editor.calculator.value?.result(sheetName.value,address,false);return result?.error==='#UNSUPPORTED!'?'='+formula:result?.error||(typeof result?.value==='number'?editedNumber(result.value,p.r,p.c):typeof result?.value==='boolean'?result.value?'TRUE':'FALSE':String(result?.value??''));}
+    return patch?(patch.kind==='blank'?'':patch.kind==='number'?editedNumber(patch.value,p.r,p.c):String(patch.value)):value?XLSX.utils.format_cell(value):'';
+  }
   const rows = computed(() => {
     editor.calculator.value?.beginBatch();return rowNumbers.value
       .filter((r) => rowHeight(r) > 0)
@@ -401,9 +405,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
           ).value;
           const formula=patch?.kind==='formula'?patch.value:!patch?value?.f:undefined;
           const calculated=formula?editor.calculator.value?.result(sheetName.value,cellAddress,false):undefined;
-          const text=formula?calculated?.error==='#UNSUPPORTED!'?'='+formula:calculated?.error||
-            (typeof calculated?.value==='number'?editedNumber(calculated.value,sourceRow,sourceCol):typeof calculated?.value==='boolean'?calculated.value?'TRUE':'FALSE':String(calculated?.value??'')):
-            patch?(patch.kind==='blank'?'':patch.kind==='number'?editedNumber(patch.value,sourceRow,sourceCol):String(patch.value)):value?XLSX.utils.format_cell(value):'';
+          const text=displayText(cellAddress);
           return [
             {
               c,address:cellAddress,clipHeight:styledSheet.value?.getRow(r+1).height!==undefined||sheet.value?.['!rows']?.[r]?.hpt!==undefined||dragRows.value[r]!==undefined?Math.max(0,Array.from({length:merge?.rows||1},(_,i)=>rowHeight(r+i)).reduce((n,h)=>n+h,0)-8):undefined,
@@ -523,7 +525,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   });
 
   return {
-    warning,editor,cellStyle:(address:string)=>logicalStyle(sheetName.value,address),
+    warning,editor,displayText,cellVisible:(address:string)=>{const p=XLSX.utils.decode_cell(address);return rowHeight(p.r)>0&&colWidth(p.c)>0;},cellStyle:(address:string)=>logicalStyle(sheetName.value,address),
     pane,
     scroll,
     onScroll,
