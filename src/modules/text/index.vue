@@ -4,7 +4,9 @@ import type { PreviewProps } from "../types";
 import { usePreview } from "./usePreview";
 import { createSafeResizeObserver } from "../../composables/safeResizeObserver";
 import textModule from "./index";
-import {renderTextLine,textMatches} from './highlight';
+import {renderTextLine,renderSyntaxLine,textMatches} from './highlight';
+import {useSyntax} from './useSyntax';
+import {languageNames} from './languages';
 import {LineHeights} from './lineHeights';
 import ToolButton from '../../components/ToolButton.vue';
 import PreviewPanel from '../../components/PreviewPanel.vue';
@@ -35,6 +37,9 @@ const searchInput = ref<HTMLInputElement>();
 watch(showSearch, async value => { if (value) { await nextTick(); searchInput.value?.focus({preventScroll:true}); } else query.value=''; });
 function findKey(event:KeyboardEvent){if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='f'&&pane.value?.clientWidth){event.preventDefault();showSearch.value=true;void nextTick(()=>searchInput.value?.focus({preventScroll:true}));}}
 const lines = computed(() => (pretty.value || "").split("\n"));
+const syntaxText=computed(()=>props.file.ext==='md'&&!sourceMode.value?'':pretty.value);
+function sourcePosition(){const root=textScroll.value;if(!root?.clientHeight)return ()=>{};const top=root.getBoundingClientRect().top,node=Array.from(root.querySelectorAll<HTMLElement>('.text-line')).find(n=>n.getBoundingClientRect().bottom>top),before=root.scrollTop,offset=node?node.getBoundingClientRect().top-top:0;return ()=>{if(root.scrollTop===before&&node?.isConnected)root.scrollTop+=node.getBoundingClientRect().top-root.getBoundingClientRect().top-offset;};}
+const syntax=useSyntax(props.file.id,syntaxText,props.file.ext,sourcePosition);
 
 /** 超过此行数才启用虚拟滚动，小文件直接全量渲染 */
 const VIRTUAL_THRESHOLD = 3000;
@@ -112,8 +117,8 @@ const hitCount = computed(() => {
     0,
   );
 });
-const isCode = computed(() => textModule.extensions.includes(props.file.ext));
-function markSearch(line:string) {return renderTextLine(line,isCode.value?props.file.ext:'',query.value);}
+function markSearch(line:string,index:number) {const data=syntax.data.value;return data?renderSyntaxLine(line,data.lines[index],data.styles,query.value):renderTextLine(line,'',query.value);}
+watch(syntax.data,()=>void nextTick().then(updateVirtual));
 const showHtml = computed(
   () => props.file.ext === "md" && !sourceMode.value,
 );
@@ -184,7 +189,7 @@ const showHtml = computed(
           <span v-if="showLines" class="line-no" aria-hidden="true">{{
             vStart + i + 1
           }}</span>
-          <code class="line-body" v-html="markSearch(line)"></code>
+          <code class="line-body" v-html="markSearch(line,vStart+i)"></code>
         </div>
         <!-- 虚拟滚动下方占位 -->
         <div
@@ -196,6 +201,6 @@ const showHtml = computed(
       </div>
     </div>
     </div>
-    <footer class="pane-footer text-footer"><span>{{raw.length.toLocaleString()}} 字 · {{lines.length.toLocaleString()}} 行</span></footer>
+    <footer class="pane-footer text-footer"><span>{{raw.length.toLocaleString()}} 字 · {{lines.length.toLocaleString()}} 行</span><span v-if="syntax.lang" :title="syntax.status.value" class="syntax-status">{{languageNames[syntax.lang]}}<span v-if="syntax.status.value"> · {{syntax.status.value}}</span></span></footer>
   </section>
 </template>

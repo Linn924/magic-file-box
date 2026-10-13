@@ -46,6 +46,7 @@ for (const name of [
   "pdfjs-dist",
   "dompurify",
   "marked",
+  "shiki",
 ])
   collect(name);
 writeFileSync("dist/THIRD-PARTY-NOTICES.txt", notices.join("\n"));

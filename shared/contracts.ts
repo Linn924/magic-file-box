@@ -1,3 +1,4 @@
+import {codeExtensions} from './codeFormats';
 export interface PreviewFile {
   id: string;
   name: string;
@@ -92,6 +93,7 @@ export const extensions = [
   "gif",
   "bmp",
   "svg",
+  ...codeExtensions,
 ];
 export function normalizeSettings(
   input: Partial<Settings> = {},

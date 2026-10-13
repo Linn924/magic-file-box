@@ -236,3 +236,6 @@ html[data-theme="dark"] .text-hit {
 .md-outline button[aria-current]{background:var(--panel);color:var(--accent);font-weight:600}
 .markdown .sr-only{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .md-diagram-toggle{display:grid;place-items:center;width:28px;height:28px;margin:6px 0 0 auto;padding:4px}.md-diagram-toggle svg{width:16px;height:16px}.md-diagram-toggle[aria-expanded="true"]{color:var(--accent)}
+.text .syntax-token{color:var(--syntax-light);font-style:var(--syntax-l-italic);font-weight:var(--syntax-l-weight);text-decoration:var(--syntax-l-line)}
+html[data-theme="dark"] .text .syntax-token{color:var(--syntax-dark);font-style:var(--syntax-d-italic);font-weight:var(--syntax-d-weight);text-decoration:var(--syntax-d-line)}
+.syntax-status{margin-left:auto;color:var(--muted);font-size:12px}

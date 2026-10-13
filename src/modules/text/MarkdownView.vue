@@ -4,6 +4,9 @@ import type {PreviewFile} from '../../../shared/contracts';
 import {renderMarkdown,safeSvg} from './markdown';
 import {renderDiagram} from './mermaid';
 import {highlightRendered} from './renderedSearch';
+import {highlightSyntax} from './syntaxClient';
+import {syntaxLanguage} from './languages';
+import {renderSyntaxLine} from './highlight';
 const props=defineProps<{file:PreviewFile;raw:string;query:string;zoom:number}>();
 const emit=defineEmits<{headings:[Array<{anchor:string;text:string;level:number}>];active:[string];hits:[{count:number;index:number}];error:[string]}>();
 const article=ref<HTMLElement>(),html=ref(renderMarkdown(props.raw));
@@ -63,8 +66,17 @@ async function decorate(){
   emit('headings',Array.from(root.querySelectorAll<HTMLElement>('h1,h2,h3,h4,h5,h6'),h=>({anchor:h.dataset.mdAnchor!,text:h.textContent||'',level:Number(h.tagName.slice(1))})));
   for(const pre of root.querySelectorAll('pre')){const button=document.createElement('button');button.type='button';button.className='md-copy-code';button.title='复制代码';button.setAttribute('aria-label','复制代码');button.innerHTML='<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="M6 5h8v9H6V5ZM10 5V2H2v9h4"/></svg>';pre.prepend(button);}
   for(const code of root.querySelectorAll('pre>code.language-mermaid'))code.parentElement?.classList.add('md-diagram-source');
-  search();const loading=Promise.all([loadImages(root,valid),diagrams(root,valid)]).then(()=>{if(valid()){search(false);updateActive();}});
+  search();const loading=Promise.all([loadImages(root,valid),diagrams(root,valid),highlightCode(root,valid)]).then(()=>{if(valid()){search(false);updateActive();}});
   const anchor=props.file.view?.markdownAnchor;if(anchor){delete props.file.view!.markdownAnchor;await loading;if(valid())jumpAnchor(anchor,true);}
+}
+async function highlightCode(root:HTMLElement,valid:()=>boolean){
+  let index=0,total=0;
+  for(const code of root.querySelectorAll<HTMLElement>('pre>code')){
+    if(!valid())return;const name=Array.from(code.classList).find(c=>c.startsWith('language-')),lang=name?syntaxLanguage(name):undefined;if(!lang)continue;
+    const text=code.textContent||'';total+=text.length;if(++index>64||total>2*1024*1024){code.title='代码高亮超过额度，保留原文';continue;}
+    const data=await highlightSyntax(props.file.id+':block-'+index,text,lang);if(!valid())return;if(!data){code.title='代码高亮不可用或超限，保留原文';continue;}
+    const restore=readingPosition();code.innerHTML=text.split('\n').map((line,i)=>renderSyntaxLine(line,data.lines[i],data.styles)).join('\n');code.dataset.syntax='ready';search(false);restore();updateActive();
+  }
 }
 watch(()=>props.raw,()=>{html.value=renderMarkdown(props.raw);void decorate();});
 watch(()=>props.query,()=>{void nextTick().then(()=>search());});
