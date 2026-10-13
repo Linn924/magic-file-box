@@ -104,7 +104,7 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
   }
   async function save(){
     if(['csv','tsv'].includes(format.value)&&formatted.value.includes(sheetName.value)){error.value='CSV/TSV 不保存单元格格式（字体、对齐等），请选择 Excel 副本。';return;}
-    if(saving.value||!finishCell())return;saving.value=true;error.value='';status.value='';
+    if(saving.value||!finishCell())return;const endSave=beginFileEdit(file);saving.value=true;error.value='';status.value='';
     const copyFormat=format.value,copySheet=sheetName.value;
     const snapshot=changes.value.map(change=>({...toRaw(change),value:{...toRaw(change.value)}})),saved=signature(snapshot);
     try{
@@ -115,7 +115,7 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
         if(!await reviewCopy(warnings)){status.value='已取消另存，草稿保留';return;}
       }
       const bytes=await exportExcelCopy(current,ext,snapshot,copyFormat,copySheet);const result=await window.localPreview.saveExcelCopy(file.id,copyFormat,bytes);if(result==='saved'){savedSignature.value=['xlsx','xls'].includes(copyFormat)?saved:changeSignature([...(JSON.parse(savedSignature.value) as ExcelChange[]).filter(change=>change.sheet!==copySheet),...(JSON.parse(saved) as ExcelChange[]).filter(change=>change.sheet===copySheet)]);status.value=['xlsx','xls'].includes(copyFormat)?'已另存副本，源文件未改变':'当前工作表已另存，其余工作表不包含在此副本中';}else status.value='已取消另存';}
-    catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();}
+    catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();endSave();}
   }
   async function applyFormat(range:XLSX.Range,mode:string,patch:FormatPatch){
     if(!editing.value||saving.value||!finishCell())return false;const end=beginFileEdit(file);busyEdit.value=true;saving.value=true;error.value='';status.value='';

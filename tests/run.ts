@@ -7,6 +7,7 @@ const index = args.indexOf("--suite");
 const selected = (index < 0 ? "all" : args[index + 1] || "").split(",");
 const names = [
   "core",
+  "updates",
   "word",
   "excel",
   "exceledit",
@@ -47,6 +48,7 @@ if (!args.includes("--skip-build"))
     process.platform === "win32",
   );
 run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);
+if(selected.includes('updates')||selected.includes('all'))run(process.execPath,['--import','tsx','tests/updateUnit.ts']);
 if(selected.includes('pdfspread')||selected.includes('pdfenhancements')||selected.includes('pdf')||selected.includes('pdfperf')||selected.includes('pdfchain')||selected.includes('all')) {
   run(process.execPath,['--import','tsx','src/modules/pdf/tests/searchMemory.ts']);
   run(process.execPath,['--import','tsx','src/modules/pdf/tests/enhancementsUnit.ts']);
@@ -65,7 +67,7 @@ await build({
   bundle: true,
   platform: "node",
   format: "cjs",
-  external: ["electron", "../electron-dist/main.cjs"],
+  external: ["electron","electron-updater","electron-updater/*", "../electron-dist/main.cjs"],
   target: "node22",
 });
 run(electron as unknown as string, [

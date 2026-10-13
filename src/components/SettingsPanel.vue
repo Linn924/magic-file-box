@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Settings } from "../../shared/contracts";
+import UpdateCenter from './UpdateCenter.vue';
 defineProps<{ settings: Settings }>();
 const emit = defineEmits<{ close: []; change: [value: Partial<Settings>] }>();
 </script>
@@ -117,7 +118,12 @@ const emit = defineEmits<{ close: []; change: [value: Partial<Settings>] }>();
         </select>
       </div>
 
+      <div class="setting-row"><label for="check-updates">启动时检查新版本</label><input id="check-updates" type="checkbox" :checked="settings.checkUpdatesOnStart" @change="emit('change',{checkUpdatesOnStart:($event.target as HTMLInputElement).checked})"/></div>
+      <UpdateCenter/>
       <p class="settings-help">设置自动保存。文件和预览记录不会保存。</p>
     </section>
   </div>
 </template>
+<style scoped>
+.settings-panel>header{position:sticky;top:0;background:var(--panel);z-index:1}
+</style>

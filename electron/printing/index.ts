@@ -16,6 +16,7 @@ interface ActiveJob {
   consumed?: boolean;
 }
 const jobs = new Map<number, ActiveJob>();
+export function hasActivePrintJobs(){return jobs.size>0;}
 let queue = Promise.resolve();
 let worker: BrowserWindow | undefined;
 let idleTimer: ReturnType<typeof setTimeout> | undefined;

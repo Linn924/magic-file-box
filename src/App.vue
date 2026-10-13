@@ -7,10 +7,13 @@ import ToolbarIcon from './components/ToolbarIcon.vue';
 import PreviewTab from "./components/PreviewTab.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
 import HomeIntro from "./components/HomeIntro.vue";
+import UpdateCenter from './components/UpdateCenter.vue';
+import {useUpdateRestart} from './composables/useUpdateRestart';
 import { defaults, type Settings, type PreviewFile } from "../shared/contracts";
 const isPreview = new URLSearchParams(location.search).has("preview");
 const immersive = useImmersive(isPreview);
 const files = shallowRef<PreviewFile[]>([]);
+const updateLocked=useUpdateRestart(files);
 const active = ref("");
 const settings = ref<Settings>({ ...defaults });
 const showSettings = ref(false);
@@ -292,6 +295,7 @@ onBeforeUnmount(() => {
 </script>
 <template>
   <main
+    :inert="updateLocked"
     ref="mainEl"
     @dragenter.prevent="enter"
     @dragleave.prevent="leave"
@@ -407,4 +411,5 @@ onBeforeUnmount(() => {
       @change="save"
     />
   </main>
+  <UpdateCenter notice :suppressed="showSettings||immersive"/>
 </template>

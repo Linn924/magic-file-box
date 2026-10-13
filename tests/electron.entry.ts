@@ -26,6 +26,8 @@ import pdfperf from "../src/modules/pdf/tests/performance";
 import pdfenhancements from '../src/modules/pdf/tests/enhancements';
 import pdfspread from '../src/modules/pdf/tests/spread';
 import pdfchain from '../src/modules/pdf/tests/chain';
+import updates from './suites/updates';
+import {installUpdateTestDriver} from './updateDriver';
 const profile = path.resolve("work/test-profiles/" + process.pid);
 mkdirSync(profile, { recursive: true });
 app.setPath("userData", profile);
@@ -39,11 +41,14 @@ app.on("browser-window-created", (_event, win) => {
     if (event.level === "error") console.error("RENDER", event.message);
   });
 });
+const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
+if(requested==='all'||requested.split(',').includes('updates'))installUpdateTestDriver();
 const program =
   require("../electron-dist/main.cjs") as typeof import("../electron/main");
 const results: string[] = [];
 const suites: Record<string, Suite> = {
   core,
+  updates,
   visual,
   bulk,
   immersive,
@@ -67,7 +72,6 @@ const suites: Record<string, Suite> = {
   pdfenhancements,
   pdfspread,
 };
-const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
 const selected =
   requested === "all"
     ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind")

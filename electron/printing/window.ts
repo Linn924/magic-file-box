@@ -153,4 +153,5 @@ export function setupPrintWindow(
     preview.showInactive();
     panel.show();
   });
+  return ()=>busy;
 }

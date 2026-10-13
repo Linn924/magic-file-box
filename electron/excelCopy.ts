@@ -6,6 +6,7 @@ import {trusted} from './security';
 import {ownsPreparedFile,preparedFileName,isPreparedSourceTarget} from './files';
 import type {ExcelRegionClipboard} from '../shared/excelEditing';
 import {parseTablePaste} from '../src/modules/excel/editModel';
+import {beginOutput} from './activeOutputs';
 let region:ExcelRegionClipboard|undefined,regionMarker='';
 let regionQueue:Promise<unknown>=Promise.resolve();
 export function setupExcelCopy(){
@@ -29,6 +30,7 @@ export function setupExcelCopy(){
     if(format==='xlsx'&&(data[0]!==80||data[1]!==75))throw Error('XLSX 副本数据无效。');
     if(format==='xls'&&![208,207,17,224,161,177,26,225].every((byte,index)=>data[index]===byte))throw Error('XLS 副本数据无效。');
     const owner=BrowserWindow.fromWebContents(event.sender);if(!owner)throw Error('预览窗口已关闭。');
+    const endOutput=beginOutput();try{
     const result=await dialog.showSaveDialog(owner,{title:'另存表格副本（不覆盖源文件）',defaultPath:path.basename(source,path.extname(source))+'-副本.'+format,filters:[{name:format.toUpperCase(),extensions:[format]}],properties:['showOverwriteConfirmation']});
     if(result.canceled||!result.filePath)return 'cancelled';
     if(event.sender.isDestroyed()||!ownsPreparedFile(event.sender.id,id))throw Error('文件已关闭，保存已停止。');
@@ -37,5 +39,6 @@ export function setupExcelCopy(){
     const temporary=path.join(path.dirname(result.filePath),'.file-preview-'+randomUUID()+'.tmp');
     try{await writeFile(temporary,data,{flag:'wx'});if(event.sender.isDestroyed()||!ownsPreparedFile(event.sender.id,id))throw Error('文件已关闭，保存已停止。');await rename(temporary,result.filePath);return 'saved';}
     finally{await unlink(temporary).catch(()=>{});}
+    }finally{endOutput();}
   });
 }

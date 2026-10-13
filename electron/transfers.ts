@@ -20,6 +20,7 @@ export function registerFiles(sender: number, files: PreviewFile[]) {
   retainPreparedFiles(sender,files);
   for (const file of files) owners.set(file.id, sender);
 }
+export function hasPendingTransfers(){return pending.size>0;}
 export function releaseWindow(sender: number) {
   forgetModified(sender);
   releasePreparedOwner(sender);

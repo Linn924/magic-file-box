@@ -51,6 +51,7 @@ export interface Settings {
   defaultZoom: number;
   maximizePreview: boolean;
   printEntry: PrintEntry;
+  checkUpdatesOnStart:boolean;
 }
 export const defaults: Settings = {
   theme: "light",
@@ -59,6 +60,7 @@ export const defaults: Settings = {
   defaultZoom: 100,
   maximizePreview: true,
   printEntry: "all",
+  checkUpdatesOnStart:true,
 };
 export const extensions = [
   "docx",
@@ -117,9 +119,17 @@ export function normalizeSettings(
     printEntry: ["all", "current", "none"].includes(input.printEntry ?? "")
       ? input.printEntry!
       : base.printEntry,
+    checkUpdatesOnStart:typeof input.checkUpdatesOnStart==='boolean'?input.checkUpdatesOnStart:base.checkUpdatesOnStart,
   };
 }
 export interface DesktopBridge {
+  getUpdateState():Promise<import('./updates').UpdateState>;
+  updateAction(action:import('./updates').UpdateAction):Promise<import('./updates').UpdateState>;
+  onUpdateState(handler:(state:import('./updates').UpdateState)=>void):()=>void;
+  onUpdateNotice(handler:()=>void):()=>void;
+  onUpdatePrepare(handler:(token:string)=>void):()=>void;
+  onUpdateResume(handler:(token:string)=>void):()=>void;
+  updatePrepared(token:string,report:import('./updates').RestartReport):void;
   markModified(id:string,dirty:boolean):Promise<void>;
   confirmDiscard(id:string,force?:boolean):Promise<boolean>;
   saveExcelCopy(id:string,format:import('./excelEditing').ExcelCopyFormat,data:Uint8Array):Promise<'saved'|'cancelled'>;

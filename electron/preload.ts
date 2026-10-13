@@ -2,6 +2,13 @@ import { contextBridge, ipcRenderer, shell, webUtils } from "electron";
 import type { DesktopBridge, Settings } from "../shared/contracts";
 
 const bridge: DesktopBridge = {
+  getUpdateState:()=>ipcRenderer.invoke('updates:get'),
+  updateAction:action=>ipcRenderer.invoke('updates:action',action),
+  onUpdateState:handler=>{const listener=(_event:Electron.IpcRendererEvent,value:import('../shared/updates').UpdateState)=>handler(value);ipcRenderer.on('updates:changed',listener);return ()=>ipcRenderer.removeListener('updates:changed',listener);},
+  onUpdateNotice:handler=>{const listener=()=>handler();ipcRenderer.on('updates:notice',listener);return ()=>ipcRenderer.removeListener('updates:notice',listener);},
+  onUpdatePrepare:handler=>{const listener=(_event:Electron.IpcRendererEvent,token:string)=>handler(token);ipcRenderer.on('updates:prepare',listener);return ()=>ipcRenderer.removeListener('updates:prepare',listener);},
+  onUpdateResume:handler=>{const listener=(_event:Electron.IpcRendererEvent,token:string)=>handler(token);ipcRenderer.on('updates:resume',listener);return ()=>ipcRenderer.removeListener('updates:resume',listener);},
+  updatePrepared:(token,report)=>ipcRenderer.send('updates:prepared',token,report),
   followMarkdownLink:(id,href)=>ipcRenderer.invoke('markdown:follow',id,href),
   markdownImage:(id,href)=>ipcRenderer.invoke('markdown:image',id,href),
   markdownCopy:(id,text)=>ipcRenderer.invoke('markdown:copy',id,text),

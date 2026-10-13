@@ -3,10 +3,13 @@ import {setupExcelCopy} from './excelCopy';
 import {setupMarkdownLinks} from './markdownLinks';
 import {setupPrintWindow} from "./printing/window";
 import { setupPdfExport } from './pdfExport';
-import { setupPrinting } from "./printing";
+import { setupPrinting,hasActivePrintJobs } from "./printing";
 import { setupPdfResources,pdfResourceStats } from './pdfResources';
 import { setupFullscreen, trackFullscreen } from "./fullscreen";
-import { registerFiles, releaseWindow, setupTransfers } from "./transfers";
+import { registerFiles, releaseWindow, setupTransfers,hasPendingTransfers } from "./transfers";
+import {setupUpdates} from './updates';
+import type {UpdateController} from './updates/controller';
+import {hasActiveOutputs} from './activeOutputs';
 import {
   app,
   BrowserWindow,
@@ -58,6 +61,8 @@ let home: BrowserWindow | undefined;
 let quitting = false;
 let closePrompt = false;
 let openQueue: Promise<unknown> = Promise.resolve();
+let opening=0;
+export let updates:UpdateController;
 const icon = path.join(__dirname, "../assets/logo.png");
 const forceClose = new Set<number>();
 
@@ -184,6 +189,7 @@ async function createHome() {
 }
 export async function openPaths(paths: string[], mode?: "tabs" | "windows",view?:PreviewFile['view']) {
   if (!paths.length) return [];
+  opening++;try{
   if (!mode) {
     const preference = settings.get().multiFileMode;
     if (paths.length > 1 && preference === "ask") {
@@ -215,12 +221,14 @@ export async function openPaths(paths: string[], mode?: "tabs" | "windows",view?
     created.push(win);
   }
   return created;
+  }finally{opening--;}
 }
 export const openPath = (file: string) =>
   openPaths([file], "windows").then((w) => w[0]);
 function enqueue(paths: string[]) {
+  opening++;
   const task = openQueue.then(() => openPaths(paths));
-  openQueue = task.catch(() => {});
+  openQueue = task.catch(() => {}).finally(()=>{opening--;});
   return task;
 }
 export function closePreview(win: BrowserWindow) {
@@ -267,7 +275,7 @@ export const ready = owner
       setupPrinting(local);
       setupPdfExport();
       setupPdfResources();
-      setupPrintWindow(local, async (files) => {
+      const printBusy=setupPrintWindow(local, async (files) => {
         const win = createWindow(true);
         registerFiles(win.webContents.id, files);
         payloads.set(win.webContents.id, files);
@@ -275,6 +283,7 @@ export const ready = owner
         catch(error) { if(!win.isDestroyed())win.destroy();throw error; }
         return win;
       });
+      updates=setupUpdates(()=>settings.get().checkUpdatesOnStart,()=>opening>0||hasActiveOutputs()||hasActivePrintJobs()||printBusy()||hasPendingTransfers());
       ipcMain.handle("preview:select", async (event) => {
         trusted(event);
         const win = BrowserWindow.fromWebContents(event.sender);

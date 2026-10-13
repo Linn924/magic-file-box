@@ -1,6 +1,6 @@
 {
   "name": "file-preview",
-  "version": "3.3.5",
+  "version": "3.3.6",
   "private": true,
   "description": "Offline, read-only file preview tool for Windows",
   "author": "File Preview",
@@ -12,9 +12,9 @@
     "dev:web": "vite --host 127.0.0.1",
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.electron.json",
     "build": "npm run typecheck && tsx scripts/icon.ts && tsx scripts/build-electron.ts && tsx scripts/associations.ts && vite build && tsx scripts/copy-assets.ts",
-    "build:win": "npm run build && electron-builder --win nsis --x64 && npm run verify:release",
+    "build:win": "npm run build && electron-builder --win nsis --x64 && npm run verify:release && npm run verify:update",
     "build:win:zip": "npm run build && electron-builder --win zip --x64 && npm run verify:release -- --zip",
-    "build:win:all": "npm run build && electron-builder --win nsis zip --x64 && npm run verify:release -- --zip",
+    "build:win:all": "npm run build && electron-builder --win nsis zip --x64 && npm run verify:release -- --zip && npm run verify:update",
     "verify:release": "tsx scripts/verify-release.ts",
     "verify:install": "tsx scripts/verify-install.ts",
     "build:dir": "npm run build && electron-builder --win --dir --x64",
@@ -24,7 +24,8 @@
     "test:fixtures": "tsx scripts/fixtures.ts",
     "test:package": "tsx tests/package.ts",
     "bench": "tsx scripts/bench.ts",
-    "bench:ui": "npm test -- --suite bench"
+    "bench:ui": "npm test -- --suite bench",
+    "verify:update": "tsx scripts/verify-update.ts"
   },
   "devDependencies": {
     "@aiden0z/pptx-renderer": "^1.2.4",
@@ -38,6 +39,7 @@
     "electron-builder": "^26.0.12",
     "esbuild": "^0.28.2",
     "exceljs": "^4.4.0",
+    "js-yaml": "^4.3.2",
     "jszip": "^3.10.1",
     "katex": "^0.18.10",
     "marked": "^18.0.12",
@@ -72,7 +74,8 @@
       ],
       "signAndEditExecutable": true,
       "icon": "assets/icon.ico",
-      "signExecutable": false
+      "signExecutable": false,
+      "verifyUpdateCodeSignature": false
     },
     "artifactName": "FilePreview-${version}-Windows-x64.${ext}",
     "nsis": {
@@ -82,12 +85,25 @@
       "createDesktopShortcut": true,
       "artifactName": "FilePreview-Setup-${version}-x64.exe",
       "include": "electron-dist/associations.nsh"
+    },
+    "publish": {
+      "provider": "github",
+      "owner": "Linn924",
+      "repo": "filePreview",
+      "releaseType": "release",
+      "private": false
     }
   },
   "overrides": {
-    "mermaid": {"katex":"$katex"},
+    "mermaid": {
+      "katex": "$katex"
+    },
     "exceljs": {
       "uuid": "^11.1.1"
     }
+  },
+  "dependencies": {
+    "builder-util-runtime": "9.7.0",
+    "electron-updater": "6.8.10"
   }
 }

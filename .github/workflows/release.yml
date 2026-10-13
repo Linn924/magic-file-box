@@ -1,0 +1,42 @@
+name: Build update release
+on:
+  push:
+    tags: ['v*']
+permissions:
+  contents: write
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Check version tag
+        shell: pwsh
+        run: |
+          $releaseVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          if ($releaseVersion -notmatch '^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$' -or $env:GITHUB_REF_NAME -ne "v$releaseVersion") { throw 'Tag must match package version.' }
+      - run: npm ci
+      - name: Build unsigned NSIS and verify update artifacts
+        shell: pwsh
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          npm run build
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npx electron-builder --win nsis --x64 --publish never
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run verify:release
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run verify:update
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Create reviewable draft release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          $releaseVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
+          gh release create "$env:GITHUB_REF_NAME" --draft --title "File Preview $releaseVersion" --generate-notes "outputs/release/FilePreview-Setup-$releaseVersion-x64.exe" "outputs/release/FilePreview-Setup-$releaseVersion-x64.exe.blockmap" "outputs/release/latest.yml" "outputs/release/SHA256SUMS.txt"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
