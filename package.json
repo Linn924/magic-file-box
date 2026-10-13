@@ -30,6 +30,7 @@
   "devDependencies": {
     "@aiden0z/pptx-renderer": "^1.2.4",
     "@file-viewer/doc": "^3.0.3",
+    "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.9.6",
     "@vitejs/plugin-vue": "^6.0.1",
     "@web-ppt/core": "^0.4.5",
