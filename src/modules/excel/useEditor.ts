@@ -16,12 +16,16 @@ import {captureRegion,pasteRegion as pasteWorkbook} from './regionWorkbook';
 import type {ExcelRegionClipboard,ExcelPasteMode} from '../../../shared/excelEditing';
 import {contains} from './selection';
 import {sheetWorkbook,type SheetOperation} from './sheetWorkbook';
+import {sortWorkbook} from './sortWorkbook';
+import {filterWorkbook,type FilterCondition} from './filterWorkbook';
+import type {SortKey} from './tableModel';
 export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,sheetName:Ref<string>,install:(bytes:Uint8Array,ext:string,widths?:Record<string,number>)=>Promise<void>,getWidths:()=>Record<string,number>,getNumFmt:(sheet:string,address:string)=>string|undefined=()=>undefined){
   const restored=file.view?.excelDraft;
   const editing=ref(restored?.editing??false),changes=ref<ExcelChange[]>(restored?.changes??[]),undoStack=ref<ExcelTransaction[]>(restored?.undo??[]),redoStack=ref<ExcelTransaction[]>(restored?.redo??[]);
   const savedSignature=ref(restored?.savedSignature??changeSignature([]));
   const baseBytes=ref<Uint8Array|undefined>(restored?.baseBytes),revisions=ref<Record<string,number>>(restored?.revisions??{});let serial=restored?.serial??0;
   const formatted=ref<string[]>(restored?.formatted??[]);
+  const copyRows=ref<'all'|'visible'>('all');
   const busyEdit=ref(false);
   const address=ref(restored?.address||'A1'),selectedSheet=ref(restored?.sheet||''),input=ref(restored?.input??''),error=ref(''),status=ref(''),saving=ref(false),format=ref<ExcelCopyFormat>(file.ext==='xls'?'xls':file.ext==='csv'?'csv':file.ext==='tsv'?'tsv':'xlsx');
   const selection=ref<ExcelSelection>(restored?.selection??singleton(restored?.sheet||'',restored?.address||'A1'));
@@ -115,7 +119,8 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
         const warnings=await inspectXlsSave(file.bytes,current,ext,copyFormat);
         if(!await reviewCopy(warnings)){status.value='已取消另存，草稿保留';return;}
       }
-      const bytes=await exportExcelCopy(current,ext,snapshot,copyFormat,copySheet);const result=await window.localPreview.saveExcelCopy(file.id,copyFormat,bytes);if(result==='saved'){savedSignature.value=['xlsx','xls'].includes(copyFormat)?saved:changeSignature([...(JSON.parse(savedSignature.value) as ExcelChange[]).filter(change=>change.sheet!==copySheet),...(JSON.parse(saved) as ExcelChange[]).filter(change=>change.sheet===copySheet)]);status.value=['xlsx','xls'].includes(copyFormat)?'已另存副本，源文件未改变':'当前工作表已另存，其余工作表不包含在此副本中';}else status.value='已取消另存';}
+      const textCopy=['csv','tsv'].includes(copyFormat),scope=textCopy?copyRows.value:'all';
+      const bytes=await exportExcelCopy(current,ext,snapshot,copyFormat,copySheet,false,scope);const result=await window.localPreview.saveExcelCopy(file.id,copyFormat,bytes);if(result==='saved'){if(scope==='all')savedSignature.value=['xlsx','xls'].includes(copyFormat)?saved:changeSignature([...(JSON.parse(savedSignature.value) as ExcelChange[]).filter(change=>change.sheet!==copySheet),...(JSON.parse(saved) as ExcelChange[]).filter(change=>change.sheet===copySheet)]);status.value=['xlsx','xls'].includes(copyFormat)?'已另存副本，源文件未改变':scope==='visible'?'仅可见行已另存，完整草稿仍保留':'当前工作表已另存，其余工作表不包含在此副本中';}else status.value='已取消另存';}
     catch(e){error.value=(e as Error).message;}finally{saving.value=false;persist();endSave();}
   }
   async function applyFormat(range:XLSX.Range,mode:string,patch:FormatPatch){
@@ -176,5 +181,9 @@ export function useEditor(file:PreviewFile,book:Ref<XLSX.WorkBook|undefined>,she
     }catch(e){error.value=(e as Error).message;return false;}
   }
   const manageSheet=(op:SheetOperation)=>mutateGrid(bytes=>sheetWorkbook(bytes,op,sheetName.value),undefined,undefined,false,true);
-  return {manageSheet,replaceCells,autoSum,numFmt:getNumFmt,confirmation,answerRange,layout,merge,capture,copyRegion,pasteRich,fill,selection,bulk,applyFormat,editing,changes,calculator,saveWarnings,confirmCopy,baseBytes,revisions,dirty,pending,selectedSheet,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,alignmentMap,align,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent,structure};
+  const dataBytes=()=>exportExcelCopy(baseBytes.value??file.bytes,baseBytes.value?'xlsx':file.ext,changes.value,'xlsx',sheetName.value);
+  const sortTable=(range:XLSX.Range,header:boolean,keys:SortKey[])=>mutateGrid(bytes=>sortWorkbook(bytes,sheetName.value,range,header,keys),range,undefined,false);
+  const filterTable=(range:XLSX.Range,conditions:FilterCondition[],clear=false)=>mutateGrid(bytes=>filterWorkbook(bytes,sheetName.value,range,conditions,clear),range,undefined,false,true);
+  const rowVisible=(r:number)=>!book.value?.Sheets[sheetName.value]?.['!rows']?.[r]?.hidden;
+  return {dataBytes,sortTable,filterTable,copyRows,rowVisible,manageSheet,replaceCells,autoSum,numFmt:getNumFmt,confirmation,answerRange,layout,merge,capture,copyRegion,pasteRich,fill,selection,bulk,applyFormat,editing,changes,calculator,saveWarnings,confirmCopy,baseBytes,revisions,dirty,pending,selectedSheet,address,input,error,status,saving,format,canEdit,undoStack,redoStack,patchMap,alignmentMap,align,valueAt,select,toggle,finishCell,cancelInput:refreshInput,paste,undo,redo,discard,save,initialize,extent,structure};
 }

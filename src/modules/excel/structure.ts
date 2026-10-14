@@ -41,6 +41,7 @@ export async function changeStructure(bytes:Uint8Array,op:ExcelStructure){
     for(const cell of all(doc,'c'))for(const f of all(cell,'f')){if(f.hasAttribute('t')&&f.getAttribute('t')!=='normal')throw Error('共享、数组或数据表公式不支持结构编辑。');const formula=f.textContent||'',next=moveFormula(formula,name,op);if(next!==formula){f.textContent=next;affected.add(name);}for(const v of all(cell,'v'))v.remove();}
   }
   const doc=documents.get(op.sheet)!;
+  if(all(doc,'filterColumn').length)throw Error('请先清除筛选，再插入或删除行列。');
   const inheritIndex=Math.max(0,op.index-1),inheritRow=all(doc,'row').find(row=>Number(row.getAttribute('r'))===inheritIndex+1)?.cloneNode(true) as Element|undefined;
   const inheritCol=all(doc,'col').find(col=>Number(col.getAttribute('min'))<=inheritIndex+1&&Number(col.getAttribute('max'))>=inheritIndex+1)?.cloneNode(true) as Element|undefined;
   const inheritCells=new Map(all(doc,'row').map(row=>[Number(row.getAttribute('r')),Array.from(row.children).find(cell=>cell.localName==='c'&&XLSX.utils.decode_cell(cell.getAttribute('r')!).c===inheritIndex)?.getAttribute('s')]));

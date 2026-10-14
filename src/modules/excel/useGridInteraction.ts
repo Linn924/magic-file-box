@@ -7,7 +7,7 @@ import {selectionRange,contains,regionTargets} from './selection';
 import type {ExcelPasteMode} from '../../../shared/excelEditing';
 import {isoDate} from './dateSeries';
 type Editor=ReturnType<typeof useEditor>;
-export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<number>,colCount:Ref<number>,locate:(address:string)=>Promise<boolean>,scroll:Ref<HTMLElement|undefined>,onScroll:()=>void,merges:()=>XLSX.Range[],pageCols=100){
+export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<number>,colCount:Ref<number>,locate:(address:string)=>Promise<boolean>,scroll:Ref<HTMLElement|undefined>,onScroll:()=>void,merges:()=>XLSX.Range[],pageCols=100,display?:(address:string)=>string){
   const inline=ref(false),inlineInput=ref<HTMLTextAreaElement>(),menu=ref<{x:number;y:number;axis?:'row'|'column';index:number}|null>(null);
   const custom=ref(false),customAxis=ref<'row'|'column'>('row'),customSide=ref<'before'|'after'>('before'),customCount=ref(1);
   let tabDirection=1;
@@ -74,17 +74,20 @@ export function useGridInteraction(file:PreviewFile,editor:Editor,rowCount:Ref<n
   async function copy(cut=false){
     if(!commit()||!editor.finishCell())return;
     try{
+      if(editor.copyRows.value==='visible'&&cut)throw Error('仅可见行只复制显示值；剪切请先选择全部行。');
       const allowed=new Set(regionTargets(range.value,merges())),rows:string[]=[];let size=0;
       for(let r=range.value.s.r;r<=range.value.e.r;r++){
+        if(editor.copyRows.value==='visible'&&!editor.rowVisible(r))continue;
         const values:string[]=[];
         for(let c=range.value.s.c;c<=range.value.e.c;c++){
-          const address=XLSX.utils.encode_cell({r,c});let text=allowed.has(address)?excelInput(editor.valueAt(editor.selectedSheet.value,address)):'';
+          const address=XLSX.utils.encode_cell({r,c});let text=allowed.has(address)?editor.copyRows.value==='visible'&&display?display(address):excelInput(editor.valueAt(editor.selectedSheet.value,address)):'';
+          if(editor.copyRows.value==='visible'&&/^[=+\-@\t\r]/.test(text)){const original=editor.valueAt(editor.selectedSheet.value,address),literal=original.kind==='text'||original.kind==='formula'&&typeof editor.calculator.value?.result(editor.selectedSheet.value,address,false).value==='string';if(literal)text="'"+text;}
           if(/[\t\r\n"]/.test(text))text='"'+text.replace(/"/g,'""')+'"';
           size+=text.length+1;if(size>1000000)throw Error('复制内容最多 100 万字符。');values.push(text);
         }
         rows.push(values.join('\t'));
       }
-      await editor.copyRegion(range.value,rows.join('\r\n'),cut);
+      if(editor.copyRows.value==='visible'){await window.localPreview.excelRegionClipboard(file.id,'clear');await window.localPreview.excelClipboard(file.id,'copy',rows.join('\r\n'));editor.error.value='';editor.status.value='已复制可见行显示值（不含公式和格式）';}else await editor.copyRegion(range.value,rows.join('\r\n'),cut);
     }catch(e){editor.error.value=(e as Error).message;}
     closeMenu();
   }

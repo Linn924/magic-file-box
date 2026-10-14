@@ -1,15 +1,22 @@
 import * as XLSX from 'xlsx';
 import {openGridBook,NS,elements,rowElement,editable,mergeRanges,setMerges,checkMerges,encloses,cellsByAddress,putCell,newCell,expandDimension,checkRange} from './gridBook';
 import {contains,intersects} from './selection';
+import {readFilterInfo,filterWorkbook} from './filterWorkbook';
 export interface LayoutChange {axis:'row'|'column';start:number;end:number;size?:number;sizes?:Record<number,number>;hidden?:boolean;unhideAll?:boolean}
 export async function layoutWorkbook(bytes:Uint8Array,sheet:string,op:LayoutChange){
+  let active:Awaited<ReturnType<typeof readFilterInfo>>;
+  if(op.axis==='row'&&(op.hidden!==undefined||op.unhideAll)){
+    active=await readFilterInfo(bytes,sheet);
+    if(active?.conditions.length){const change={start:op.unhideAll?active.range.s.r+1:op.start,end:op.unhideAll?active.range.e.r:op.end,hidden:op.unhideAll?false:!!op.hidden};bytes=(await filterWorkbook(bytes,sheet,active.range,active.conditions,false,change)).bytes;}
+  }
   const book=await openGridBook(bytes),doc=book.sheets.get(sheet)?.doc;if(!doc)throw Error('工作表不存在。');editable(doc);
   if(!op.unhideAll&&(!Number.isInteger(op.start)||!Number.isInteger(op.end)||op.start<0||op.end<op.start||op.end-op.start+1>20000||op.end>=(op.axis==='row'?1048576:16384)))throw Error('行列范围无效或超过一次 20000 行/列。');
   const validate=(value:number)=>{if(!Number.isFinite(value)||value<1||value>(op.axis==='row'?409:255))throw Error(op.axis==='row'?'行高需在 1–409 磅之间。':'列宽需在 1–255 字符之间。');};
   if(op.size!==undefined)validate(op.size);for(const value of Object.values(op.sizes||{}))validate(value);
   if(op.axis==='row'){
-    if(op.unhideAll)for(const row of elements(doc,'row'))row.removeAttribute('hidden');
-    else for(let r=op.start;r<=op.end;r++){const row=rowElement(doc,r),size=op.sizes?.[r]??op.size;if(size!==undefined){row.setAttribute('ht',String(size));row.setAttribute('customHeight','1');}if(op.hidden!==undefined){if(op.hidden)row.setAttribute('hidden','1');else row.removeAttribute('hidden');}}
+    const filtered=(r:number)=>!!active?.conditions.length&&r>active.range.s.r&&r<=active.range.e.r;
+    if(op.unhideAll)for(const row of elements(doc,'row')){if(!filtered(Number(row.getAttribute('r'))-1))row.removeAttribute('hidden');}
+    else for(let r=op.start;r<=op.end;r++){const row=rowElement(doc,r),size=op.sizes?.[r]??op.size;if(size!==undefined){row.setAttribute('ht',String(size));row.setAttribute('customHeight','1');}if(op.hidden!==undefined&&!filtered(r)){if(op.hidden)row.setAttribute('hidden','1');else row.removeAttribute('hidden');}}
   }else{
     let cols=elements(doc,'cols')[0];if(!cols){cols=doc.createElementNS(NS,'cols');doc.documentElement.insertBefore(cols,elements(doc,'sheetData')[0]);}
     if(op.unhideAll)for(const col of Array.from(cols.children))col.removeAttribute('hidden');

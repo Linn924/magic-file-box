@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict';
+import {compareTableValues,sortedRows,sortFormula,parseTableRange} from '../tableModel';
+const values=[{value:3},{value:'3'},{value:false},{error:'#REF!'},{value:''},{value:1},{value:3}];
+assert.deepEqual(sortedRows(0,6,[{column:0,direction:'asc'}],r=>values[r]),[5,0,6,1,2,3,4]);
+assert.deepEqual(sortedRows(0,6,[{column:0,direction:'desc'}],r=>values[r]),[3,2,1,0,6,5,4]);
+assert.ok(compareTableValues({value:45200},{value:45300},'asc')<0);
+assert.deepEqual(sortedRows(0,2,[{column:0,direction:'asc'},{column:1,direction:'desc'}],(r,c)=>({value:c?[2,5,1][r]:'same'})),[1,0,2]);
+const range=parseTableRange('A2:D4'),map=new Map([[1,3],[2,1],[3,2]]);
+assert.equal(sortFormula('A2*$B$2+X1','Data','Data',range,map),'A4*$B$4+X1');
+assert.equal(sortFormula("SUM(Data!A2:A4)+IF(A1=\"Data!A2\",1,0)",'Other','Data',range,map),"SUM(Data!A2:A4)+IF(A1=\"Data!A2\",1,0)");
+assert.equal(sortFormula("'O''Brien'!A2",'Other',"O'Brien",range,map),"'O''Brien'!A4");
+assert.throws(()=>sortFormula('SUM(A2:A3)','Data','Data',range,map),/不连续/);
+assert.throws(()=>sortFormula('SUM(A2:X2)','Data','Data',range,map),/不连续/);
+assert.throws(()=>sortFormula('INDIRECT("A2")','Data','Data',range,map),/公式/);
+for(const input of ['A0:B1','A1:XFE2','A1:B10001','A3:B1','a1;alert(1)'])assert.throws(()=>parseTableRange(input));
+assert.throws(()=>sortedRows(0,2,[{column:0,direction:'asc'},{column:0,direction:'desc'}],()=>({value:1})));
+console.log('PASS table sort types, date serials, stable/multicolumn ordering, blanks last, reference permutation and unsafe range rejection');

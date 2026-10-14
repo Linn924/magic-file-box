@@ -1,5 +1,6 @@
 import {NS,xml,elements,serialize,openGridBook} from './gridBook';
 import {parseFormula,formulaReferences} from './formula';
+import {cloneFilterMetadata} from './filterWorkbook';
 export type SheetOperation = {kind:'create'|'copy'|'rename';sheet:string;name:string}|{kind:'delete'|'hide'|'show';sheet:string}|{kind:'move';sheet:string;index:number};
 const REL='http://schemas.openxmlformats.org/officeDocument/2006/relationships';
 const PKG='http://schemas.openxmlformats.org/package/2006/relationships';
@@ -59,7 +60,7 @@ export async function sheetWorkbook(bytes:Uint8Array,op:SheetOperation,active:st
       const deleted=sheets.get(op.sheet)!.path;
       async function reachable(roots:string[]){const found=new Set<string>();async function visit(part:string){if(found.has(part))return;if(found.size>=4096)throw Error('工作表关联部件过多，不能安全删除。');found.add(part);const entry=zip.file(relPath(part));if(entry){const doc=xml(await entry.async('string'));for(const rel of Array.from(doc.documentElement.children))if(rel.getAttribute('TargetMode')!=='External')await visit(partPath(part,rel.getAttribute('Target')!));}}for(const root of roots)await visit(root);return found;}
       const owned=await reachable([deleted]),kept=await reachable([...sheets.entries()].filter(([name])=>name!==op.sheet).map(([,entry])=>entry.path));
-      target!.remove();sheets.delete(op.sheet);for(const part of owned)if(!kept.has(part)){zip.remove(part);zip.remove(relPath(part));for(const type of Array.from(types.documentElement.children))if(type.getAttribute('PartName')==='/'+part)type.remove();}
+      await cloneFilterMetadata(zip,deleted);target!.remove();sheets.delete(op.sheet);for(const part of owned)if(!kept.has(part)){zip.remove(part);zip.remove(relPath(part));for(const type of Array.from(types.documentElement.children))if(type.getAttribute('PartName')==='/'+part)type.remove();}
       for(const rel of Array.from(relations.documentElement.children))if(rel.getAttribute('Id')===target!.getAttributeNS(REL,'id'))rel.remove();
       for(const type of Array.from(types.documentElement.children))if(type.getAttribute('PartName')==='/'+deleted)type.remove();
       if(active===op.sheet)nextActive=visible.find(n=>n!==target)!.getAttribute('name')!;
@@ -84,7 +85,7 @@ export async function sheetWorkbook(bytes:Uint8Array,op:SheetOperation,active:st
     if(op.kind==='copy'){
       const source=sheets.get(op.sheet)!;if(!elements(source.doc,'sheetData').length)throw Error('只能复制普通工作表。');
       for(const tag of ['tableParts','extLst','oleObjects','controls'])if(elements(source.doc,tag).length)throw Error('工作表含暂不支持复制的复杂对象。');
-      path=await clonePart(source.path);doc=xml(await zip.file(path)!.async('string'));
+      path=await clonePart(source.path);await cloneFilterMetadata(zip,source.path,path);doc=xml(await zip.file(path)!.async('string'));
       // Reject unsupported formula syntax before publishing a copied sheet.
       for(const cell of elements(doc,'c'))for(const f of elements(cell,'f')){if(f.hasAttribute('t')&&f.getAttribute('t')!=='normal')throw Error('共享、数组或数据表公式暂不支持复制。');f.textContent=sheetFormula(f.textContent||'',op.sheet,op.name);for(const v of elements(cell,'v'))v.remove();}
       for(const link of elements(doc,'hyperlink')){const loc=link.getAttribute('location');if(loc)link.setAttribute('location',sheetFormula(loc,op.sheet,op.name));}

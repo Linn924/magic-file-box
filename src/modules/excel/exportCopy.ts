@@ -5,6 +5,7 @@ import {exportXlsCopy} from './xlsCopy';
 import {hydrateXlsxStyles,styledXlsx} from './xlsStyles';
 import {createFormulaCalculator} from './formula';
 import type {ExcelChange,ExcelCopyFormat,ExcelValue} from '../../../shared/excelEditing';
+import {hasActiveFilters} from './filterWorkbook';
 const MAIN='http://schemas.openxmlformats.org/spreadsheetml/2006/main';
 function xml(text:string){const document=new DOMParser().parseFromString(text,'application/xml');if(document.querySelector('parsererror'))throw Error('源文件 XML 无法安全保存。');return document;}
 function elements(node:Document|Element,name:string){return Array.from(node.getElementsByTagNameNS(MAIN,name));}
@@ -15,11 +16,12 @@ function applyValue(sheet:XLSX.WorkSheet,address:string,value:ExcelValue){
   if(value.kind==='formula')sheet[address].f=value.value;
   const cell=XLSX.utils.decode_cell(address),range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):{s:cell,e:cell};range.s.r=Math.min(range.s.r,cell.r);range.s.c=Math.min(range.s.c,cell.c);range.e.r=Math.max(range.e.r,cell.r);range.e.c=Math.max(range.e.c,cell.c);sheet['!ref']=XLSX.utils.encode_range(range);
 }
-export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelChange[],format:ExcelCopyFormat,currentSheet:string,refresh=false){
-  if(!changes.length&&format===ext&&!refresh)return bytes.slice();
+export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelChange[],format:ExcelCopyFormat,currentSheet:string,refresh=false,rowScope:'all'|'visible'='all'){
+  if(!changes.length&&format===ext&&!refresh&&rowScope==='all')return bytes.slice();
   const workbook=readBasicWorkbook(bytes,ext);
   for(const change of changes){const sheet=workbook.Sheets[change.sheet];if(!sheet)throw Error('工作表已不存在。');if(!change.alignmentOnly)applyValue(sheet,change.address,change.value);else if(change.alignment){sheet[change.address]??={t:"z"};const position=XLSX.utils.decode_cell(change.address),range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):{s:position,e:position};range.s.r=Math.min(range.s.r,position.r);range.s.c=Math.min(range.s.c,position.c);range.e.r=Math.max(range.e.r,position.r);range.e.c=Math.max(range.e.c,position.c);sheet['!ref']=XLSX.utils.encode_range(range);}}
   if(format==='xls'){
+    if(ext==='xlsx'&&await hasActiveFilters(bytes))throw Error('XLS 无法完整保存本次筛选条件，请选择 XLSX；清除筛选后可另存 XLS。');
     if(ext==='xlsx')await hydrateXlsxStyles(bytes,workbook);
     return exportXlsCopy(workbook,changes);
   }
@@ -29,7 +31,7 @@ export async function exportExcelCopy(bytes:Uint8Array,ext:string,changes:ExcelC
     if(Object.keys(sheet).some(key=>!key.startsWith('!')&&!!sheet[key]?.f))throw Error('CSV/TSV 不保存未计算公式，请选择 XLSX 副本。');
     const separator=format==='csv'?',':'\t',range=sheet['!ref']?XLSX.utils.decode_range(sheet['!ref']):undefined,rows:string[]=[];
     if(range){if((range.e.r+1)*(range.e.c+1)>2000000)throw Error('当前工作表过大，建议另存 XLSX。');
-      for(let r=0;r<=range.e.r;r++){const cells:string[]=[];for(let c=0;c<=range.e.c;c++){
+      for(let r=0;r<=range.e.r;r++){if(rowScope==='visible'&&sheet['!rows']?.[r]?.hidden)continue;const cells:string[]=[];for(let c=0;c<=range.e.c;c++){
         const cell=sheet[XLSX.utils.encode_cell({r,c})];let text=cell?.v===undefined?'':String(cell.v);
         // Text that resembles a formula must stay text in spreadsheet consumers.
         if(cell?.t==='s'&&/^[=+\-@\t\r]/.test(text))text="'"+text;

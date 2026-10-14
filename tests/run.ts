@@ -17,6 +17,7 @@ const names = [
   "exceladvanced",
   "excelfind",
   "excelsheets",
+  "exceltable",
   "ppt",
   "pdf",
   "text",
@@ -66,6 +67,7 @@ if(selected.includes('exceledit')||selected.includes('excelgrid')||selected.incl
 if(selected.includes('exceledit')||selected.includes('exceladvanced')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/excel/tests/regionFormulaUnit.ts']);
 if(selected.includes('exceledit')||selected.includes('excelfind')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/excel/tests/findAssistUnit.ts']);
 if(selected.includes('exceledit')||selected.includes('excelsheets')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/excel/tests/sheetModelUnit.ts']);
+if(selected.includes('exceledit')||selected.includes('exceltable')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/excel/tests/tableModelUnit.ts']);
 if (selected.includes('all') || selected.includes('excel'))
   run(process.execPath, ['--import', 'tsx', 'tests/excel-fallback.ts']);
 mkdirSync(".test-build", { recursive: true });
