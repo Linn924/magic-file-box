@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Linn924/filePreview/releases/tag/v1.0.1">下载 1.0.1</a> ·
+  <a href="https://github.com/Linn924/filePreview/releases/tag/v1.0.2">下载 1.0.2</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
   <a href="docs/更新.md">更新记录</a> ·
@@ -32,17 +32,17 @@ File Preview 是一个 Windows 本地文件预览工具。把 PDF、Word、Excel
 
 ## 快速开始
 
-1. **安装。** 从 [1.0.1 Release](https://github.com/Linn924/filePreview/releases/tag/v1.0.1) 下载 `FilePreview-Setup-1.0.1-x64.exe` 并安装。无需 Office 或其他预览软件。
+1. **安装。** 从 [1.0.2 Release](https://github.com/Linn924/filePreview/releases/tag/v1.0.2) 下载 `FilePreview-Setup-1.0.2-x64.exe` 并安装。无需 Office 或其他预览软件。
 2. **打开文件。** 拖入文件、点击打开入口，或按 `Ctrl+O`。安装后也可在资源管理器的“打开方式”中选择 File Preview；是否设为默认程序由你决定。
 3. **开始阅读。** 多文件打开时选择标签或独立窗口。悬停图标可查看用途；查询使用独立浮窗，放大、适配和全屏操作留在阅读工具栏。
 
 安装包目前未做代码签名，Windows SmartScreen 可能提示未知发布者；请从本仓库的 [Releases](https://github.com/Linn924/filePreview/releases) 下载。
 
-**已有 3.x 安装版？** 本次版本按项目要求重新编号为 **1.0.1**，更新器不会自动降级，需要手动下载安装包。后续 1.x 更新继续递增版本。
+**已有 3.x 安装版？** 项目已重新编号为 **1.x**，更新器不会自动降级，需要手动下载安装包。1.x 版本正常递增，1.0.1 安装版可检查并更新至 1.0.2。
 
 当前 Release 提供 Windows x64 NSIS 安装包及更新校验附件。免安装 ZIP 是可选构建产物；只有发布页面提供 ZIP 时才能下载使用，需完整解压后运行 `File Preview.exe`。
 
-本文介绍当前源码功能。排序与筛选已在 main 实现，本次未打包；公开的 1.0.1 安装包尚不包含这两项新功能。
+1.0.2 安装包包含排序与筛选，以及代码高亮外观 / 自定义 CSS 弹窗的滚动和遮挡修复。
 
 ## 支持的格式
 
