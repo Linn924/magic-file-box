@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import {mkdtempSync,readFileSync,rmSync} from 'node:fs';
 import path from 'node:path';
-import {defaultCodeAppearance,normalizeCodeAppearance,CODE_CSS_LIMIT} from '../../../../shared/codeAppearance';
-import {normalizeSettings,defaults} from '../../../../shared/contracts';
+import {defaultCodeAppearance,normalizeCodeAppearance,CODE_CSS_LIMIT} from '@shared/codeAppearance';
+import {normalizeSettings,defaults} from '@shared/contracts';
 import {SettingsStore} from '../../../../electron/settings';
-import {appearanceCss,parseCodeCss} from '../appearanceCss';
+import {appearanceCss,parseCodeCss} from '../core/appearanceCss';
 const config=defaultCodeAppearance();config.light.colors.keyword='#123456';config.dark.styles.comment=3;config.fontFamily='Consolas, "Microsoft YaHei", monospace';config.customCss='.light .comment, .dark .comment { color: rgb(12, 34, 56); font-style: italic; }\n.code .keyword { font-weight: bold; }';
 const css=appearanceCss(config);assert.match(css,/html\[data-theme="light"\] \.text\[data-code-appearance\] \.tok-kw\{color:#123456/);assert.match(css,/font-weight:bold/);assert.match(css,/rgb\(12,34,56\) !important/);assert.ok(!css.includes('body{'));assert.equal(parseCodeCss(config.customCss).length,3);
 const normalized=normalizeCodeAppearance({...config,light:{colors:{keyword:'#ABCDEF',unknown:'#000000',string:'url(secret)'},styles:{comment:3,keyword:99}},sourcePath:'C:/secret.xls'});assert.deepEqual(normalized.light,{colors:{keyword:'#abcdef'},styles:{comment:3}});assert.equal('sourcePath' in normalized,false);assert.equal(normalizeCodeAppearance({customCss:'x'.repeat(CODE_CSS_LIMIT+1)},config).customCss,config.customCss);

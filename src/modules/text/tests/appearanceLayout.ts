@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {defaultCodeAppearance} from '../../../../shared/codeAppearance';
+import {defaultCodeAppearance} from '@shared/codeAppearance';
 import type {Suite} from '../../../../tests/context';
 const suite:Suite=async c=>{
   const win=c.home,settings=c.program.settings.get(),zoom=win.webContents.getZoomFactor(),bounds=win.getBounds(),maximized=win.isMaximized();

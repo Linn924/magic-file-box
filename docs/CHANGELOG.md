@@ -2,6 +2,19 @@
 
 当前项目版本：1.0.2 · 整理日期：2026-10-14。当前功能见 [README](../README.md)，开发规则见 [开发规范](DEVELOPMENT.md)，测试方法见 [测试指南](TESTING.md)。以下记录发生时的实现/验收，早期参数、缺陷或已打包历史不代表当前状态。
 
+## 2026-10-14 目录迁移与公共职责整理
+
+按已确认方案先执行目录迁移/引用修复，以及组件、工具、样式和通用打印职责整理。保持六类格式的 index.ts/index.vue 注册入口，按 components、composables、core、styles、workers 组织已有实现；Excel core 进一步分为 editing、formula、workbook。主进程 files/windows/settings/security 按职责归档，main/preload 与构建产物入口保持兼容。
+
+- 公共组件按 app/ui/preview/settings/updates/printing 分组。App.vue 组装 HomeView、TabStrip 和既有预览/设置/更新界面，应用会话与设置生命周期分别进入 useApplication/useAppSettings；标签 DOM、键盘、拖放、主题与窗口移交行为保留。
+- 文件缓存和异步编辑协调归 services，尺寸/倍率/格式化等纯工具归 utils；全局桥接声明归 types/desktop.d.ts。shared 按 files/settings/formats/bridge 拆分，contracts.ts 继续作为公开契约入口。
+- tsconfig.base.json 统一 @/ 和 @shared/ 别名，Vite、tsx、Electron 与测试 esbuild 对齐解析；更新静态/动态导入、Worker URL、测试动态构建目录以及文档中的源码路径。检查 639 处本地导入和 Worker 引用均可解析。
+- 全局样式拆为顺序入口、主题、基础、应用和组件文件；通过 CSS 语法树核对规则与级联次序一致，仅移除文件尾空白。模块样式继续随注册入口加载。
+- 通用 PrintPanel/PrintView 移入公共打印目录，PDF/Word/图片各自暴露 printing 渲染入口和 render/dispose 生命周期。PDF 栅格计划、纸张预览和尺寸扫描仍归 PDF 模块；图片对象 URL 随渲染器清理。
+- 独立 Electron/Vite/copy-assets 运行资源编译通过。main 分组执行 core,word,excel,ppt,text,image,syntax；pdf,pdfenhancements,visual,immersive；printing,nonpdfprinting,updates，均通过。相关基础、Excel 公式/XLS/编辑模型、文本外观/语法、PDF 缓存/搜索/行索引及更新单测通过；另执行迁移后的区域公式、查找辅助、工作表、排序筛选模型单测通过。原样例 SHA256 不变，首页与深色表格截图复核通过；打印出口拦截，未连接实体打印机或执行更新安装器。
+
+本轮只补充必要的目录现状与验证配置说明，完整 ARCHITECTURE.md 重写留待下一步。DEVELOPMENT.md 规则未改；版本保持 1.0.2，未运行类型检查、性能基准、打包、安装或发布。提交推送 main 后仅合并同步 mind，不编译或测试 mind。原有 13 行未提交安装历史保持原样，不纳入提交。
+
 ## 2026-10-14 文档文件名统一为英文
 
 按要求将开发规范、架构说明、测试指南、后续计划和更新记录的文件名分别改为 DEVELOPMENT.md、ARCHITECTURE.md、TESTING.md、BACKLOG.md 和 CHANGELOG.md。正文仍为中文，同步修复 README、AGENTS、文档互链和历史记录中的路径引用。开发规范只改变文件引用，不新增或修改开发规则。

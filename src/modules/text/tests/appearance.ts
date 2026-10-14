@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import {existsSync,writeFileSync,readFileSync} from 'node:fs';
 import {app} from 'electron';
 import path from 'node:path';
-import {defaultCodeAppearance} from '../../../../shared/codeAppearance';
+import {defaultCodeAppearance} from '@shared/codeAppearance';
 import type {Suite} from '../../../../tests/context';
 const suite:Suite=async c=>{
   const source='/* comment */\nconst value = 42;\nfunction greet(){ return "hello"; }',md='# Reading\n\n```js\n'+source+'\n```\n\n'+Array.from({length:55},(_,i)=>'Paragraph '+i+'\n').join('\n');

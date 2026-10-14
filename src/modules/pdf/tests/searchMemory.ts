@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {shallowRef} from 'vue';
 import type {PDFDocumentProxy} from 'pdfjs-dist';
-import {textCacheLimits} from '../textCache';
-import {usePdfSearch} from '../useSearch';
+import {textCacheLimits} from '../core/textCache';
+import {usePdfSearch} from '../composables/useSearch';
 
 const pdf={numPages:120,getPage:async()=>({getTextContent:async()=>({items:[{str:'needle '.repeat(20)}]})})} as unknown as PDFDocumentProxy;
 const search=usePdfSearch(shallowRef(pdf));
@@ -44,7 +44,7 @@ console.log('PASS PDF exact source whitespace and Unicode search offsets');
 
 const mixed=usePdfSearch(shallowRef({numPages:6,getPage:async(n:number)=>({getTextContent:async()=>({items:n===6?[{str:'needle'}]:[]})})} as unknown as PDFDocumentProxy));
 await mixed.run('needle');assert.equal(mixed.hits.value.length,1);assert.equal(mixed.notice.value,'','first five empty pages must not classify a mixed document as a scan');
-const {pageTextContent}=await import('../textCache');let adaptiveReads=0;
+const {pageTextContent}=await import('../core/textCache');let adaptiveReads=0;
 const adaptive={numPages:500,getPage:async()=>({getTextContent:async()=>{adaptiveReads++;return {items:[{str:'cached'}]};}})} as unknown as PDFDocumentProxy;
 for(let n=1;n<=70;n++)await pageTextContent(adaptive,n);await pageTextContent(adaptive,1);
 assert.equal(adaptiveReads,70,'adaptive cache retains more than the previous fixed 32 pages');

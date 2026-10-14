@@ -1,8 +1,8 @@
 import { BrowserWindow, ipcMain, screen, dialog, app, type Session } from "electron";
 import path from "node:path";
 import { trusted, protectWindow } from "../security";
-import { registerFiles } from "../transfers";
-import type { PreviewFile } from "../../shared/contracts";
+import { registerFiles } from "../files/transfers";
+import type { PreviewFile } from "@shared/contracts";
 import { retainPreparedFiles, releasePreparedOwner } from '../files';
 export function setupPrintWindow(
   local: Session,

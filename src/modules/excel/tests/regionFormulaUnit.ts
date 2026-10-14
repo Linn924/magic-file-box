@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import {copyFormula,cutFormula} from '../regionFormula';
-import {isoDate,formatSeriesDate} from '../dateSeries';
+import {copyFormula,cutFormula} from '../core/formula/regionFormula';
+import {isoDate,formatSeriesDate} from '../core/formula/dateSeries';
 const names=['Data','Other','A!B'];
 assert.equal(copyFormula('A1+$A$1+A$1+$A1',2,3,names),'D3+$A$1+D$1+$A3');
 assert.equal(copyFormula("'A!B'!A1",1,1,names),"'A!B'!B2");

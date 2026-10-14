@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
-import {createFormulaCalculator,parseFormula,roundValue} from '../formula';
-import {exportXlsCopy,readXlsAlignments,compileXlsFormula} from '../xlsCopy';
+import {createFormulaCalculator,parseFormula,roundValue} from '../core/formula/formula';
+import {exportXlsCopy,readXlsAlignments,compileXlsFormula} from '../core/workbook/xlsCopy';
 const book=XLSX.utils.book_new();
 XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([[1,'苹果',12.345],[3,'香蕉',20],[7,'桃子',30],[null,'a*b',40]]),'Data');
 XLSX.utils.book_append_sheet(book,XLSX.utils.aoa_to_sheet([[5]]),"O'Brien");

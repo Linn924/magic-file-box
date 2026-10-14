@@ -4,7 +4,7 @@ import {readFileSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
 import * as XLSX from 'xlsx';
 import type {Suite} from '../../../../tests/context';
-import {exportXlsCopy} from '../xlsCopy';
+import {exportXlsCopy} from '../core/workbook/xlsCopy';
 const suite:Suite=async c=>{
   const book=XLSX.utils.book_new(),sheet=XLSX.utils.aoa_to_sheet([['编号','名称','金额','查找','舍入'],[1,'苹果',12.345],[2,'香蕉',20.5]]);
   sheet.F2={t:'n',v:1};sheet.D2={t:'n',f:'VLOOKUP(F2,A2:C3,2,FALSE)'};sheet.E2={t:'n',f:'ROUND(C2,2)'};sheet['!ref']='A1:F3';sheet['!rows']=[{hpt:30}];sheet['!cols']=[{wch:14},{wch:20}];XLSX.utils.book_append_sheet(book,sheet,'Data');

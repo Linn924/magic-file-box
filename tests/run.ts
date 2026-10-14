@@ -72,6 +72,7 @@ if (selected.includes('all') || selected.includes('excel'))
   run(process.execPath, ['--import', 'tsx', 'src/modules/excel/tests/loadWorkbookUnit.ts']);
 mkdirSync(".test-build", { recursive: true });
 await build({
+  tsconfig: 'tsconfig.electron.json',
   entryPoints: ["tests/electron.entry.ts"],
   outfile: ".test-build/tests.cjs",
   bundle: true,
@@ -87,6 +88,7 @@ run(electron as unknown as string, [
 ]);
 if (selected.includes("core") || selected.includes("all")) {
   await build({
+    tsconfig: 'tsconfig.electron.json',
     entryPoints: ["tests/quit.entry.ts"],
     outfile: ".test-build/quit.cjs",
     bundle: true,

@@ -1,5 +1,6 @@
 import { build } from "esbuild";
 await build({
+  tsconfig: 'tsconfig.electron.json',
   entryPoints: { main: "electron/main.ts", preload: "electron/preload.ts" },
   outdir: "electron-dist",
   bundle: true,

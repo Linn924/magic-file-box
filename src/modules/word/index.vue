@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import PageNavigation from "../../components/PageNavigation.vue";
-import type { PreviewProps } from "../types";
-import { usePreview } from "./usePreview";
+import PageNavigation from "@/components/preview/PageNavigation.vue";
+import type { PreviewProps } from "@/modules/types";
+import { usePreview } from "./composables/usePreview";
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];

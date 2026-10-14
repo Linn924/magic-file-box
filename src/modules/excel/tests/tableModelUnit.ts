@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {compareTableValues,sortedRows,sortFormula,parseTableRange} from '../tableModel';
+import {compareTableValues,sortedRows,sortFormula,parseTableRange} from '../core/editing/tableModel';
 const values=[{value:3},{value:'3'},{value:false},{error:'#REF!'},{value:''},{value:1},{value:3}];
 assert.deepEqual(sortedRows(0,6,[{column:0,direction:'asc'}],r=>values[r]),[5,0,6,1,2,3,4]);
 assert.deepEqual(sortedRows(0,6,[{column:0,direction:'desc'}],r=>values[r]),[3,2,1,0,6,5,4]);

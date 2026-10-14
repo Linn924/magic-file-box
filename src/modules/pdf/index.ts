@@ -1,11 +1,11 @@
-import "./style.css";
+import "./styles/index.css";
 import { defineAsyncComponent } from "vue";
-import type { PreviewModule } from "../types";
+import type { PreviewModule } from "@/modules/types";
 export default {
   pageFit: true,
-  toolbar: defineAsyncComponent(() => import("./print/PrintButton.vue")),
+  toolbar: defineAsyncComponent(() => import("./components/PrintButton.vue")),
   id: "pdf",
-  closeFile: async (id: string) => { (await import("./docCache")).releaseDoc(id); },
+  closeFile: async (id: string) => { (await import("./core/docCache")).releaseDoc(id); },
   extensions: ["pdf"],
   component: defineAsyncComponent(() => import("./index.vue")),
 } satisfies PreviewModule;

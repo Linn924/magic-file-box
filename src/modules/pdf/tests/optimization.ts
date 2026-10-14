@@ -8,7 +8,7 @@ import { pathToFileURL } from "node:url";
 mkdirSync(".test-build", { recursive: true });
 const outfile = path.resolve(".test-build/pdf-optimization.mjs");
 await build({
-  stdin: { resolveDir: path.resolve("src/modules/pdf"), loader: "ts", contents: `
+  stdin: { resolveDir: path.resolve("src/modules/pdf/core"), loader: "ts", contents: `
     import assert from 'node:assert/strict';
     import { acquireCachedPdf, releaseDoc, docCacheStats } from './docCache';
     import { pdfWork } from './workQueue';

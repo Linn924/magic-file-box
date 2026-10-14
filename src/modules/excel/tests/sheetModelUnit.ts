@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {validateSheetName,nextSheetName,sheetFormula} from '../sheetWorkbook';
+import {validateSheetName,nextSheetName,sheetFormula} from '../core/workbook/sheetWorkbook';
 for(const name of ['', ' ', 'x'.repeat(32),'a/b','a\\b','a:b','a?b','a*b','[x]',"'a","a'",'a\n','History'])assert.throws(()=>validateSheetName(name,[]));
 assert.throws(()=>validateSheetName('data',['Data']));validateSheetName('data',['Data'],'Data');validateSheetName("O'Brien",[]);
 assert.equal(nextSheetName(['工作表1','工作表2']),'工作表3');assert.ok(nextSheetName(['x'.repeat(31)],'x'.repeat(31)).length<=31);

@@ -4,7 +4,7 @@ import {readFileSync,writeFileSync,existsSync} from 'node:fs';
 import path from 'node:path';
 import type {Suite} from '../../../../tests/context';
 import {styleFixture} from './xlsStylesFixture';
-import {readBasicWorkbook} from '../loadWorkbook';
+import {readBasicWorkbook} from '../core/workbook/loadWorkbook';
 const suite:Suite=async c=>{
   const name='edit-xls-styles.xls',source=styleFixture();writeFileSync(c.fixture(name),source);
   const realSave=dialog.showSaveDialog;let calls=0,target=path.resolve('outputs/verification/edit-xls-styles-copy.xls');

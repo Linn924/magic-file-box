@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import {beginFileEdit,waitForFileEdits} from '../src/composables/pendingEdits';
+import {beginFileEdit,waitForFileEdits} from '@/services/pendingEdits';
 import {preparePreviewFile,loadPreparedFile} from '../electron/files';
 import {resolve} from 'node:path';
 const lazyText=await preparePreviewFile(resolve('work/fixtures/text.txt'));
@@ -8,7 +8,7 @@ const openedText=await loadPreparedFile(lazyText);
 assert.equal(openedText.id,lazyText.id);
 assert.ok(openedText.bytes.byteLength>0,'opening the active tab should load the content');
 assert.equal(lazyText.bytes.byteLength,0,'metadata must not retain the loaded copy');
-import { previewError } from '../shared/previewError';
+import { previewError } from '@shared/previewError';
 assert.match(previewError({name:'PasswordException'}, 'PDF'), /密码保护/);
 assert.match(previewError({code:'ENOENT'}, '文件'), /移动或删除/);
 assert.match(previewError({code:'EACCES'}, '文件'), /权限/);
@@ -22,9 +22,9 @@ import {
   applyPageOrder,
   printScaleFactor,
   paperSupportHint,
-} from "../shared/printing";
-import { pdfRasterPlan } from '../src/modules/pdf/print/rasterPlan';
-import { fitScale } from "../src/composables/fit";
+} from "@shared/printing";
+import { pdfRasterPlan } from '@/modules/pdf/printing/rasterPlan';
+import { fitScale } from "@/utils/fit";
 assert.deepEqual(paperSize({ ...printDefaults, paper: "A5" }), {
   width: 148,
   height: 210,
@@ -66,9 +66,9 @@ assert.throws(() =>
 );
 assert.equal(fitScale(100, 200, 400, 400, "width"), 4);
 assert.equal(fitScale(100, 200, 400, 400, "page"), 2);
-import { defaults, normalizeSettings, extensions } from "../shared/contracts";
+import { defaults, normalizeSettings, extensions } from "@shared/contracts";
 import { readFileSync } from "node:fs";
-import { clampZoom } from "../src/composables/zoom";
+import { clampZoom } from "@/utils/zoom";
 import { fileArguments, retainPreparedFiles, releasePreparedReference, preparedFileCount } from "../electron/files";
 assert.equal(clampZoom(1), 25);
 assert.equal(clampZoom(1000), 400);

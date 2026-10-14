@@ -1,6 +1,6 @@
 import {ref,onMounted,onBeforeUnmount,nextTick,type Ref} from 'vue';
-import type {PreviewFile} from '../../shared/contracts';
-import {hasPendingFileEdits} from './pendingEdits';
+import type {PreviewFile} from '@shared/contracts';
+import {hasPendingFileEdits} from '@/services/pendingEdits';
 export function useUpdateRestart(files:Ref<PreviewFile[]>){
   const locked=ref(false);let token='',remove:()=>void=()=>{},resume:()=>void=()=>{},focus:HTMLElement|undefined,selection:[number,number]|undefined;
   const key=(event:KeyboardEvent)=>{if(locked.value){event.preventDefault();event.stopImmediatePropagation();}};

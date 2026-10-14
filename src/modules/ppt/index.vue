@@ -1,13 +1,13 @@
 <script setup lang="ts">
-import { previewError } from '../../../shared/previewError';
-import { fitScale } from "../../composables/fit";
-import { createSafeResizeObserver } from "../../composables/safeResizeObserver";
+import { previewError } from '@shared/previewError';
+import { fitScale } from "@/utils/fit";
+import { createSafeResizeObserver } from "@/utils/safeResizeObserver";
 import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
-import type { PreviewProps } from "../types";
-import { openSlides, type SlidesRenderer } from "./renderer";
-import { snapshotSlide } from "./snapshot";
-import PageNavigation from "../../components/PageNavigation.vue";
-import { useContinuousPages } from "../../composables/useContinuousPages";
+import type { PreviewProps } from "@/modules/types";
+import { openSlides, type SlidesRenderer } from "./core/renderer";
+import { snapshotSlide } from "./core/snapshot";
+import PageNavigation from "@/components/preview/PageNavigation.vue";
+import { useContinuousPages } from "@/composables/useContinuousPages";
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];

@@ -1,0 +1,14 @@
+/* Application styles. Keep this cascade order when changing ownership. */
+@import './reset.css';
+@import './tokens.css';
+@import './base.css';
+@import './app/home.css';
+@import './app/tabs.css';
+@import './components/actions.css';
+@import './app/tab-items.css';
+@import './components/preview.css';
+@import './components/footer.css';
+@import './components/states.css';
+@import './components/settings.css';
+@import './app/immersive.css';
+@import './components/toolbar.css';

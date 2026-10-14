@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import {tokenizeSyntax} from '../syntaxEngine';
-import {syntaxLanguage} from '../languages';
-import {withinSyntaxBudget} from '../syntaxTypes';
-import {renderSyntaxLine} from '../highlight';
+import {tokenizeSyntax} from '../core/syntaxEngine';
+import {syntaxLanguage} from '../core/languages';
+import {withinSyntaxBudget} from '../core/syntaxTypes';
+import {renderSyntaxLine} from '../core/highlight';
 const source='/* opening\nconst inside = 42;\n*/\nconst text = `hello ${name}`;\n\t"<script>&lt;😀";\r';
 const data=await tokenizeSyntax(source,'js');assert.equal(data.lines.length,5);assert.ok(data.lines[1].every(t=>data.styles[t[2]].kind==='tok-cmt'),'multiline comment cannot become keywords');assert.ok(data.lines[3].some(t=>data.styles[t[2]].kind==='tok-kw'));
 assert.ok(data.styles.some(s=>s.light!==s.dark),'dual themes are available without retokenizing');const rendered=renderSyntaxLine(source.split('\n')[4],data.lines[4],data.styles);assert.ok(rendered.includes('&#13;'),'CR must survive HTML parsing');

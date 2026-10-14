@@ -1,5 +1,5 @@
 import type { Component } from "vue";
-import type { PreviewFile } from "../../shared/contracts";
+import type { PreviewFile } from "@shared/contracts";
 export interface PreviewModule {
   id: string;
   extensions: string[];
@@ -12,7 +12,7 @@ export interface PreviewModule {
 export interface PreviewProps {
   file: PreviewFile;
   zoom: number;
-  fitMode?: import("../composables/fit").FitMode;
+  fitMode?: import("@/utils/fit").FitMode;
 }
 export interface PreviewEmit {
   (event: "ready"): void;

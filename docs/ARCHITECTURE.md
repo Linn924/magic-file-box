@@ -7,20 +7,30 @@
 | 位置 | 职责 |
 | --- | --- |
 | `src/modules/<type>/` | 各格式的组件、解析/渲染、样式及 tests；通过统一注册表查询 |
-| `src/components/` | PreviewTab、缩放、适配、设置等跨格式组件 |
-| `src/composables/` | 连续页定位、缩放、适配、缓存与列宽等公共交互 |
-| `shared/` | 主进程/预加载/渲染共用的类型、偏好白名单和打印参数契约 |
-| `electron/` | 本地只读文件、IPC、安全、窗口/托盘、打印和资源生命周期 |
+| `src/components/` | app、ui、preview、settings、updates、printing 分组的跨格式组件 |
+| `src/composables/` | 应用会话、设置、标签栏、连续页与更新等 Vue 状态和交互 |
+| `src/services/` | 文件字节缓存和待提交编辑协调等有状态服务 |
+| `src/utils/` | 文件大小、倍率、适配、表格尺寸、观察器及打印样式工具 |
+| `src/types/` | 渲染端全局桥接声明和打印渲染接口 |
+| `src/styles/` | 全局样式顺序入口，以及主题、基础、应用与组件样式 |
+| `shared/` | files、settings、formats、bridge 等共用契约；contracts.ts 保留公开聚合入口 |
+| `electron/` | 保留 main/preload 入口，files、windows、settings、security、printing、updates 按职责组织 |
 | `tests/` | 集中执行器与公共/窗口套件；格式断言归所属模块 |
 | `scripts/` | TypeScript 构建、图标、样例、基准和发布检查 |
 
-文件选择先读取元数据，当前标签激活才读取字节。`electron/files.ts` 按 ID 合并读取、持有窗口/打印列表引用，关闭时取消读，最后使用者释放来源路径和会话密码。已加载字节保留在有限缓存；闲置标签卸载模块 DOM。不能把字节/画布额度称为软件总内存上限。
+本轮已完成目录与职责整理，完整架构说明重写另行继续。模块保持 index.ts/index.vue 入口；组件归 components/，Vue 交互归 composables/，纯逻辑归 core/，样式归 styles/，Worker 归 workers/，现有测试仍在模块 tests/。Excel core 按 editing、formula、workbook 分组；较小模块只设置实际需要的目录。
+
+App.vue 组装首页、标签栏、预览、设置与更新入口；HomeView 和 TabStrip 属于 components/app，useApplication 管理文件会话/快捷键/移交，useAppSettings 管理设置与主题。src/types/desktop.d.ts 声明渲染桥接，fileSize 属于 utils/formatters.ts。tsconfig.base.json 定义 @/ 与 @shared/，Vite 使用对应别名，Electron 和测试 esbuild 使用继承同一别名的配置；Worker URL 保持相对 import.meta.url 定位。
+
+styles/index.css 按原有级联次序导入 reset、tokens、base、应用和组件样式，模块样式继续通过注册入口引入。此次拆分保留 CSS 规则与顺序。通用 PrintPanel/PrintView 位于 components/printing；PrintView 通过各格式的 printing 入口调用渲染器，PDF 栅格计划、纸张预览和尺寸扫描仍属于 modules/pdf/printing。渲染器提供 render/dispose，窗口负责消费任务、报告结果和释放宿主。
+
+文件选择先读取元数据，当前标签激活才读取字节。`electron/files/index.ts` 按 ID 合并读取、持有窗口/打印列表引用，关闭时取消读，最后使用者释放来源路径和会话密码。已加载字节保留在有限缓存；闲置标签卸载模块 DOM。不能把字节/画布额度称为软件总内存上限。
 
 缩放/适配状态归标签，模块通过 props/emits 更新；页码归格式模块，滚动更新，按钮与输入只定位。编码、旋转、批注及临时列宽等状态只放在 PreviewFile.view 内存中，不写偏好。Word/PPT 第三方内容用 Shadow DOM 隔离；模块不互相引用解析实现。
 
-`electron/transfers.ts` 采用来源 export → 目标插入/accept → 来源 remove 的限时事务；目标先保留文件引用，未确认、超时或窗口关闭时保留来源标签。DataTransfer/IPC 不生成磁盘临时文件。
+`electron/files/transfers.ts` 采用来源 export → 目标插入/accept → 来源 remove 的限时事务；目标先保留文件引用，未确认、超时或窗口关闭时保留来源标签。DataTransfer/IPC 不生成磁盘临时文件。
 
-原生全屏由 `electron/fullscreen.ts` 管理，`useImmersive` 同步状态，公共预览容器保存进入前视图。PDF 独立演示由模块临时覆盖为单页整页适配/100%，退出恢复先前全屏状态，App.vue 不增加解析/演示分支。
+原生全屏由 `electron/windows/fullscreen.ts` 管理，`useImmersive` 同步状态，公共预览容器保存进入前视图。PDF 独立演示由模块临时覆盖为单页整页适配/100%，退出恢复先前全屏状态，App.vue 不增加解析/演示分支。
 
 ### 应用更新
 
@@ -54,7 +64,7 @@ SettingsPanel 提供启动检查开关和 UpdateCenter，角落通知只给当�
 - `textCache.ts` 与搜索缓存按页数 40% 调整在 32–128 页、4–16 MB 内；活动提取仍受引用保护。搜索批次发布非逐项响应式坐标，清空/换词/关闭使旧扫描失效。
 - 模式搜索在可终止 Worker 中执行，表达式最多 512 字符，每页 1 秒 deadline，每次最多 50000 命中，零长度匹配不计入结果。无文字层提示必须检查全篇，不能仅凭前几页判定。
 - `annotationGeometry.ts` 合并约 2 CSS px 内且交叠至少 80% 的邻片，保留分行/分列并处理旋转；不承诺固定压缩率。
-- `exportNotes.ts` 用计费临时画布合成当前页/标记/页边备注；`electron/pdfExport.ts` 校验文件归属、PNG/尺寸，显式保存后才写。限 600 万像素、8192 长边、32 MB，不记录导出路径历史。
+- `exportNotes.ts` 用计费临时画布合成当前页/标记/页边备注；`electron/files/pdfExport.ts` 校验文件归属、PNG/尺寸，显式保存后才写。限 600 万像素、8192 长边、32 MB，不记录导出路径历史。
 
 ### Excel 编辑与保存生命周期
 
@@ -74,11 +84,11 @@ SettingsPanel 提供启动检查开关和 UpdateCenter，角落通知只给当�
 
 单元格水平对齐属于 Excel 编辑覆盖层：`ExcelChange.alignment/alignmentOnly` 区分内容与纯样式修改，撤销/重做、内容输入/粘贴和结构快照保留对齐。保存复用原 cellXfs 项并克隆派生样式，仅调整 horizontal/applyAlignment，保留原字体、填充、边框和其他对齐属性；纯对齐不得重写原单元格内容或清公式缓存。CSV/TSV 拒绝当前 Sheet 的应用内对齐修改，`formatted` 记录合入结构基底的对齐，移交/撤销一并恢复，不能误标为已保存。编辑常驻提示和成功消息不占视觉行；错误与未保存提示保留，成功状态仅供辅助技术读取。
 
-Excel 与其他模块共用 `src/components/ToolbarIcon.vue` 的内联 SVG、`ToolButton.vue` 的 28 px 按钮、title、aria-label、禁用/按下/焦点状态和 `toolbar.css`；不引入图标依赖或位图，不再保留 Excel 专属副本。编辑工具栏组序固定为 save/history/clipboard/format/alignment/layout/formula/structure/more，组内不拆开换行；取消/确认位于名称框与内容之间，不与撤销/重做混放。插入/删除是选择菜单，恢复源内容只在更多菜单且继续原生确认。默认一行内容框按实际内容扩展到最多 88 px，工作表标签置于底部；定位名称框需先提交/校验待输入内容，工具栏复制也需先提交，菜单 Esc 关闭恢复触发按钮焦点，点击外部不抢焦点。
+Excel 与其他模块共用 `src/components/ui/ToolbarIcon.vue` 的内联 SVG、`ToolButton.vue` 的 28 px 按钮、title、aria-label、禁用/按下/焦点状态和 `toolbar.css`；不引入图标依赖或位图，不再保留 Excel 专属副本。编辑工具栏组序固定为 save/history/clipboard/format/alignment/layout/formula/structure/more，组内不拆开换行；取消/确认位于名称框与内容之间，不与撤销/重做混放。插入/删除是选择菜单，恢复源内容只在更多菜单且继续原生确认。默认一行内容框按实际内容扩展到最多 88 px，工作表标签置于底部；定位名称框需先提交/校验待输入内容，工具栏复制也需先提交，菜单 Esc 关闭恢复触发按钮焦点，点击外部不抢焦点。
 
-`electron/excelCopy.ts` 校验 IPC 来源/文件归属/格式与 100 MB 上限，原生另存对话框选择位置后才写入；检查所有打开源文件的路径、realpath 与设备/文件号，避免符号链接或硬链接覆盖。用所选目录的随机临时文件完成写入后替换目标，取消或失败清理临时文件，不保存输出路径历史。不承诺异常断电时恢复草稿。
+`electron/files/excelCopy.ts` 校验 IPC 来源/文件归属/格式与 100 MB 上限，原生另存对话框选择位置后才写入；检查所有打开源文件的路径、realpath 与设备/文件号，避免符号链接或硬链接覆盖。用所选目录的随机临时文件完成写入后替换目标，取消或失败清理临时文件，不保存输出路径历史。不承诺异常断电时恢复草稿。
 
-`electron/modifiedFiles.ts` 只保存各窗口的未保存标记，标签关闭使用通用确认，原生窗口关闭及应用退出也检查；窗口移交同步迁移标记，文件释放清理。App.vue 不解析 Excel。保存取消/失败不清草稿，CSV/TSV 仅更新当前 Sheet 的保存检查点。普通预览关闭仍直接关闭，只有未保存修改需要选择。
+`electron/files/modifiedFiles.ts` 只保存各窗口的未保存标记，标签关闭使用通用确认，原生窗口关闭及应用退出也检查；窗口移交同步迁移标记，文件释放清理。App.vue 不解析 Excel。保存取消/失败不清草稿，CSV/TSV 仅更新当前 Sheet 的保存检查点。普通预览关闭仍直接关闭，只有未保存修改需要选择。
 
 `formatModel.ts` 验证属性和边框边界；formatWorkbook.ts 在原 ZIP 上派生字体/填充/边框/XF，保留未操作属性及其他载荷，字体变更同步修补富文本 run，共享字符串改为该格内联副本。行列默认样式及数字格式写回 ROW/COLINFO。格式应用沿用有界内存基底/撤销快照，先生成完整结果再安装，超预算不部分修改。pendingEdits.ts 按文件 ID 管理内存操作，通用 export 等待后再供给 view，不在 App.vue 解析 Excel；操作结束清理等待项，保持未保存保护。可见行高由安全观察器在 RAF 中读 DOM 后校正，离屏解除观察，换表/内容/基底/宽度清缓存，隐藏时不存零尺寸。
 
@@ -113,7 +123,7 @@ PDF、图片、DOCX 通过模块 toolbar 进入唯一独立非模态设置窗口
 - 语法解析预算：每篇最多 2 Mi 个 JS 字符单元、50000 行、单行 20000 字符、120000 个 token；Worker 请求 20 秒超时后终止并退回纯文本。窗口 token 缓存按估算最多 8 MiB/16 项，命中须语言与源文完全一致；闲置 30 秒释放 Worker，文件关闭清理该文件缓存/请求，异步结果以代次校验。预算不是进程总内存上限，超限不影响原文预览/搜索。Markdown 每篇最多高亮 64 个已识别语言的围栏、累计 2 Mi 字符，未知/超限保留源码；Mermaid 沿用独立图表处理。
 
 - Markdown 的 `markdown.ts` 负责安全渲染/标题锚点、只读任务、脚注和 KaTeX；`MarkdownView.vue` 管理目录信息/定位、代码复制、内存图片和图表生命周期；`renderedSearch.ts` 按文本节点原始范围搜索并标记，不替换 HTML 字符串；`mermaid.ts` 懒加载且串行渲染，严格模式、配置/文本/边数限制和清洗后的 Shadow DOM 隔离。公式信任关闭且限制展开；图表使用本地依赖、跟随主题，不绑定作者点击行为。错误保留源码或显示提示，不扩大网络权限。
-- `electron/markdownLinks.ts` 负责来源窗口/文件引用校验、协议白名单、相对路径解析、图片读取和代码复制。主进程获取路径，不向渲染层暴露完整路径或保存历史；本地目标按现有 multiFileMode 设置打开，询问可取消，标签模式通过通用 preview:incoming 接入 App，App 不添加格式解析分支。等待选择/读取后再校验来源所有权，关闭后丢弃未持有目标。跨文档锚点只用于首次定位，等待图片/图表布局后定位；随后恢复正常阅读位置。仅明确点击 HTTP/HTTPS 链接时交给系统浏览器。
+- `electron/files/markdownLinks.ts` 负责来源窗口/文件引用校验、协议白名单、相对路径解析、图片读取和代码复制。主进程获取路径，不向渲染层暴露完整路径或保存历史；本地目标按现有 multiFileMode 设置打开，询问可取消，标签模式通过通用 preview:incoming 接入 App，App 不添加格式解析分支。等待选择/读取后再校验来源所有权，关闭后丢弃未持有目标。跨文档锚点只用于首次定位，等待图片/图表布局后定位；随后恢复正常阅读位置。仅明确点击 HTTP/HTTPS 链接时交给系统浏览器。
 - 图片逐张读取：文件句柄检查普通文件及 16 MB 上限、有限长度读取、所有权复查、finally 关闭；每页最多 64 张/64 MB 源字节。SVG 去除脚本、外部引用和主动内容，Blob URL 在源码切换/组件卸载释放，异步结果以代次检查防止迟到挂载。此预算不是图片解码后或进程内存硬上限。目录/模式保存在 view.markdown 内存中，查询/图片字节不写设置或历史。
 - 长文本 `lineHeights.ts` 维护实测/估算高度和前缀索引；自动换行可产生不同行高，不能用首行高度乘全篇行数。虚拟窗口改变、缩放/编码/宽度变化后重新测量可见行；用实际可见 DOM 行保持锚点。
 - Excel table-wrap 负责滚动，sheet-surface 不得用裁切建立额外 sticky 容器；“+行/+列”额外冻结已删除，仅保留表头/行号固定开关。合并区域按虚拟可见窗口截取。CSS zoom 与逻辑行列偏移必须明确转换；主动地址定位与编辑导航分开，后者根据可见 DOM 的边界仅滚动必要距离，聚焦使用 preventScroll。

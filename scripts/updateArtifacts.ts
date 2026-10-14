@@ -2,7 +2,7 @@ import {readFile,stat} from 'node:fs/promises';
 import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {load,JSON_SCHEMA} from 'js-yaml';
-import {stableVersion} from '../shared/updates';
+import {stableVersion} from '@shared/updates';
 const parse=async(file:string)=>{if((await stat(file)).size>1024*1024)throw Error('更新元数据超过 1 MB。');return load(await readFile(file,'utf8'),{schema:JSON_SCHEMA}) as any;};
 export async function verifyUpdateArtifacts(root:string,version:string){
   if(!stableVersion(version))throw Error('更新版本必须为正式三段版本号。');

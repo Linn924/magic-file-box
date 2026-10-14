@@ -2,7 +2,7 @@ import updaterPackage,{type NsisUpdater} from 'electron-updater';
 import {CancellationToken} from 'builder-util-runtime';
 import type {UpdateDriver} from './controller';
 import {randomUUID} from 'node:crypto';
-import {allowedUpdateUrl} from '../../shared/updates';
+import {allowedUpdateUrl} from '@shared/updates';
 export function sessionUpdateIdentity(updater:NsisUpdater){
   // Pinned updater 6.x exposes this protected lazy property; never write .updaterId.
   Object.defineProperty(updater,'stagingUserIdPromise',{value:{value:Promise.resolve(randomUUID())}});

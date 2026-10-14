@@ -5,7 +5,7 @@ import path from 'node:path';
 import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
-import {exportXlsCopy} from '../xlsCopy';
+import {exportXlsCopy} from '../core/workbook/xlsCopy';
 import type {Suite} from '../../../../tests/context';
 const suite:Suite=async c=>{
   const file='edit-table-stage7-v3.xlsx';

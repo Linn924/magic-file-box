@@ -4,7 +4,7 @@ import {writeFileSync,readFileSync} from 'node:fs';
 import path from 'node:path';
 import {pathToFileURL} from 'node:url';
 import type {Suite} from '../../../../tests/context';
-import {resolveMarkdownLink} from '../../../../electron/markdownLinks';
+import {resolveMarkdownLink} from '../../../../electron/files/markdownLinks';
 const suite:Suite=async c=>{
   const sourcePath=c.fixture('md-links.md'),target='md-link-target 中文.md',targetPath=c.fixture(target);
   const source='# 起点\n\n[网页](https://example.com/docs) [本页](#末尾) [文件](md-link-target%20%E4%B8%AD%E6%96%87.md#目标) [文本](text.txt) [缺失](missing-md-link.txt) [危险](javascript:alert(1))\n\n'+('普通段落\n\n'.repeat(100))+'# 末尾\n';

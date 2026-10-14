@@ -1,18 +1,18 @@
 <script setup lang="ts">
 import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
-import type { PreviewProps } from "../types";
-import { usePreview } from "./usePreview";
-import { createSafeResizeObserver } from "../../composables/safeResizeObserver";
-import textModule from "./index";
-import {renderTextLine,renderSyntaxLine,textMatches} from './highlight';
-import {useSyntax} from './useSyntax';
-import {languageNames} from './languages';
-import {useCodeAppearance} from './useCodeAppearance';
-import {LineHeights} from './lineHeights';
-import ToolButton from '../../components/ToolButton.vue';
-import PreviewPanel from '../../components/PreviewPanel.vue';
-import MarkdownView from './MarkdownView.vue';
-import MarkdownOutline from './MarkdownOutline.vue';
+import type { PreviewProps } from "@/modules/types";
+import { usePreview } from "./composables/usePreview";
+import { createSafeResizeObserver } from "@/utils/safeResizeObserver";
+import textModule from "./";
+import {renderTextLine,renderSyntaxLine,textMatches} from './core/highlight';
+import {useSyntax} from './composables/useSyntax';
+import {languageNames} from './core/languages';
+import {useCodeAppearance} from './composables/useCodeAppearance';
+import {LineHeights} from './core/lineHeights';
+import ToolButton from '@/components/ui/ToolButton.vue';
+import PreviewPanel from '@/components/preview/PreviewPanel.vue';
+import MarkdownView from './components/MarkdownView.vue';
+import MarkdownOutline from './components/MarkdownOutline.vue';
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];

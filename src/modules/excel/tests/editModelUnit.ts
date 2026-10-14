@@ -1,10 +1,10 @@
 import './formulaUnit';
 import './xlsStylesUnit';
 import assert from 'node:assert/strict';
-import {parseExcelInput,parseTablePaste,excelInput,changeSignature} from '../editModel';
-import {moveIndex,moveRange,moveFormula} from '../structure';
-import {selectionRange,singleton,regionTargets,contains} from '../selection';
-import {validateFormat,borderFor} from '../formatModel';
+import {parseExcelInput,parseTablePaste,excelInput,changeSignature} from '../core/editing/editModel';
+import {moveIndex,moveRange,moveFormula} from '../core/editing/structure';
+import {selectionRange,singleton,regionTargets,contains} from '../core/editing/selection';
+import {validateFormat,borderFor} from '../core/editing/formatModel';
 assert.deepEqual(parseExcelInput('12.5'),{kind:'number',value:12.5});
 assert.deepEqual(parseExcelInput("'00123"),{kind:'text',value:'00123'});
 assert.deepEqual(parseExcelInput('123456789012345678'),{kind:'text',value:'123456789012345678'});

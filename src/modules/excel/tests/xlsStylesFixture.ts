@@ -1,5 +1,5 @@
 import * as XLSX from 'xlsx';
-import {join,record,records,type BiffRecord} from '../biff';
+import {join,record,records,type BiffRecord} from '../core/workbook/biff';
 // Independent BIFF8 FONT/XF/PALETTE fixture, encoded from the MS-XLS field layout.
 // It deliberately does not use the product's style encoder.
 export function styleFixture(features:boolean|'macro'=false){

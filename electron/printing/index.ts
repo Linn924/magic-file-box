@@ -3,7 +3,7 @@ import path from "node:path";
 import { randomUUID } from 'node:crypto';
 import { trusted, protectWindow } from "../security";
 import { preparePreviewFile,loadPreparedFile,retainPreparedFiles,discardUnownedFiles } from "../files";
-import { validatePrintOptions, type PdfPrintJob, type PrintSubmitResult } from "../../shared/printing";
+import { validatePrintOptions, type PdfPrintJob, type PrintSubmitResult } from "@shared/printing";
 interface ActiveJob {
   owner: number;
   job?: PdfPrintJob;
@@ -203,7 +203,7 @@ export function setupPrinting(local: Session) {
     );
   });
 }
-import type { PdfPrintOptions } from "../../shared/printing";
+import type { PdfPrintOptions } from "@shared/printing";
 const preparedOptions = new Map<number, PdfPrintOptions>();
 function finish(id: number, error?: Error,token?:string,result?:PrintSubmitResult) {
   const entry = jobs.get(id);

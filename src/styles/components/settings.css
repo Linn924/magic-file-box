@@ -1,0 +1,69 @@
+/* —— Settings —— */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  background: rgb(20 28 40 / 45%);
+}
+
+.settings-panel {
+  width: min(480px, 92vw);
+  max-height: 88vh;
+  overflow: auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 0 18px 14px;
+  box-shadow: 0 12px 40px rgb(0 0 0 / 18%);
+}
+
+.settings-panel header {
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--line);
+  margin: 0 -18px;
+  padding: 0 18px;
+}
+
+.settings-panel h2 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.settings-panel header button {
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: 18px;
+  color: var(--muted);
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+
+.setting-row select {
+  min-width: 160px;
+  max-width: 220px;
+}
+
+.settings-help {
+  margin: 14px 0 0;
+  font-size: 12px;
+  color: var(--muted);
+}

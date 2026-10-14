@@ -1,4 +1,5 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
@@ -18,6 +19,7 @@
   "include": [
     "electron/**/*.ts",
     "shared/**/*.ts",
+    "src/types/**/*.d.ts",
     "scripts/**/*.ts",
     "tests/**/*.ts"
   ]

@@ -1,0 +1,76 @@
+.tab .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.tab .dot.img {
+  background: #0d9488;
+}
+
+.tab .tab-name {
+  flex: 1;
+  min-width: 0;
+  height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent !important;
+  color: inherit;
+  font-size: 12px;
+  text-align: left;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab .tab-name:hover,
+.tab .tab-name:focus-visible {
+  background: transparent !important;
+  color: inherit;
+}
+
+.tab .tab-close {
+  flex-shrink: 0;
+  width: 18px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1;
+}
+
+.tab .tab-close:hover {
+  color: var(--text);
+}
+
+.tab-add-file {
+  height: 32px;
+  width:32px;min-width:32px;
+  flex: 0 0 32px;
+  margin-left: 4px;
+  padding: 0;
+  border: 1px dashed var(--line);
+  border-bottom: 0;
+  border-radius: 6px 6px 0 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.tab-add-file:hover {
+  color: var(--text);
+  border-color: var(--accent);
+  border-style: solid;
+}
+
+.tab-settings {
+  align-self: flex-start;
+  width:32px;height:32px;min-width:32px;flex:0 0 32px;
+  margin-left: 0;
+  margin-bottom: 2px;
+}

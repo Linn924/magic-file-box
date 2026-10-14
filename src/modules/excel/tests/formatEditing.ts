@@ -6,7 +6,7 @@ import ExcelJS from 'exceljs';
 import JSZip from 'jszip';
 import type {Suite} from '../../../../tests/context';
 import {styleFixture} from './xlsStylesFixture';
-import {readBasicWorkbook} from '../loadWorkbook';
+import {readBasicWorkbook} from '../core/workbook/loadWorkbook';
 const suite:Suite=async c=>{
   const realSave=dialog.showSaveDialog;let dest=path.resolve('outputs/verification/edit-format.xlsx');dialog.showSaveDialog=(async()=>({canceled:false,filePath:dest})) as typeof realSave;
   const win=await c.open('edit-basic.xlsx'),cell=(a:string)=>`.spreadsheet td[data-address="${a}"]`,source=readFileSync(c.fixture('edit-basic.xlsx'));

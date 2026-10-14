@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
-import {createFindMatcher,findSpans,replaceLiteral,orderedAddresses,replacementText,type FindOptions} from '../findModel';
-import {assistContext,assistReferences,referenceSlot} from '../formulaAssist';
+import {createFindMatcher,findSpans,replaceLiteral,orderedAddresses,replacementText,type FindOptions} from '../core/editing/findModel';
+import {assistContext,assistReferences,referenceSlot} from '../core/formula/formulaAssist';
 const options:FindOptions={query:'a.b',caseSensitive:false,whole:false,source:'display'};
 assert.equal(findSpans('A.B aXb a.b',options).length,2);
 for(const text of ['A.B aXb a.b','a.b\n','','a.b','😀a.b'])for(const whole of [false,true])assert.equal(createFindMatcher({...options,whole})(text),findSpans(text,{...options,whole}).length>0);

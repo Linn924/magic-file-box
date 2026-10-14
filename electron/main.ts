@@ -1,15 +1,15 @@
-import {setupModifiedFiles,hasModified,confirmModified,forgetModified} from './modifiedFiles';
-import {setupExcelCopy} from './excelCopy';
-import {setupMarkdownLinks} from './markdownLinks';
+import {setupModifiedFiles,hasModified,confirmModified,forgetModified} from './files/modifiedFiles';
+import {setupExcelCopy} from './files/excelCopy';
+import {setupMarkdownLinks} from './files/markdownLinks';
 import {setupPrintWindow} from "./printing/window";
-import { setupPdfExport } from './pdfExport';
+import { setupPdfExport } from './files/pdfExport';
 import { setupPrinting,hasActivePrintJobs } from "./printing";
-import { setupPdfResources,pdfResourceStats } from './pdfResources';
-import { setupFullscreen, trackFullscreen } from "./fullscreen";
-import { registerFiles, releaseWindow, setupTransfers,hasPendingTransfers } from "./transfers";
+import { setupPdfResources,pdfResourceStats } from './files/pdfResources';
+import { setupFullscreen, trackFullscreen } from "./windows/fullscreen";
+import { registerFiles, releaseWindow, setupTransfers,hasPendingTransfers } from "./files/transfers";
 import {setupUpdates} from './updates';
 import type {UpdateController} from './updates/controller';
-import {hasActiveOutputs} from './activeOutputs';
+import {hasActiveOutputs} from './files/activeOutputs';
 import {
   app,
   BrowserWindow,
@@ -29,7 +29,7 @@ import {
   extensions,
   type PreviewFile,
   type Settings,
-} from "../shared/contracts";
+} from "@shared/contracts";
 
 // Honor an explicit profile location (also used by packaged integration tests).
 export function previewResourceStats(){return {paths:preparedFileCount(),pdfWindows:pdfResourceStats().clients};}

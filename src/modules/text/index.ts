@@ -1,8 +1,8 @@
-import "./style.css";
+import "./styles/index.css";
 import { defineAsyncComponent } from "vue";
-import type { PreviewModule } from "../types";
-import {codeExtensions} from '../../../shared/codeFormats';
-import {releaseSyntax} from './syntaxClient';
+import type { PreviewModule } from "@/modules/types";
+import {codeExtensions} from '@shared/codeFormats';
+import {releaseSyntax} from './core/syntaxClient';
 export default {
   id: "text",
   extensions: [

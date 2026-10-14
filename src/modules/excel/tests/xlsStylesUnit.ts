@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import * as XLSX from 'xlsx';
 import ExcelJS from 'exceljs';
 import {styleFixture} from './xlsStylesFixture';
-import {readBasicWorkbook} from '../loadWorkbook';
-import {exportXlsCopy} from '../xlsCopy';
-import {styledXlsx,hydrateXlsxStyles} from '../xlsStyles';
-import {inspectBiffCompatibility,inspectXlsSave} from '../xlsCompatibility';
-import {xlsRecords} from '../biff';
-import {join,record} from '../biff';
+import {readBasicWorkbook} from '../core/workbook/loadWorkbook';
+import {exportXlsCopy} from '../core/workbook/xlsCopy';
+import {styledXlsx,hydrateXlsxStyles} from '../core/workbook/xlsStyles';
+import {inspectBiffCompatibility,inspectXlsSave} from '../core/workbook/xlsCompatibility';
+import {xlsRecords} from '../core/workbook/biff';
+import {join,record} from '../core/workbook/biff';
 const original=styleFixture(),book=readBasicWorkbook(original,'xls'),style=book.Sheets['样式表'].B2.s;
 function check(s:any){assert.equal(s.font.name,'宋体');assert.equal(s.font.size,11);assert.equal(s.font.bold,true);assert.equal(s.font.italic,true);assert.equal(s.font.strike,true);assert.equal(s.font.underline,'double');assert.equal(s.font.color.argb,'FF123456');assert.equal(s.border.left.style,'thin');assert.equal(s.border.right.style,'medium');assert.equal(s.border.top.style,'double');assert.equal(s.border.bottom.style,'dashDot');assert.equal(s.border.left.color.argb,'FFFF0000');assert.equal(s.border.right.color.argb,'FF0000FF');assert.equal(s.fill.pattern,'solid');assert.equal(s.fill.fgColor.argb,'FFFFC080');assert.equal(s.alignment.wrapText,true);assert.equal(s.alignment.indent,2);}
 check(style);assert.equal(book.Sheets['样式表'].F2.s.font.name,'宋体');assert.deepEqual(inspectBiffCompatibility(original),[]);

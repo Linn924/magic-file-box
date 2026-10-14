@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-import type {RestartReport} from '../../shared/updates';
+import type {RestartReport} from '@shared/updates';
 interface Participant {id:number;send:(channel:string,token:string)=>void;}
 /** Freeze and acknowledge every preview before allowing the installer to quit. */
 export class RestartCoordinator {

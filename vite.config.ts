@@ -1,3 +1,12 @@
 import { defineConfig } from "vite";
 import vue from "@vitejs/plugin-vue";
-export default defineConfig({ base: "./", plugins: [vue()],worker:{format:'es'} });
+import {fileURLToPath, URL} from 'node:url';
+export default defineConfig({
+  base: './',
+  plugins: [vue()],
+  resolve: {alias: {
+    '@': fileURLToPath(new URL('./src', import.meta.url)),
+    '@shared': fileURLToPath(new URL('./shared', import.meta.url)),
+  }},
+  worker: {format: 'es'},
+});

@@ -1,0 +1,83 @@
+/* —— Immersive: hide chrome; reveal strips at edges —— */
+.immersive .app-header,
+.immersive .tabbar,
+.immersive .tabs,
+.immersive .module-tools,
+.immersive .search-tools,
+.immersive .sheet-tools,
+.immersive .pdf-inline-tools,
+.immersive .pdf-nav,
+.immersive .filebar.idbar,
+.immersive .sheets,
+.immersive .notice {
+  display: none;
+}
+
+.immersive .filebar.actbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: 36px;
+  opacity: 0;
+  transform: translateY(calc(-100% + 10px));
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.immersive .filebar.actbar:hover,
+.immersive .filebar.actbar:focus-within {
+  opacity: 1;
+  transform: none;
+}
+
+.immersive .page-nav,
+.immersive .pane-footer,
+.immersive .sheet-footer {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: 28px;
+  opacity: 0;
+  transform: translateY(calc(100% - 10px));
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
+}
+
+.immersive .page-nav:hover,
+.immersive .page-nav:focus-within,
+.immersive .pane-footer:hover,
+.immersive .sheet-footer:hover {
+  opacity: 1;
+  transform: none;
+}
+
+.immersive .preview-tab,
+.immersive .pdf-pane,
+.immersive .pdf-body,
+.immersive .excel,
+.immersive .text,
+.immersive .image-pane {
+  min-height: 0;
+}
+
+.immersive .excel,
+.immersive .text {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .immersive .filebar.actbar,
+  .immersive .page-nav,
+  .immersive .pane-footer,
+  .immersive .sheet-footer {
+    transition: none;
+  }
+}

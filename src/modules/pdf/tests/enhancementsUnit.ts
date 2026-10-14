@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
-import {findPdfMatches,searchPattern} from '../searchIndex';
-import {mappedPdfText,textCacheLimits} from '../textCache';
-import {mergeNoteRects,rotateNoteRect} from '../annotationGeometry';
-import {allocatePdfCanvas,availablePdfPixels,pdfCanvasStats,prunePdfCanvases,releasePdfCanvas} from '../canvasPool';
+import {findPdfMatches,searchPattern} from '../core/searchIndex';
+import {mappedPdfText,textCacheLimits} from '../core/textCache';
+import {mergeNoteRects,rotateNoteRect} from '../core/annotationGeometry';
+import {allocatePdfCanvas,availablePdfPixels,pdfCanvasStats,prunePdfCanvases,releasePdfCanvas} from '../core/canvasPool';
 const plain={caseSensitive:false,mode:'plain'} as const;
 assert.deepEqual(findPdfMatches('İ ABC abc','İ',plain),[{charOffset:0,length:1}]);
 assert.deepEqual(findPdfMatches('İ','i',plain),[{charOffset:0,length:1}],'partial case-fold expansion still highlights the original glyph');
@@ -30,7 +30,7 @@ prunePdfCanvases();assert.equal(domReads,1);assert.equal(pdfCanvasStats().pixels
 releasePdfCanvas(canvas);assert.equal(pdfCanvasStats().pixels,0,'release is idempotent');
 console.log('PASS PDF enhancement units: mapped offsets, matching, cache limits, rect merging and constant-time canvas accounting');
 
-const {pageSize}=await import('../metadata');
+const {pageSize}=await import('../core/metadata');
 let start!:()=>void,release!:()=>void;
 const started=new Promise<void>(resolve=>{start=resolve;}),gate=new Promise<void>(resolve=>{release=resolve;});
 const doc={getPage:async()=>{start();await gate;return {getViewport:()=>({width:500,height:300})};}} as unknown as import('pdfjs-dist').PDFDocumentProxy;

@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import type { PreviewProps } from "../types";
-import { usePreview } from "./usePreview";
-import ToolButton from '../../components/ToolButton.vue';
+import type { PreviewProps } from "@/modules/types";
+import { usePreview } from "./composables/usePreview";
+import ToolButton from '@/components/ui/ToolButton.vue';
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];

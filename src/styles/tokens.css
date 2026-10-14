@@ -1,0 +1,30 @@
+:root {
+  --bg: #f3f5f8;
+  --panel: #ffffff;
+  --stage: #dce2ea;
+  --well: #f0f3f7;
+  --text: #20262e;
+  --muted: #5f6b7a;
+  --line: #c9d1db;
+  --accent: #0f6cbd;
+  --accent-soft: #e7f1fb;
+  --danger: #c42b1c;
+  --radius: 6px;
+  --ctl-h: 28px;
+  --font: "Segoe UI", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+  color-scheme: light;
+}
+
+html[data-theme="dark"] {
+  --bg: #1b1f27;
+  --panel: #252a32;
+  --stage: #12161c;
+  --well: #2c3340;
+  --text: #e8ecf2;
+  --muted: #9ba6b5;
+  --line: #3a4452;
+  --accent: #60a5fa;
+  --accent-soft: #1e2a3a;
+  --danger: #ff6b5a;
+  color-scheme: dark;
+}

@@ -5,7 +5,7 @@ import path from 'node:path';
 import {createHash} from 'node:crypto';
 import {UpdateController,type UpdateDriver} from '../electron/updates/controller';
 import {RestartCoordinator} from '../electron/updates/restart';
-import {newerVersion,stableVersion,allowedUpdateUrl} from '../shared/updates';
+import {newerVersion,stableVersion,allowedUpdateUrl} from '@shared/updates';
 import {verifyUpdateArtifacts} from '../scripts/updateArtifacts';
 class Driver extends EventEmitter implements UpdateDriver {
   checks=0;downloads=0;installed=0;failed=false;next='3.3.7';cancelled=false;

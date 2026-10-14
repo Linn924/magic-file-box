@@ -1,5 +1,5 @@
-import type {UpdateState} from '../../shared/updates';
-import {newerVersion,stableVersion} from '../../shared/updates';
+import type {UpdateState} from '@shared/updates';
+import {newerVersion,stableVersion} from '@shared/updates';
 export interface UpdateInfo {version:string;releaseNotes?:unknown;}
 export interface UpdateDriver {
   check():Promise<{updateInfo:UpdateInfo}|null>;

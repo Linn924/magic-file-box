@@ -1,11 +1,11 @@
 import {app,BrowserWindow,dialog,ipcMain} from 'electron';
 import {version} from '../../package.json';
 import {trusted} from '../security';
-import {hasModified} from '../modifiedFiles';
+import {hasModified} from '../files/modifiedFiles';
 import {UpdateController} from './controller';
 import {createUpdateDriver} from './driver';
 import {RestartCoordinator} from './restart';
-import type {UpdateAction,UpdateState} from '../../shared/updates';
+import type {UpdateAction,UpdateState} from '@shared/updates';
 import {existsSync} from 'node:fs';
 import path from 'node:path';
 export function setupUpdates(autoCheck:()=>boolean,busy:()=>boolean){

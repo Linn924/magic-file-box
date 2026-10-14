@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import ExcelJS from 'exceljs';
-import { loadWorkbook } from '../loadWorkbook';
+import { loadWorkbook } from '../core/workbook/loadWorkbook';
 const bytes = new Uint8Array(readFileSync('work/fixtures/styled.xlsx'));
 const descriptor = Object.getOwnPropertyDescriptor(ExcelJS.Workbook.prototype, 'xlsx')!;
 // Simulate an optional style engine rejecting a document that the data engine reads.

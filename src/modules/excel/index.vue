@@ -1,22 +1,22 @@
 <script setup lang="ts">
-import PageNavigation from "../../components/PageNavigation.vue";
-import type { PreviewProps } from "../types";
-import { usePreview } from "./usePreview";
-import {useGridInteraction} from './useGridInteraction';
-import ExcelToolButton from '../../components/ToolButton.vue';
-import ExcelIcon from '../../components/ToolbarIcon.vue';
-import FormulaPicker from './FormulaPicker.vue';
-import XlsSaveReview from './XlsSaveReview.vue';
-import FormatPanel from './FormatPanel.vue';
-import AdvancedTools from './AdvancedTools.vue';
-import FindPanel from './FindPanel.vue';
-import FormulaAssist from './FormulaAssist.vue';
-import SheetTools from './SheetTools.vue';
-import SortFilterTools from './SortFilterTools.vue';
-import {visibleSheetNames} from './sheetState';
-import {useFind} from './useFind';
-import {useFormulaAssist} from './useFormulaAssist';
-import {regionTargets} from './selection';
+import PageNavigation from "@/components/preview/PageNavigation.vue";
+import type { PreviewProps } from "@/modules/types";
+import { usePreview } from "./composables/usePreview";
+import {useGridInteraction} from './composables/useGridInteraction';
+import ExcelToolButton from '@/components/ui/ToolButton.vue';
+import ExcelIcon from '@/components/ui/ToolbarIcon.vue';
+import FormulaPicker from './components/FormulaPicker.vue';
+import XlsSaveReview from './components/XlsSaveReview.vue';
+import FormatPanel from './components/FormatPanel.vue';
+import AdvancedTools from './components/AdvancedTools.vue';
+import FindPanel from './components/FindPanel.vue';
+import FormulaAssist from './components/FormulaAssist.vue';
+import SheetTools from './components/SheetTools.vue';
+import SortFilterTools from './components/SortFilterTools.vue';
+import {visibleSheetNames} from './core/editing/sheetState';
+import {useFind} from './composables/useFind';
+import {useFormulaAssist} from './composables/useFormulaAssist';
+import {regionTargets} from './core/editing/selection';
 import { ref,computed,watch,nextTick,onBeforeUnmount } from "vue";
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
@@ -73,7 +73,7 @@ function inlineKey(event:KeyboardEvent){if(assist.key(event))return;if(event.key
 function inlineBlur(event:FocusEvent){if(assist.picking.value)return;assist.blur();grid.inlineBlur(event);}
 function sheetPointer(event:PointerEvent,name:string){if(!assist.active())return;const start=assist.caret.value,end=assist.end.value;grid.inline.value=false;assist.sheetPick(event,name);void nextTick(()=>{cellInput.value?.focus({preventScroll:true});cellInput.value?.setSelectionRange(start,end);if(cellInput.value)assist.update({target:cellInput.value} as unknown as Event);});}
 const formatStyles=()=>regionTargets(grid.range.value,book.value?.Sheets[sheetName.value]?.['!merges']||[]).map(address=>cellStyle(address));
-const applyStyle=(patch:import('./formatModel').FormatPatch)=>editor.applyFormat(grid.range.value,editor.selection.value.mode,patch);
+const applyStyle=(patch:import('./core/editing/formatModel').FormatPatch)=>editor.applyFormat(grid.range.value,editor.selection.value.mode,patch);
 const actionMenu=ref<'insert'|'delete'|'more'|null>(null);
 const alignment=computed(()=>rows.value.flatMap(row=>row.cells).find(cell=>cell.address===editor.address.value)?.style.textAlign||'left');
 function toggleActions(menu:'insert'|'delete'|'more'){if(!grid.commit()||!editor.finishCell())return;grid.closeAll();actionMenu.value=actionMenu.value===menu?null:menu;void nextTick(()=>pane.value?.querySelector<HTMLButtonElement>('.excel-actions-menu button')?.focus({preventScroll:true}));}

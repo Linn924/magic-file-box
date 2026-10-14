@@ -1,5 +1,5 @@
 import {ref,watch,nextTick,onBeforeUnmount,type Ref} from 'vue';
-import {createSafeResizeObserver} from './safeResizeObserver';
+import {createSafeResizeObserver} from '@/utils/safeResizeObserver';
 /** Compare intrinsic tab widths against the same action reservation in both modes. */
 export function useTabStrip(root:Ref<HTMLElement|undefined>,nav:Ref<HTMLElement|undefined>,items:Ref<unknown[]>,onLayout:()=>void){
   const overflow=ref(false);let observer:ResizeObserver|undefined,lastWidth=-1,disposed=false;

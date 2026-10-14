@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {PdfRowIndex,PDF_ROW_GAP} from '../rowIndex';
+import {PdfRowIndex,PDF_ROW_GAP} from '../core/rowIndex';
 const rows=new PdfRowIndex();
 rows.rebuild([{width:480,height:600},{width:480,height:300},{width:300,height:200}],1000);
 assert.deepEqual(rows.rows.map(row=>row.pages),[[0,1],[2]]);

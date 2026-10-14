@@ -1,5 +1,5 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { extensions } from '../shared/contracts';
+import { extensions } from '@shared/contracts';
 
 // Register Open With candidates only. Never replace an extension's default value
 // or Windows UserChoice. Uninstall removes only our own registration.
