@@ -82,6 +82,6 @@ watch(()=>props.raw,()=>{html.value=renderMarkdown(props.raw);void decorate();})
 watch(()=>props.query,()=>{void nextTick().then(()=>search());});
 onMounted(()=>{void decorate();scrollRoot=article.value?.closest('.text-scroll')||null;scrollRoot?.addEventListener('scroll',updateActive,{passive:true});for(const type of ['wheel','pointerdown','keydown','touchstart'])scrollRoot?.addEventListener(type,userMoved,{passive:true});themeObserver=new MutationObserver(()=>{const theme=document.documentElement.dataset.theme;if(theme===lastTheme)return;lastTheme=theme;const root=article.value,token=revision;if(root)void diagrams(root,()=>!disposed&&revision===token).then(()=>{if(!disposed){search(false);updateActive();}});});themeObserver.observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});});
 onBeforeUnmount(()=>{disposed=true;revision++;diagramRevision++;release();scrollRoot?.removeEventListener('scroll',updateActive);for(const type of ['wheel','pointerdown','keydown','touchstart'])scrollRoot?.removeEventListener(type,userMoved);themeObserver?.disconnect();cancelAnimationFrame(activeFrame);for(const timer of timers)clearTimeout(timer);});
-defineExpose({jumpAnchor,findNext});
+  defineExpose({jumpAnchor,findNext,captureReading:readingPosition});
 </script>
 <template><article ref="article" class="markdown preview-content" :style="{fontSize:15*zoom/100+'px'}" @click="click" v-html="html"></article></template>

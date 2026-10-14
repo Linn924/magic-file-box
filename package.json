@@ -1,6 +1,6 @@
 {
   "name": "file-preview",
-  "version": "3.3.7",
+  "version": "3.3.8",
   "private": true,
   "description": "Offline, read-only file preview tool for Windows",
   "author": "File Preview",
@@ -30,10 +30,12 @@
   "devDependencies": {
     "@aiden0z/pptx-renderer": "^1.2.4",
     "@file-viewer/doc": "^3.0.3",
+    "@types/css-tree": "3.2.0",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.9.6",
     "@vitejs/plugin-vue": "^6.0.1",
     "@web-ppt/core": "^0.4.5",
+    "css-tree": "3.2.1",
     "docx-preview": "^0.3.6",
     "dompurify": "^3.4.15",
     "electron": "^44.3.0",

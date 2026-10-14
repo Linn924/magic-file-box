@@ -21,6 +21,7 @@ import ppt from "../src/modules/ppt/tests/e2e";
 import pdf from "../src/modules/pdf/tests/e2e";
 import text from "../src/modules/text/tests/e2e";
 import syntax from '../src/modules/text/tests/syntax';
+import appearance from '../src/modules/text/tests/appearance';
 import image from "../src/modules/image/tests/e2e";
 import bench from "../src/modules/pdf/tests/bench";
 import pdfperf from "../src/modules/pdf/tests/performance";
@@ -67,6 +68,7 @@ const suites: Record<string, Suite> = {
   pdf,
   text,
   syntax,
+  appearance,
   image,
   bench,
   pdfperf,

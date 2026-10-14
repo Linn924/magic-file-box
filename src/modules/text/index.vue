@@ -7,6 +7,7 @@ import textModule from "./index";
 import {renderTextLine,renderSyntaxLine,textMatches} from './highlight';
 import {useSyntax} from './useSyntax';
 import {languageNames} from './languages';
+import {useCodeAppearance} from './useCodeAppearance';
 import {LineHeights} from './lineHeights';
 import ToolButton from '../../components/ToolButton.vue';
 import PreviewPanel from '../../components/PreviewPanel.vue';
@@ -38,8 +39,9 @@ watch(showSearch, async value => { if (value) { await nextTick(); searchInput.va
 function findKey(event:KeyboardEvent){if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='f'&&pane.value?.clientWidth){event.preventDefault();showSearch.value=true;void nextTick(()=>searchInput.value?.focus({preventScroll:true}));}}
 const lines = computed(() => (pretty.value || "").split("\n"));
 const syntaxText=computed(()=>props.file.ext==='md'&&!sourceMode.value?'':pretty.value);
-function sourcePosition(){const root=textScroll.value;if(!root?.clientHeight)return ()=>{};const top=root.getBoundingClientRect().top,node=Array.from(root.querySelectorAll<HTMLElement>('.text-line')).find(n=>n.getBoundingClientRect().bottom>top),before=root.scrollTop,offset=node?node.getBoundingClientRect().top-top:0;return ()=>{if(root.scrollTop===before&&node?.isConnected)root.scrollTop+=node.getBoundingClientRect().top-root.getBoundingClientRect().top-offset;};}
+function sourcePosition(force=false){const root=textScroll.value;if(!root?.clientHeight)return ()=>{};const top=root.getBoundingClientRect().top,node=Array.from(root.querySelectorAll<HTMLElement>('.text-line')).find(n=>n.getBoundingClientRect().bottom>top),before=root.scrollTop,offset=node?node.getBoundingClientRect().top-top:0;return ()=>{if((force||root.scrollTop===before)&&node?.isConnected)root.scrollTop+=node.getBoundingClientRect().top-root.getBoundingClientRect().top-offset;};}
 const syntax=useSyntax(props.file.id,syntaxText,props.file.ext,sourcePosition);
+useCodeAppearance(()=>{if(showHtml.value)return mdReader.value?.captureReading()??(()=>{});const restore=sourcePosition(true);return ()=>{updateVirtual();void nextTick(restore);};});
 
 /** 超过此行数才启用虚拟滚动，小文件直接全量渲染 */
 const VIRTUAL_THRESHOLD = 3000;
@@ -124,7 +126,7 @@ const showHtml = computed(
 );
 </script>
 <template>
-  <section ref="pane" class="text">
+  <section ref="pane" class="text" data-code-appearance>
     <Teleport :to="`[data-file-id='${props.file.id}'] .module-tools`" defer>
       <span class="text-tools filebar-inline" data-text-tools>
         <span v-if="file.ext==='md'" class="preview-tool-group" data-text-group="reading"><ToolButton class="md-outline-toggle" icon="navigation" title="显示 / 隐藏标题目录" :pressed="showOutline" :disabled="sourceMode" @click="showOutline=!showOutline" /><ToolButton class="md-source-toggle" :icon="sourceMode?'preview':'code'" :title="sourceMode?'查看 Markdown 排版':'查看 Markdown 源码'" :pressed="sourceMode" @click="toggleSource" /></span>

@@ -47,6 +47,7 @@ for (const name of [
   "dompurify",
   "marked",
   "shiki",
+  "css-tree",
 ])
   collect(name);
 writeFileSync("dist/THIRD-PARTY-NOTICES.txt", notices.join("\n"));

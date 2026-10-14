@@ -1,4 +1,5 @@
 import {codeExtensions} from './codeFormats';
+import {defaultCodeAppearance,normalizeCodeAppearance,type CodeAppearance} from './codeAppearance';
 export interface PreviewFile {
   id: string;
   name: string;
@@ -53,6 +54,7 @@ export interface Settings {
   maximizePreview: boolean;
   printEntry: PrintEntry;
   checkUpdatesOnStart:boolean;
+  codeAppearance:CodeAppearance;
 }
 export const defaults: Settings = {
   theme: "light",
@@ -62,6 +64,7 @@ export const defaults: Settings = {
   maximizePreview: true,
   printEntry: "all",
   checkUpdatesOnStart:true,
+  codeAppearance:defaultCodeAppearance(),
 };
 export const extensions = [
   "docx",
@@ -122,6 +125,7 @@ export function normalizeSettings(
       ? input.printEntry!
       : base.printEntry,
     checkUpdatesOnStart:typeof input.checkUpdatesOnStart==='boolean'?input.checkUpdatesOnStart:base.checkUpdatesOnStart,
+    codeAppearance:normalizeCodeAppearance(input.codeAppearance,base.codeAppearance),
   };
 }
 export interface DesktopBridge {

@@ -19,6 +19,7 @@ const names = [
   "pdf",
   "text",
   "syntax",
+  "appearance",
   "image",
   "zoom",
   "immersive",
@@ -50,6 +51,7 @@ if (!args.includes("--skip-build"))
   );
 run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);
 if(selected.includes('text')||selected.includes('syntax')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/text/tests/syntaxUnit.ts']);
+if(selected.includes('text')||selected.includes('appearance')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/text/tests/appearanceUnit.ts']);
 if(selected.includes('updates')||selected.includes('all'))run(process.execPath,['--import','tsx','tests/updateUnit.ts']);
 if(selected.includes('pdfspread')||selected.includes('pdfenhancements')||selected.includes('pdf')||selected.includes('pdfperf')||selected.includes('pdfchain')||selected.includes('all')) {
   run(process.execPath,['--import','tsx','src/modules/pdf/tests/searchMemory.ts']);

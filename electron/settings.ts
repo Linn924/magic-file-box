@@ -23,7 +23,7 @@ export class SettingsStore {
     }
   }
   get(): Settings {
-    return { ...this.value };
+    return structuredClone(this.value);
   }
   update(input: Partial<Settings>): Settings {
     const next = normalizeSettings(input, this.value);
