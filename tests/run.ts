@@ -23,6 +23,7 @@ const names = [
   "text",
   "syntax",
   "appearance",
+  "appearancelayout",
   "image",
   "zoom",
   "immersive",
