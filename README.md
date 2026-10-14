@@ -14,7 +14,7 @@
   <a href="https://github.com/Linn924/filePreview/releases/tag/v1.0.2">下载 1.0.2</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
-  <a href="docs/更新.md">更新记录</a> ·
+  <a href="docs/CHANGELOG.md">更新记录</a> ·
   <a href="https://github.com/Linn924/filePreview/issues">反馈问题</a>
 </p>
 
@@ -257,7 +257,7 @@ PowerPoint 可连续查看幻灯片，按页码跳转。文字与图片等静态
 | Excel 工作表与副本 | 最多编辑 256 个工作表，副本最多 100 MB |
 | Excel 尺寸 | 行高 1–409 磅，列宽 1–255 字符 |
 
-画布、字节缓存和操作预算不是应用总进程内存的硬上限；全文查询耗时取决于文档，不能用少数样例承诺所有文件的性能。更详细的边界见 [架构说明](docs/架构.md)。
+画布、字节缓存和操作预算不是应用总进程内存的硬上限；全文查询耗时取决于文档，不能用少数样例承诺所有文件的性能。更详细的边界见 [架构说明](docs/ARCHITECTURE.md)。
 
 </details>
 
@@ -266,11 +266,11 @@ PowerPoint 可连续查看幻灯片，按页码跳转。文字与图片等静态
 | 入口 | 内容 |
 | --- | --- |
 | [发布与下载](https://github.com/Linn924/filePreview/releases) | main 版本安装包、更新说明与校验附件 |
-| [更新记录](docs/更新.md) | 已完成改动、验证结果与历史边界 |
-| [开发规范](docs/开发规范.md) | 每个需求必须遵守的开发规则 |
-| [架构说明](docs/架构.md) | 模块职责、生命周期与实现边界 |
-| [测试指南](docs/测试指南.md) | 测试选择、样例、构建与验收方法 |
-| [后续计划](docs/后续计划.md) | 未实施方向与候选范围 |
+| [更新记录](docs/CHANGELOG.md) | 已完成改动、验证结果与历史边界 |
+| [开发规范](docs/DEVELOPMENT.md) | 每个需求必须遵守的开发规则 |
+| [架构说明](docs/ARCHITECTURE.md) | 模块职责、生命周期与实现边界 |
+| [测试指南](docs/TESTING.md) | 测试选择、样例、构建与验收方法 |
+| [后续计划](docs/BACKLOG.md) | 未实施方向与候选范围 |
 | [开发入口](AGENTS.md) | 仓库开发规则 |
 | [问题反馈](https://github.com/Linn924/filePreview/issues) | 使用问题与功能建议；请说明系统、文件格式和复现步骤，避免上传隐私文件 |
 
