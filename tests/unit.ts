@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import {beginFileEdit,waitForFileEdits} from '../src/composables/pendingEdits';
 import {preparePreviewFile,loadPreparedFile} from '../electron/files';
 import {resolve} from 'node:path';
 const lazyText=await preparePreviewFile(resolve('work/fixtures/text.txt'));
@@ -135,3 +136,13 @@ assert.ok(associations.includes('"%1"'));
 console.log(
   "PASS installer: Open With supports all formats and preserves default associations",
 );
+
+// Window transfers must wait for all in-flight edits, regardless of file format.
+{
+  const file={},endA=beginFileEdit(file),endB=beginFileEdit(file);let exported=false;
+  const ready=waitForFileEdits(file).then(()=>{exported=true;});
+  endA();await Promise.resolve();assert.equal(exported,false);
+  endB();await ready;assert.equal(exported,true);
+  endB();await waitForFileEdits(file);
+  console.log('PASS pending file edits settle before transfer snapshot');
+}

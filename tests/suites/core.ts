@@ -4,6 +4,11 @@ import path from "node:path";
 import type { Suite } from "../context";
 import {checkTabbarLayout} from '../tabbarLayout';
 const suite: Suite = async (c) => {
+  const cleanHome = "document.documentElement.dataset.edition==='main'&&!document.querySelector('.home-credit,.home-intro,.home-intro-title,.home-intro-canvas')&&!localStorage.getItem('fp-home-intro-v1')";
+  await c.check(c.home, "main home uses the standard entry", cleanHome);
+  c.home.webContents.reload();
+  await c.check(c.home, "home reload is ready", "!!document.querySelector('.dropzone')");
+  await c.check(c.home, "home reload preserves the standard entry", cleanHome);
   await c.check(
     c.home,
     "removed old slogans and status",
@@ -55,6 +60,7 @@ const suite: Suite = async (c) => {
     "multi-file tabs",
     "document.querySelectorAll('.tab').length===2",
   );
+  await c.check(tabs, "preview only contains file viewing controls", "!document.querySelector('.home-intro,.home-intro-title,.home-intro-canvas')");
   if (prompts !== 1 || c.program.settings.get().multiFileMode !== "tabs")
     throw Error("Multi-file preference not saved");
   await c.click(tabs, ".tab .tab-name", "data.json");
