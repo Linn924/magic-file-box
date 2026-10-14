@@ -6,6 +6,7 @@ const args = process.argv.slice(2);
 const index = args.indexOf("--suite");
 const selected = (index < 0 ? "all" : args[index + 1] || "").split(",");
 const names = [
+  "startup",
   "core",
   "updates",
   "word",
@@ -50,6 +51,7 @@ if (!args.includes("--skip-build"))
     process.platform === "win32",
   );
 run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);
+if(selected.includes('startup')||selected.includes('all'))run(process.execPath,['--import','tsx','tests/mindSyncUnit.ts']);
 if(selected.includes('text')||selected.includes('syntax')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/text/tests/syntaxUnit.ts']);
 if(selected.includes('text')||selected.includes('appearance')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/text/tests/appearanceUnit.ts']);
 if(selected.includes('updates')||selected.includes('all'))run(process.execPath,['--import','tsx','tests/updateUnit.ts']);

@@ -6,10 +6,11 @@ import {waitForFileEdits} from './composables/pendingEdits';
 import ToolbarIcon from './components/ToolbarIcon.vue';
 import PreviewTab from "./components/PreviewTab.vue";
 import SettingsPanel from "./components/SettingsPanel.vue";
-import HomeIntro from "./components/HomeIntro.vue";
+import {edition,homeIntro} from "./edition";
 import UpdateCenter from './components/UpdateCenter.vue';
 import {useUpdateRestart} from './composables/useUpdateRestart';
 import { defaults, type Settings, type PreviewFile } from "../shared/contracts";
+document.documentElement.dataset.edition=edition;
 const isPreview = new URLSearchParams(location.search).has("preview");
 const immersive = useImmersive(isPreview);
 const files = shallowRef<PreviewFile[]>([]);
@@ -313,7 +314,7 @@ onBeforeUnmount(() => {
       </button>
     </header>
     <section v-if="!isPreview" class="welcome">
-      <HomeIntro />
+      <component :is="homeIntro" v-if="homeIntro" />
       <button class="dropzone" @click="select">
         <span class="file-icon" aria-hidden="true">
           <svg width="22" height="22" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5">

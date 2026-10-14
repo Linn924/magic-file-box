@@ -1,6 +1,6 @@
 {
   "name": "file-preview",
-  "version": "3.3.8",
+  "version": "3.3.9",
   "private": true,
   "description": "Offline, read-only file preview tool for Windows",
   "author": "File Preview",
@@ -25,7 +25,8 @@
     "test:package": "tsx tests/package.ts",
     "bench": "tsx scripts/bench.ts",
     "bench:ui": "npm test -- --suite bench",
-    "verify:update": "tsx scripts/verify-update.ts"
+    "verify:update": "tsx scripts/verify-update.ts",
+    "sync:mind": "tsx scripts/sync-mind.ts"
   },
   "devDependencies": {
     "@aiden0z/pptx-renderer": "^1.2.4",

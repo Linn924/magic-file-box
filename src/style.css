@@ -184,64 +184,8 @@ main {
   background: var(--bg);
 }
 
-.home-intro {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  overflow: hidden;
-  z-index: 0;
-}
-
-.home-intro-canvas {
-  position: absolute;
-  inset: 0;
-}
-
-.home-intro-title {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: 12%;
-  text-align: center;
-  margin: 0;
-  font-size: 22px;
-  font-weight: 600;
-  letter-spacing: 0.12em;
-  color: var(--text);
-  z-index: 3;
-  text-shadow: 0 1px 0 color-mix(in srgb, var(--panel) 80%, transparent);
-  opacity: 0;
-  animation: intro-fade 2.8s ease forwards;
-}
-
-@keyframes intro-fade {
-  0% {
-    opacity: 0;
-    transform: translateY(6px);
-  }
-  18% {
-    opacity: 1;
-    transform: none;
-  }
-  78% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0;
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .home-intro-title {
-    animation: none;
-    opacity: 0;
-  }
-  .home-intro-canvas {
-    display: none;
-  }
-  button {
-    transition: none;
-  }
+  button { transition: none; }
 }
 
 .dropzone {

@@ -7,6 +7,7 @@ import immersive from "./suites/immersive";
 import nonpdfprinting from "./suites/nonpdfprinting";
 import printing from "../src/modules/pdf/tests/printing";
 import core from "./suites/core";
+import startup from './suites/startup';
 import visual from "./suites/visual";
 import bulk from "./suites/bulk";
 import zoom from "./suites/zoom";
@@ -49,6 +50,7 @@ const program =
   require("../electron-dist/main.cjs") as typeof import("../electron/main");
 const results: string[] = [];
 const suites: Record<string, Suite> = {
+  startup,
   core,
   updates,
   visual,
