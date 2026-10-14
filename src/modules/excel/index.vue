@@ -11,6 +11,8 @@ import FormatPanel from './FormatPanel.vue';
 import AdvancedTools from './AdvancedTools.vue';
 import FindPanel from './FindPanel.vue';
 import FormulaAssist from './FormulaAssist.vue';
+import SheetTools from './SheetTools.vue';
+import {visibleSheetNames} from './sheetState';
 import {useFind} from './useFind';
 import {useFormulaAssist} from './useFormulaAssist';
 import {regionTargets} from './selection';
@@ -87,6 +89,8 @@ function resizeFormula(){void nextTick(()=>{const input=cellInput.value;if(input
 watch([editor.input,editor.editing],resizeFormula,{immediate:true});
 watch(sheetName,()=>{void nextTick(()=>{const nav=pane.value?.querySelector<HTMLElement>('.sheets'),tab=nav?.querySelector<HTMLElement>('.active');if(!nav||!tab||!nav.clientWidth)return;const bounds=nav.getBoundingClientRect(),rect=tab.getBoundingClientRect();if(rect.left<bounds.left)nav.scrollLeft-=bounds.left-rect.left;else if(rect.right>bounds.right)nav.scrollLeft+=rect.right-bounds.right;});});
 function selectSheet(name:string){if(assist.active())return;if(!grid.commit()||!editor.finishCell())return;assist.finish();grid.closeAll();sheetName.value=name;rowPage.value=colPage.value=0;if(editor.editing.value)editor.select('A1',name);}
+const visibleSheets=computed(()=>visibleSheetNames(book.value));
+function prepareSheets(){if(!grid.commit()||!editor.finishCell())return false;assist.finish();grid.closeAll();closeActions();editor.error.value='';return true;}
 function headerAddress(axis:'row'|'column',index:number){const current=XLSX.utils.decode_cell(editor.address.value);return XLSX.utils.encode_cell(axis==='row'?{r:index,c:current.c}:{r:current.r,c:index});}
 function menuKey(event:KeyboardEvent){if(!['ArrowDown','ArrowUp','Home','End'].includes(event.key))return;event.preventDefault();const buttons=Array.from((event.currentTarget as HTMLElement).querySelectorAll<HTMLButtonElement>('button'));let index=buttons.indexOf(document.activeElement as HTMLButtonElement);index=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;buttons[index]?.focus();}
 function inputKey(event:KeyboardEvent){if(event.isComposing||assist.key(event))return;if(event.key==='Enter'&&!event.altKey&&!event.shiftKey){event.preventDefault();if(editor.finishCell())assist.finish();}else if(event.key==='Escape'){event.preventDefault();editor.cancelInput();assist.finish();cellInput.value?.blur();}}
@@ -247,7 +251,8 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
       <p v-else class="empty">此工作表没有数据</p>
     </div>
     <footer class="sheet-footer">
-      <span v-if="editor.editing.value" class="excel-selection-summary" aria-live="polite">{{grid.rangeLabel.value}}</span><nav class="sheets" aria-label="工作表"><button v-for="name in book?.SheetNames" :key="name" :class="{active:name===sheetName}" :title="name" :disabled="editor.saving.value" @pointerdown="sheetPointer($event,name)" @click="selectSheet(name)">{{name}}</button></nav>
+      <span v-if="editor.editing.value" class="excel-selection-summary" aria-live="polite">{{grid.rangeLabel.value}}</span><nav class="sheets" aria-label="工作表"><button v-for="name in visibleSheets" :key="name" :class="{active:name===sheetName}" :title="name" :disabled="editor.saving.value" @pointerdown="sheetPointer($event,name)" @click="selectSheet(name)">{{name}}</button></nav>
+      <SheetTools v-if="editor.editing.value" :file-id="file.id" :book="book" :sheet="sheetName" :disabled="editor.saving.value" :prepare="prepareSheets" :apply="editor.manageSheet" :message="editor.error.value"/>
       <span
         >{{ rowCount.toLocaleString() }} 行 ·
         {{ colCount.toLocaleString() }} 列</span

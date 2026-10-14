@@ -328,7 +328,6 @@ onBeforeUnmount(() => {
         <span>Word</span><span>Excel</span><span>PowerPoint</span
         ><span>PDF</span><span>图片</span><span>文本</span>
       </div>
-      <p class="home-credit">By 仔仔</p>
     </section>
     <template v-else
       ><div v-if="files.length" ref="tabbar" class="tabbar" :class="{'has-overflow':tabsOverflow}"><nav

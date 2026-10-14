@@ -13,6 +13,7 @@ import selectionEditing from './selectionEditing';
 import formatEditing from './formatEditing';
 import advancedEditing from './advancedEditing';
 import findEditing from './findEditing';
+import sheetEditing from './sheetEditing';
 const suite:Suite=async c=>{
   const name='edit-basic.xlsx';
   if(!existsSync(c.fixture(name))){const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Data');book.addWorksheet('Other').getCell('A1').value='untouched';sheet.getCell('A1').value='Name';sheet.getCell('A2').value='Alpha';sheet.getCell('A3').value='Beta';sheet.getCell('B2').value=2;sheet.getCell('B3').value=3;sheet.getCell('C1').value={formula:'SUM(B2:B3)',result:5};sheet.getCell('D1').value='00123';sheet.mergeCells('A5:B5');sheet.getCell('A5').value='merged';sheet.getCell('B2').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEEF6FF'}};sheet.getCell('B2').font={bold:true,color:{argb:'FF2255AA'}};const image=book.addImage({buffer:readFileSync(c.fixture('image.png')) as any,extension:'png'});sheet.addImage(image,'F2:G3');writeFileSync(c.fixture(name),Buffer.from(await book.xlsx.writeBuffer()));}
@@ -68,5 +69,6 @@ const suite:Suite=async c=>{
   await formatEditing(c);
   await advancedEditing(c);
   await findEditing(c);
+  await sheetEditing(c);
 };
 export default suite;

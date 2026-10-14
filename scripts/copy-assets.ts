@@ -14,7 +14,7 @@ for (const name of ["cmaps", "standard_fonts", "wasm"]) {
 }
 const visited = new Set();
 const notices = [
-  "File Preview 3.3 — third-party notices\nBundled libraries retain their original licenses.\n",
+  `File Preview ${JSON.parse(readFileSync('package.json','utf8')).version} — third-party notices\nBundled libraries retain their original licenses.\n`,
 ];
 function collect(name: string, parent = ".") {
   let dir = `${parent}/node_modules/${name}`;

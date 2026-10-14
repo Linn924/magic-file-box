@@ -3,6 +3,7 @@ import type {Suite} from '../context';
 const suite:Suite=async c=>{
   const expected=process.env.FILE_PREVIEW_EDITION||'main';if(!['main','mind'].includes(expected))throw Error('未知启动版本。');
   await c.check(c.home,'startup uses expected edition '+expected,`document.documentElement.dataset.edition===${JSON.stringify(expected)}`);
+  await c.check(c.home,'home has no author credit',"!document.querySelector('.home-credit')&&!/by\\s*仔仔/i.test(document.body.textContent)");
   if(expected==='main'){
     await c.check(c.home,'main has no personal title, canvas or intro marker',"!document.querySelector('.home-intro,.home-intro-title,.home-intro-canvas')&&!document.body.textContent.includes('小乖专属软件')&&!localStorage.getItem('fp-home-intro-v1')");
   }else{

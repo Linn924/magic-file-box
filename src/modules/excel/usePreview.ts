@@ -14,6 +14,7 @@ import {useEditor} from './useEditor';
 import {createSafeResizeObserver} from '../../composables/safeResizeObserver';
 import { loadWorkbook } from './loadWorkbook';
 import { previewError } from '../../../shared/previewError';
+import {visibleSheetNames} from './sheetState';
 import type { PreviewFile } from "../../types";
 import type { PreviewProps, PreviewEmit } from "../types";
 export function usePreview(props: PreviewProps, emit: PreviewEmit) {
@@ -24,7 +25,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   const restored = props.file.view?.excel;
   const sheetName = ref("");
   const widths = ref<Record<string, number>>({ ...restored?.widths });
-  async function install(bytes:Uint8Array,ext:string,widthState?:Record<string,number>){const loaded=await loadWorkbook(bytes,ext);styled=loaded.styled;warning.value=loaded.warning;book.value=loaded.book;if(widthState)widths.value={...widthState};await nextTick();}
+  async function install(bytes:Uint8Array,ext:string,widthState?:Record<string,number>){const loaded=await loadWorkbook(bytes,ext);for(const url of imageUrls.values())if(url.startsWith('blob:'))URL.revokeObjectURL(url);imageUrls.clear();styled=loaded.styled;warning.value=loaded.warning;book.value=loaded.book;if(!visibleSheetNames(loaded.book).includes(sheetName.value))sheetName.value=visibleSheetNames(loaded.book)[0]||'';if(widthState)widths.value={...widthState};await nextTick();}
   const editor=useEditor(props.file,book,sheetName,install,()=>widths.value,(name,address)=>styled?.getWorksheet(name)?.getCell(address).numFmt||book.value?.Sheets[name]?.[address]?.z||logicalStyle(name,address)?.numFmt);
   const rotatedHeights=shallowRef<Map<string,number>>(new Map());let observedRows=new Set<HTMLElement>();
   const measuredRows=shallowRef<Map<number,number>>(new Map());
@@ -200,6 +201,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   const freezeFirstCol = ref(true);
   watch(()=>props.zoom,async()=>{await nextTick();onScroll();});
   watch(sheetName, () => {
+    colPage.value = 0;
     loadedRowCount.value = 200;
     rowPage.value = 0;
     scrollTop.value = 0;
@@ -502,7 +504,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       styled = loaded.styled;
       warning.value = loaded.warning;
       book.value = loaded.book;
-      sheetName.value = restored && book.value.SheetNames.includes(restored.sheet) ? restored.sheet : book.value.SheetNames[0] || '';
+      sheetName.value = restored && visibleSheetNames(book.value).includes(restored.sheet) ? restored.sheet : visibleSheetNames(book.value)[0] || '';
       await nextTick();
       colPage.value = Math.max(0, Math.min(restored?.columns ?? 0, Math.ceil(colCount.value / pageCols) - 1));
       loadedRowCount.value = Math.min(rowCount.value, Math.max(200, restored?.rows ?? 200));

@@ -17,6 +17,7 @@ import excelgrid from '../src/modules/excel/tests/selectionEditing';
 import excelformat from '../src/modules/excel/tests/formatEditing';
 import exceladvanced from '../src/modules/excel/tests/advancedEditing';
 import excelfind from '../src/modules/excel/tests/findEditing';
+import excelsheets from '../src/modules/excel/tests/sheetEditing';
 import excel from "../src/modules/excel/tests/e2e";
 import ppt from "../src/modules/ppt/tests/e2e";
 import pdf from "../src/modules/pdf/tests/e2e";
@@ -66,6 +67,7 @@ const suites: Record<string, Suite> = {
   excelformat,
   exceladvanced,
   excelfind,
+  excelsheets,
   ppt,
   pdf,
   text,
@@ -80,7 +82,7 @@ const suites: Record<string, Suite> = {
 };
 const selected =
   requested === "all"
-    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind")
+    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind" && n !== "excelsheets")
     : requested.split(",");
 const output = path.resolve("outputs/verification");
 const fixtureRoot = path.resolve("work/fixtures");
