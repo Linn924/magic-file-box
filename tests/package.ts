@@ -108,6 +108,12 @@ try {
     if(installed?state.phase==='unsupported':state.phase!=='unsupported')throw Error('Packaged updater installation detection mismatch');
     await evaluate(view,"document.querySelector('.settings-button').click();true");
     await waitFor(()=>evaluate(view,"!!document.querySelector('#check-updates')&&document.querySelector('.settings-panel .update-center').textContent.includes("+JSON.stringify(version)+")"),'Packaged update settings');
+    await waitFor(()=>evaluate(view,"document.querySelectorAll('.settings-nav button').length===5&&getComputedStyle(document.querySelector('.settings-panel')).overflowY==='hidden'"),'Packaged grouped settings layout');
+    for (const group of ['appearance','windows','printing','updates','exclusive']) {
+      await evaluate(view, `document.querySelector('[aria-controls="settings-${group}"]').click();true`);
+      await waitFor(()=>evaluate(view, `(() => {const body=document.querySelector('.settings-content'),section=document.querySelector('#settings-${group}');return Math.abs(section.getBoundingClientRect().top-body.getBoundingClientRect().top-parseFloat(getComputedStyle(body).paddingTop))<2&&document.querySelector('.settings-nav [aria-current]')?.getAttribute('aria-controls')==='settings-${group}'})()`),'Packaged settings group '+group);
+    }
+    results.push('PASS packaged settings keep fixed chrome and navigate to all five group starts');
     await evaluate(view,"document.querySelector('[aria-label=关闭设置]').click();true");
     results.push(installed?'PASS installed updater loads, recognizes NSIS installation and exposes correct version/settings':'PASS unpacked updater exposes correct version and avoids automatic installation');
   }
