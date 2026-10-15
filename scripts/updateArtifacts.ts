@@ -13,6 +13,6 @@ export async function verifyUpdateArtifacts(root:string,version:string){
   if(file.size!==bytes.length||file.sha512!==hash||manifest.sha512!==undefined&&manifest.sha512!==hash)throw Error('更新包大小或 SHA512 不匹配。');
   if(!(await stat(path.join(root,name+'.blockmap'))).size)throw Error('更新包缺少 blockmap。');
   const config=await parse(path.join(root,'win-unpacked/resources/app-update.yml'));
-  if(config?.provider!=='github'||config.owner!=='Linn924'||config.repo!=='filePreview'||config.publisherName!==undefined)throw Error('内置更新源不匹配或包含签名发布者配置。');
+  if(config?.provider!=='github'||config.owner!=='Linn924'||config.repo!=='magic-file-box'||config.publisherName!==undefined)throw Error('内置更新源不匹配或包含签名发布者配置。');
   return name;
 }

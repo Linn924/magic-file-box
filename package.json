@@ -1,6 +1,6 @@
 {
   "name": "magic-file-box",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "private": true,
   "description": "Offline, read-only file preview tool for Windows",
   "author": "magic file box",
@@ -95,7 +95,7 @@
     "publish": {
       "provider": "github",
       "owner": "Linn924",
-      "repo": "filePreview",
+      "repo": "magic-file-box",
       "releaseType": "release",
       "private": false
     }
@@ -111,5 +111,9 @@
   "dependencies": {
     "builder-util-runtime": "9.7.0",
     "electron-updater": "6.8.10"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Linn924/magic-file-box.git"
   }
 }

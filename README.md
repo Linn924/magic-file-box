@@ -11,11 +11,11 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Linn924/filePreview/releases/tag/v1.0.4">下载 1.0.4</a> ·
+  <a href="https://github.com/Linn924/magic-file-box/releases/tag/v1.0.5">下载 1.0.5</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
   <a href="docs/CHANGELOG.md">更新记录</a> ·
-  <a href="https://github.com/Linn924/filePreview/issues">反馈问题</a>
+  <a href="https://github.com/Linn924/magic-file-box/issues">反馈问题</a>
 </p>
 
 magic file box 是一个 Windows 本地文件预览工具。把 PDF、Word、Excel、PPT、文本或图片拖进窗口，就能开始阅读；多个文件可以放在同一窗口的标签里，也可以并排打开。
@@ -34,17 +34,17 @@ magic file box 是一个 Windows 本地文件预览工具。把 PDF、Word、Exc
 
 安装包来自当前仓库的公开 Release；Windows 安装版可通过设置中的更新入口检查后续版本。
 
-1. **安装。** 从 [1.0.4 Release](https://github.com/Linn924/filePreview/releases/tag/v1.0.4) 下载 `MagicFileBox-Setup-1.0.4-x64.exe` 并安装。无需 Office 或其他预览软件。
+1. **安装。** 从 [1.0.5 Release](https://github.com/Linn924/magic-file-box/releases/tag/v1.0.5) 下载 `MagicFileBox-Setup-1.0.5-x64.exe` 并安装。无需 Office 或其他预览软件。
 2. **打开文件。** 拖入文件、点击打开入口，或按 `Ctrl+O`。安装后也可在资源管理器的“打开方式”中选择 magic file box；是否设为默认程序由你决定。
 3. **开始阅读。** 多文件打开时选择标签或独立窗口。悬停图标可查看用途；查询使用独立浮窗，放大、适配和全屏操作留在阅读工具栏。
 
-安装包目前未做代码签名，Windows SmartScreen 可能提示未知发布者；请从本仓库的 [Releases](https://github.com/Linn924/filePreview/releases) 下载。
+安装包目前未做代码签名，Windows SmartScreen 可能提示未知发布者；请从本仓库的 [Releases](https://github.com/Linn924/magic-file-box/releases) 下载。
 
-**已有 3.x 安装版？** 项目已重新编号为 **1.x**，更新器不会自动降级，需要手动下载安装包。1.x 版本正常递增，目前需手动下载 1.0.4 安装包。
+**已有 3.x 安装版？** 项目已重新编号为 **1.x**，更新器不会自动降级，需要手动下载安装包。仓库现已迁移至 magic-file-box；1.0.4 及更早版本内置旧更新地址，需要手动安装一次 1.0.5。此后版本从新仓库检查更新。
 
 当前 Release 提供 Windows x64 NSIS 安装包及更新校验附件。免安装 ZIP 是可选构建产物；只有发布页面提供 ZIP 时才能下载使用，需完整解压后运行 `magic file box.exe`。
 
-1.0.4 新增打开文件时隐藏主页到托盘的设置，默认每次询问；更新软件图标，并修正 PDF 缩略图布局、比例与失效画布清理。专属 KEY 继续使用离线签名激活。
+1.0.5 将发布与更新源迁移至新仓库 magic-file-box，保留主页托盘设置、最新图标和 PDF 缩略图修复。专属 KEY 继续使用离线签名激活。
 
 专属服务可在设置中粘贴专属 KEY 并确认，重启软件后生效；“恢复标准服务”同样在重启后生效。KEY 离线验签、不绑定设备，内容不作为脚本执行。
 
@@ -270,14 +270,14 @@ PowerPoint 可连续查看幻灯片，按页码跳转。文字与图片等静态
 
 | 入口 | 内容 |
 | --- | --- |
-| [发布与下载](https://github.com/Linn924/filePreview/releases) | main 版本安装包、更新说明与校验附件 |
+| [发布与下载](https://github.com/Linn924/magic-file-box/releases) | main 版本安装包、更新说明与校验附件 |
 | [更新记录](docs/CHANGELOG.md) | 已完成改动、验证结果与历史边界 |
 | [开发规范](docs/DEVELOPMENT.md) | 每个需求必须遵守的开发规则 |
 | [架构说明](docs/ARCHITECTURE.md) | 模块职责、生命周期与实现边界 |
 | [测试指南](docs/TESTING.md) | 测试选择、样例、构建与验收方法 |
 | [后续计划](docs/BACKLOG.md) | 未实施方向与候选范围 |
 | [开发入口](AGENTS.md) | 仓库开发规则 |
-| [问题反馈](https://github.com/Linn924/filePreview/issues) | 使用问题与功能建议；请说明系统、文件格式和复现步骤，避免上传隐私文件 |
+| [问题反馈](https://github.com/Linn924/magic-file-box/issues) | 使用问题与功能建议；请说明系统、文件格式和复现步骤，避免上传隐私文件 |
 
 项目基于 Electron、Vue 3、TypeScript 和 PDF.js。开发、验证和版本发布均使用 `main`。
 
