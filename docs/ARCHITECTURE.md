@@ -175,6 +175,8 @@ Excel 副本通过 [excelCopy.ts](../electron/files/excelCopy.ts)，批注 PNG �
 
 [settings/index.ts](../electron/settings/index.ts) 持久化白名单设置，[shared/settings.ts](../shared/settings.ts) 提供默认值和归一化。主进程广播设置变化，渲染端订阅应用；文件路径、密码、查询和编辑草稿不在设置中。
 
+[SettingsPanel.vue](../src/components/settings/SettingsPanel.vue) 将外观、窗口与文件、打印、软件更新、专属服务连续排列在右侧内容滚动区，左侧导航只定位对应组首。弹窗外层不滚动，标题和底部说明固定；末组保留足够高度以支持组首定位。滚动与 ResizeObserver 同步当前分组，卸载时断开观察；导航位置仅保留在当前弹窗会话中，重新打开从外观组开始。代码外观编辑器仍通过文本模块入口懒加载，打开时禁用父弹窗，关闭后恢复入口焦点。
+
 [windows/homeOnOpen.ts](../electron/windows/homeOnOpen.ts) 管理打开文件后的主页行为：openHomeAction 为 ask（默认）、tray 或 keep，与 closeAction 独立。主进程在预览窗口加载完成、预览添加文件或 Markdown 本地链接交付后调用；整批一次决策，并发调用共用在途询问。只对仍可见的主页执行，复用托盘入口；未勾选记忆不持久化，退出中或询问期间设置已变更时放弃旧决策。取消选文件、取消多文件模式和整批初始读取检查失败不触发；模块后续解析报错仍由预览显示，不作为隐藏决策的依据。主页首次显示后才处理启动参数，避免初始显示覆盖隐藏动作。
 
 [updates](../electron/updates) 包含更新状态机、electron-updater 驱动和重启协调。更新使用独立网络 session；下载与校验后，RestartCoordinator 检查窗口、未保存修改、在途输出和打印等状态。取消或失败解除界面冻结，普通退出不自动安装。当前源码采用匿名 GitHub Release 源，没有私有仓库认证通道；更新可访问性取决于发布源，版本比较不执行降级。

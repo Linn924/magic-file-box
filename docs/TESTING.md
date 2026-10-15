@@ -48,6 +48,7 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 | resizeTable                                       | word；若改列宽通用行为再加 excel      | 真实鼠标列边界拖动                      |
 | App / PreviewTab / 模块注册 / shared              | core + 所有受影响格式；按行为补专项    | 多窗口、标签生命周期影响全部格式，明确列出套件，不机械使用 all |
 | electron / preload / settings                     | core + 实际受影响格式                 | IPC、窗口、设置、托盘、文件读取         |
+| 设置弹窗布局/分组导航                              | settingslayout,core,updates,appearance,appearancelayout | 内容滚动、组首定位、更新控件与嵌套外观弹窗 |
 | UI 主题/共享样式                                  | core + 实际受影响格式与布局专项       | 深色外观不能污染文档原色                |
 | 文件关联/安装配置/图标/构建流程                   | core + 按授权执行产物与安装检查       | 源码运行正常不代表安装产物正确          |
 
@@ -87,6 +88,12 @@ openHomeAction 覆盖缺省及旧配置回退为 ask、tray/keep 合法值、非
 `tests/quit.entry.ts` 分别另起进程验证询问中选择退出、已配置 quit 两种路径；两者都须在 will-quit 时确认首页和实际预览窗口已销毁，配置 quit 不再询问。所有套件执行前后对已有样例计算 SHA256，预览、缩放和列宽调整不得改变源文件。基础检查还验证生成的 NSIS 注册只添加 Open With 候选，不改扩展名默认值或 UserChoice。
 
 系统模态选择框在测试中替换返回值，以便自动化；真实对话框文案、按钮位置、托盘菜单操作还应按下方手工流程检查。
+
+### settingslayout：设置弹窗布局与分组导航
+
+文件：`tests/suites/settingsLayout.ts`。检查五类分组与设置项归属、右侧全部设置连续挂载、逐组真实鼠标点击定位（含最后一组）、手动滚动高亮和真实滚轮；标题、导航、底部说明保持可见且可命中，滚动条限于内容区域。覆盖 1100×740 和 720×560 窗口、100%/125%/150% 缩放及明暗主题，并检查嵌套代码外观弹窗的父层禁用、Escape/焦点恢复、设置关闭重开与预览窗口中的设置保存。结束后恢复窗口尺寸、缩放和独立测试偏好。
+
+布局变更运行 settingslayout、core、updates、appearance、appearancelayout；更新专项通过分组导航定位更新控件，不滚动弹窗外层。未改变格式解析、打印和签名激活逻辑时不扩大到相应全量专项。
 
 ### word
 

@@ -7,6 +7,7 @@ import immersive from "./suites/immersive";
 import nonpdfprinting from "./suites/nonpdfprinting";
 import printing from "@/modules/pdf/tests/printing";
 import core from "./suites/core";
+import settingslayout from './suites/settingsLayout';
 import visual from "./suites/visual";
 import bulk from "./suites/bulk";
 import zoom from "./suites/zoom";
@@ -54,6 +55,7 @@ const program =
 const results: string[] = [];
 const suites: Record<string, Suite> = {
   core,
+  settingslayout,
   updates,
   visual,
   bulk,
