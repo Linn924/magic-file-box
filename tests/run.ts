@@ -19,6 +19,7 @@ const names = [
   "exceltable",
   "ppt",
   "pdf",
+  "pdfthumbs",
   "text",
   "syntax",
   "appearance",

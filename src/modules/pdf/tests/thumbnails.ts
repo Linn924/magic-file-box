@@ -1,0 +1,36 @@
+import type {Suite} from '../../../../tests/context';
+import {longFixture} from './longFixture';
+
+const suite:Suite = async c => {
+  longFixture(c.fixture('thumbs-mixed.pdf'));
+  const win=await c.open('thumbs-mixed.pdf');
+  win.unmaximize();win.setSize(1000,700);
+  await c.click(win,'.pdf-nav-toggle');
+  await c.click(win,'.pdf-nav-tab','缩略图');
+  const firstPainted=`(()=>{const canvas=document.querySelector('.thumb[data-page="1"].thumb-painted canvas');if(!canvas?.width||!canvas.height)return false;const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>200&&pixels[i]<80&&pixels[i+2]>140)return true;return false})()`;
+  await c.check(win,'first thumbnail has real document pixels',firstPainted);
+  await c.check(win,'virtual thumbnail spacer includes full row height',`(()=>{const host=document.querySelector('.pdf-thumbs'),rows=[...host.querySelectorAll('.thumb')],last=Number(rows.at(-1)?.dataset.page),pad=host.lastElementChild;return pad?.classList.contains('thumb-pad')&&Math.abs(parseFloat(pad.style.height)-(80-last)*(Math.round(112*1.32)+42))<2})()`);
+  await c.check(win,'thumbnail canvas is not squashed by its card',`[...document.querySelectorAll('.thumb.thumb-painted canvas')].every(canvas=>Math.abs(canvas.getBoundingClientRect().height-parseFloat(canvas.style.height))<1)`);
+  await c.evaluate(win,"(()=>{const p=document.querySelector('.page-nav input');p.value='40';p.dispatchEvent(new Event('change',{bubbles:true}))})()");
+  await c.check(win,'distant current thumbnail is painted',"document.querySelector('.thumb[data-page=\"40\"].thumb-painted canvas')?.width>0");
+  await c.evaluate(win,"document.querySelector('.pdf-thumbs').scrollTop=0");
+  await c.check(win,'first thumbnail repaints after returning to top',firstPainted);
+  await c.click(win,'.thumb[data-page="1"]');
+  await c.check(win,'first thumbnail click returns to first PDF page',"document.querySelector('.page-nav input').value==='1'&&document.querySelector('.pdf-page[data-page=\"0\"] canvas')?.width>0");
+  await c.check(win,'renderer responds after clicking first thumbnail',"new Promise(resolve=>setTimeout(()=>resolve(true),150))");
+  await c.evaluate(win,"(()=>{const s=document.querySelector('.thumb-size-select');s.value='272';s.dispatchEvent(new Event('change',{bubbles:true}))})()");
+  await c.check(win,'first thumbnail survives size reset',firstPainted);
+  await c.click(win,'.pdf-nav-tab','目录');
+  await c.click(win,'.pdf-nav-tab','缩略图');
+  await c.check(win,'first thumbnail survives navigation tab switch',firstPainted);
+  await c.snapshot(win,'pdf-thumbnails-first-page');
+  c.close(win);
+  const short=await c.open('document.pdf');
+  await c.evaluate(short,"(()=>{const p=document.querySelector('.page-nav input');p.value='2';p.dispatchEvent(new Event('change',{bubbles:true}))})()");
+  await c.click(short,'.pdf-nav-toggle');
+  await c.evaluate(short,`new Promise(resolve=>{[...document.querySelectorAll('.pdf-nav-tab')].find(b=>b.textContent.trim()==='缩略图').click();setTimeout(()=>{document.querySelector('.thumb[data-page="1"]')?.click();resolve(true)},0)})`);
+  await c.check(short,'clicking first thumbnail during initial painting keeps navigation responsive',"document.querySelector('.page-nav input').value==='1'&&document.querySelector('.thumb[data-page=\"1\"].thumb-painted canvas')?.width>0");
+  await c.check(short,'first thumbnail renders ink on a short text PDF',`(()=>{const canvas=document.querySelector('.thumb[data-page="1"] canvas');const pixels=canvas.getContext('2d').getImageData(0,0,canvas.width,canvas.height).data;for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]>200&&pixels[i]<200&&pixels[i+1]<200&&pixels[i+2]<200)return true;return false})()`);
+  c.close(short);
+};
+export default suite;

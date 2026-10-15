@@ -35,6 +35,9 @@ const thumbHost = ref<HTMLElement>();
 const navWidth=ref(168);
 const thumbCssW=computed(()=>navWidth.value-56);
 const THUMB_GAP = 10;
+// Full card height also includes padding, border, gap and the page label.
+const THUMB_CHROME = 32;
+const THUMB_TOP = 34; // host padding (6) + page count (20) + margin (8)
 const estimateHeight=computed(()=>Math.round(thumbCssW.value*1.32));
 const pageCount = ref(0);
 const heights = ref<number[]>([]);
@@ -225,7 +228,7 @@ function ensureSize(index:number) {
 const offsets = computed(() => {
   const out = [0];
   for (let i = 0; i < heights.value.length; i++)
-    out.push(out[i] + heights.value[i] + THUMB_GAP);
+    out.push(out[i] + heights.value[i] + THUMB_CHROME + THUMB_GAP);
   return out;
 });
 function indexAt(y: number) {
@@ -264,10 +267,10 @@ function updateVirtual() {
   }
   scrollTop.value = host.scrollTop;
   clientH.value = host.clientHeight || 400;
-  virtualStart.value = Math.max(0, indexAt(scrollTop.value) - OVERSCAN);
+  virtualStart.value = Math.max(0, indexAt(Math.max(0,scrollTop.value-THUMB_TOP)) - OVERSCAN);
   virtualEnd.value = Math.min(
     n,
-    indexAt(scrollTop.value + clientH.value) + 1 + OVERSCAN,
+    indexAt(Math.max(0,scrollTop.value + clientH.value-THUMB_TOP)) + 1 + OVERSCAN,
   );
 }
 
@@ -291,7 +294,7 @@ async function paintOne(node: HTMLElement, pageNumber: number) {
     try {
       if (disposed || generation !== thumbGeneration || !node.isConnected) return;
       const pdfPage = await props.pdf!.getPage(pageNumber + 1);
-      if (disposed || generation!==thumbGeneration) return;
+      if (disposed || generation!==thumbGeneration || !node.isConnected) return;
       const base = pdfPage.getViewport({ scale: 1 });
       const cssW = thumbCssW.value;
       const cssH =
@@ -327,6 +330,7 @@ async function paintOne(node: HTMLElement, pageNumber: number) {
       node.classList.remove("thumb-painted");
       paintedPages.delete(pageNumber);
     } finally {
+      if (paintedPages.get(pageNumber) !== canvas) releasePdfCanvas(canvas);
       if(task && tasks.get(pageNumber)===task)tasks.delete(pageNumber);
       paintJobs.delete(pageNumber);
       if(!disposed && tab.value==='thumbs'){
@@ -376,8 +380,8 @@ watch(
     if (tab.value !== "thumbs" || !thumbHost.value) return;
     const idx = props.current - 1;
     if (idx < 0) return;
-    const top = offsets.value[idx] || 0;
-    const h = heights.value[idx] || estimateHeight.value;
+    const top = THUMB_TOP + (offsets.value[idx] || 0);
+    const h = (heights.value[idx] || estimateHeight.value) + THUMB_CHROME;
     const host = thumbHost.value;
     const viewTop = host.scrollTop;
     const viewBottom = viewTop + host.clientHeight;
@@ -396,7 +400,7 @@ async function showThumbsAndPaint() {
   if (tab.value !== "thumbs") return;
   schedulePaint();
   if (thumbHost.value) {
-    const top = offsets.value[props.current - 1] || 0;
+    const top = THUMB_TOP + (offsets.value[props.current - 1] || 0);
     thumbHost.value.scrollTop = Math.max(
       0,
       top - thumbHost.value.clientHeight / 3,
@@ -542,7 +546,7 @@ const hasOutline = computed(() => outline.value.length > 0);
         role="button"
         tabindex="0"
         :aria-label="'第 ' + (i + 1) + ' 页缩略图'"
-        :style="{ height: heights[i] + 24 + 'px' }"
+        :style="{ height: heights[i] + THUMB_CHROME + 'px' }"
         @click="emit('jump', i + 1)"
         @keydown.enter="emit('jump', i + 1)"
       >

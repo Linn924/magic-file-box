@@ -21,6 +21,7 @@ import exceltable from '@/modules/excel/tests/tableEditing';
 import excel from "@/modules/excel/tests/e2e";
 import ppt from "@/modules/ppt/tests/e2e";
 import pdf from "@/modules/pdf/tests/e2e";
+import pdfthumbs from '@/modules/pdf/tests/thumbnails';
 import text from "@/modules/text/tests/e2e";
 import syntax from '@/modules/text/tests/syntax';
 import appearance from '@/modules/text/tests/appearance';
@@ -71,6 +72,7 @@ const suites: Record<string, Suite> = {
   exceltable,
   ppt,
   pdf,
+  pdfthumbs,
   text,
   syntax,
   appearance,
