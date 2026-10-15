@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Linn924/filePreview/releases/tag/v1.0.3">下载 1.0.3</a> ·
+  <a href="https://github.com/Linn924/filePreview/releases/tag/v1.0.4">下载 1.0.4</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
   <a href="docs/CHANGELOG.md">更新记录</a> ·
@@ -34,17 +34,17 @@ magic file box 是一个 Windows 本地文件预览工具。把 PDF、Word、Exc
 
 安装包来自当前仓库的公开 Release；Windows 安装版可通过设置中的更新入口检查后续版本。
 
-1. **安装。** 从 [1.0.3 Release](https://github.com/Linn924/filePreview/releases/tag/v1.0.3) 下载 `MagicFileBox-Setup-1.0.3-x64.exe` 并安装。无需 Office 或其他预览软件。
+1. **安装。** 从 [1.0.4 Release](https://github.com/Linn924/filePreview/releases/tag/v1.0.4) 下载 `MagicFileBox-Setup-1.0.4-x64.exe` 并安装。无需 Office 或其他预览软件。
 2. **打开文件。** 拖入文件、点击打开入口，或按 `Ctrl+O`。安装后也可在资源管理器的“打开方式”中选择 magic file box；是否设为默认程序由你决定。
 3. **开始阅读。** 多文件打开时选择标签或独立窗口。悬停图标可查看用途；查询使用独立浮窗，放大、适配和全屏操作留在阅读工具栏。
 
 安装包目前未做代码签名，Windows SmartScreen 可能提示未知发布者；请从本仓库的 [Releases](https://github.com/Linn924/filePreview/releases) 下载。
 
-**已有 3.x 安装版？** 项目已重新编号为 **1.x**，更新器不会自动降级，需要手动下载安装包。1.x 版本正常递增，目前需手动下载 1.0.3 安装包。
+**已有 3.x 安装版？** 项目已重新编号为 **1.x**，更新器不会自动降级，需要手动下载安装包。1.x 版本正常递增，目前需手动下载 1.0.4 安装包。
 
 当前 Release 提供 Windows x64 NSIS 安装包及更新校验附件。免安装 ZIP 是可选构建产物；只有发布页面提供 ZIP 时才能下载使用，需完整解压后运行 `magic file box.exe`。
 
-1.0.3 使用新名称和图标，包含目录与公共职责整理、专属 KEY 设置，以及关闭设置后清理“已是最新版”提示。
+1.0.4 新增打开文件时隐藏主页到托盘的设置，默认每次询问；更新软件图标，并修正 PDF 缩略图布局、比例与失效画布清理。专属 KEY 继续使用离线签名激活。
 
 专属服务可在设置中粘贴专属 KEY 并确认，重启软件后生效；“恢复标准服务”同样在重启后生效。KEY 离线验签、不绑定设备，内容不作为脚本执行。
 
