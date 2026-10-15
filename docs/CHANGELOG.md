@@ -2,6 +2,12 @@
 
 当前项目版本：1.0.3 · 整理日期：2026-10-15。当前功能见 [README](../README.md)，开发规则见 [开发规范](DEVELOPMENT.md)，测试方法见 [测试指南](TESTING.md)。以下记录发生时的实现/验收，早期参数、缺陷或已打包历史不代表当前状态。
 
+## 2026-10-15 软件图标替换
+
+使用用户提供的新版 PNG 原图替换 assets/logo.png 与 public/logo.png，并通过既有转换脚本生成 assets/icon.ico，统一 README、应用窗口和 Windows 打包图标资源。原图直接复制，未重新绘制或压缩 PNG。
+
+按本次要求未运行测试；仅执行图标格式转换。版本保持 1.0.3，未打包、安装或发布，已安装版本的图标不会因此立即更新。
+
 ## 2026-10-15 1.0.3 正式发布与分支收尾
 
 已正式发布 https://github.com/Linn924/filePreview/releases/tag/v1.0.3 并设为 latest。发布 tag 指向 main 的功能与版本提交 d409a26；四个附件均为 uploaded，远端大小与 GitHub SHA256 摘要和本地一致。安装包 116989876 字节，SHA256：25c1c78cc3690b650b55033b4e11aaaa6d5088815b022d24ba0d11e7db9dc1b4；blockmap 122041 字节、latest.yml 361 字节、SHA256SUMS.txt 99 字节。
