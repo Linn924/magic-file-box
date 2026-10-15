@@ -263,7 +263,7 @@ PowerPoint 可连续查看幻灯片，按页码跳转。文字与图片等静态
 | 入口 | 内容 |
 | --- | --- |
 | [发布与下载](https://github.com/Linn924/magic-file-box/releases) | main 版本安装包、更新说明与校验附件 |
-| [更新记录](docs/CHANGELOG.md) | 已完成改动、验证结果与历史边界 |
+| [更新记录](docs/CHANGELOG.md) | 按版本查看新增、优化与修复的功能 |
 | [开发规范](docs/DEVELOPMENT.md) | 每个需求必须遵守的开发规则 |
 | [架构说明](docs/ARCHITECTURE.md) | 模块职责、生命周期与实现边界 |
 | [测试指南](docs/TESTING.md) | 测试选择、样例、构建与验收方法 |
