@@ -4,9 +4,11 @@
 
 ## 环境与执行
 
-Windows x64、Node.js 22.12+、npm。首次准备依赖和样例：
+运行环境为 Windows x64、Node.js 22.12+、npm。
 
 源码路径别名由 tsconfig.base.json 定义：@/ 对应 src/，@shared/ 对应 shared/。tsx 脚本读取根 tsconfig，Electron 与测试入口的 esbuild 显式使用 tsconfig.electron.json；Vite 使用相同目录映射。模块内部 Worker 使用相对 import.meta.url 的 URL，源码迁移后的运行验证使用重新编译的资源。
+
+首次准备依赖和样例：
 
 ```powershell
 npm ci

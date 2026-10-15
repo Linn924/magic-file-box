@@ -1,189 +1,202 @@
 # 架构说明
 
-本文件记录当前代码的模块、生命周期、设计与实现边界，随实现事实维护。持续开发规则统一见 [开发规范](DEVELOPMENT.md)，测试方法见 [测试指南](TESTING.md)；不能把普通对话写成新增开发规则。
+File Preview 是采用 Electron、Vue 3、TypeScript 和 Vite 的 Windows 桌面应用。本文描述目录迁移后的实际结构、依赖与运行链路；开发规则见 [DEVELOPMENT](DEVELOPMENT.md)，验证方法见 [TESTING](TESTING.md)，功能范围见 [README](../README.md)，未实施方向见 [BACKLOG](BACKLOG.md)。
 
-## 架构与生命周期
+项目保持单应用、单 package.json 和 npm 构建。组件入口与职责归属借鉴了 [Element Plus 的组件目录](https://github.com/element-plus/element-plus/tree/dev/packages/components/button)，未引入多包发布机制。源码与运行产物分离，文件类型继续通过注册表接入。
 
-| 位置 | 职责 |
+## 运行分层与入口
+
+```mermaid
+flowchart LR
+  R[Vue 渲染窗口] <-->|localPreview| P[preload 桥接]
+  P <-->|IPC| M[Electron 主进程]
+  M --> F[本地文件与主动保存]
+  M --> W[窗口、托盘与系统打印]
+  M --> U[独立更新会话]
+  R --> K[PDF 搜索与代码语法 Worker]
+```
+
+| 入口 | 实际职责 |
 | --- | --- |
-| `src/modules/<type>/` | 各格式的组件、解析/渲染、样式及 tests；通过统一注册表查询 |
-| `src/components/` | app、ui、preview、settings、updates、printing 分组的跨格式组件 |
-| `src/composables/` | 应用会话、设置、标签栏、连续页与更新等 Vue 状态和交互 |
-| `src/services/` | 文件字节缓存和待提交编辑协调等有状态服务 |
-| `src/utils/` | 文件大小、倍率、适配、表格尺寸、观察器及打印样式工具 |
-| `src/types/` | 渲染端全局桥接声明和打印渲染接口 |
-| `src/styles/` | 全局样式顺序入口，以及主题、基础、应用与组件样式 |
-| `shared/` | files、settings、formats、bridge 等共用契约；contracts.ts 保留公开聚合入口 |
-| `electron/` | 保留 main/preload 入口，files、windows、settings、security、printing、updates 按职责组织 |
-| `tests/` | 集中执行器与公共/窗口套件；格式断言归所属模块 |
-| `scripts/` | TypeScript 构建、图标、样例、基准和发布检查 |
+| [electron/main.ts](../electron/main.ts) | 初始化应用、协议和服务，处理文件打开、窗口创建、托盘、第二实例及退出 |
+| [electron/preload.ts](../electron/preload.ts) | 通过 contextBridge 暴露 localPreview，将受控操作与事件映射到 IPC |
+| [src/main.ts](../src/main.ts) | 加载全局样式，根据窗口 URL 选择应用、打印面板或打印渲染入口 |
+| [src/App.vue](../src/App.vue) | 组装首页、标签栏、文件预览、设置、错误提示和更新通知 |
+| [src/edition.ts](../src/edition.ts) | 集中的版本差异入口 |
+| [shared/bridge.ts](../shared/bridge.ts) | DesktopBridge 的跨进程接口类型 |
 
-本轮已完成目录与职责整理，完整架构说明重写另行继续。模块保持 index.ts/index.vue 入口；组件归 components/，Vue 交互归 composables/，纯逻辑归 core/，样式归 styles/，Worker 归 workers/，现有测试仍在模块 tests/。Excel core 按 editing、formula、workbook 分组；较小模块只设置实际需要的目录。
+窗口共用 `preview://local/index.html`：无参数为首页，`?preview=1` 为文件预览，`?print-panel=1` 为打印设置，`?print=1` 为隐藏打印渲染。主进程负责创建窗口；src/main.ts 负责选择渲染界面。
 
-App.vue 组装首页、标签栏、预览、设置与更新入口；HomeView 和 TabStrip 属于 components/app，useApplication 管理文件会话/快捷键/移交，useAppSettings 管理设置与主题。src/types/desktop.d.ts 声明渲染桥接，fileSize 属于 utils/formatters.ts。tsconfig.base.json 定义 @/ 与 @shared/，Vite 使用对应别名，Electron 和测试 esbuild 使用继承同一别名的配置；Worker URL 保持相对 import.meta.url 定位。
+预览窗口不能直接访问 Node 文件系统。主进程保留来源路径与所有权，渲染端通过文件 ID 和桥接请求操作。打印、导出和更新各自经过对应的主进程服务。
 
-styles/index.css 按原有级联次序导入 reset、tokens、base、应用和组件样式，模块样式继续通过注册入口引入。此次拆分保留 CSS 规则与顺序。通用 PrintPanel/PrintView 位于 components/printing；PrintView 通过各格式的 printing 入口调用渲染器，PDF 栅格计划、纸张预览和尺寸扫描仍属于 modules/pdf/printing。渲染器提供 render/dispose，窗口负责消费任务、报告结果和释放宿主。
+## 目录职责
 
-文件选择先读取元数据，当前标签激活才读取字节。`electron/files/index.ts` 按 ID 合并读取、持有窗口/打印列表引用，关闭时取消读，最后使用者释放来源路径和会话密码。已加载字节保留在有限缓存；闲置标签卸载模块 DOM。不能把字节/画布额度称为软件总内存上限。
+```text
+filePreview/
+├─ electron/                 主进程与 preload
+│  ├─ files/                 文件读取、所有权、移交、另存与资源协调
+│  ├─ windows/               全屏等窗口能力
+│  ├─ settings/              应用设置存储
+│  ├─ security/              本地协议、session 与调用来源检查
+│  ├─ printing/              打印队列、设置窗口和系统提交
+│  └─ updates/               更新状态机、驱动和重启协调
+├─ shared/                   跨进程契约与无界面的校验逻辑
+├─ src/
+│  ├─ components/            app、ui、preview、settings、updates、printing
+│  ├─ composables/           Vue 状态、订阅与交互生命周期
+│  ├─ services/              文件缓存、待提交编辑等有状态服务
+│  ├─ utils/                 纯计算、格式化及 DOM 工具
+│  ├─ types/                 渲染端全局声明与接口
+│  ├─ styles/                主题、基础、应用和组件样式
+│  └─ modules/               word、text、excel、ppt、pdf、image
+├─ scripts/                  构建、资源生成、产物校验和分支同步
+├─ tests/                    公共执行器、窗口及跨模块测试
+├─ assets/                   应用与安装器图标
+├─ public/                   Vite 直接复制的静态资源
+└─ docs/                     开发规则、架构、测试、计划与历史
+```
 
-缩放/适配状态归标签，模块通过 props/emits 更新；页码归格式模块，滚动更新，按钮与输入只定位。编码、旋转、批注及临时列宽等状态只放在 PreviewFile.view 内存中，不写偏好。Word/PPT 第三方内容用 Shadow DOM 隔离；模块不互相引用解析实现。
+electron/main.ts 仍持有应用和窗口的总调度，并非所有窗口逻辑都位于 windows/。composables 包含 Vue 交互；utils 也包含表格拖动和安全 ResizeObserver 等 DOM 工具。目录名称表达职责，不表示其中所有函数都无副作用。
 
-`electron/files/transfers.ts` 采用来源 export → 目标插入/accept → 来源 remove 的限时事务；目标先保留文件引用，未确认、超时或窗口关闭时保留来源标签。DataTransfer/IPC 不生成磁盘临时文件。
+### 应用组件与公共状态
 
-原生全屏由 `electron/windows/fullscreen.ts` 管理，`useImmersive` 同步状态，公共预览容器保存进入前视图。PDF 独立演示由模块临时覆盖为单页整页适配/100%，退出恢复先前全屏状态，App.vue 不增加解析/演示分支。
+| 位置 | 主要内容与调用关系 |
+| --- | --- |
+| [components/app](../src/components/app) | HomeView、TabStrip 及其入口；标签栏负责几何测量、真实滚动和事件转发 |
+| [components/ui](../src/components/ui) | ToolButton、ToolbarIcon 等基础控件，供各格式复用 |
+| [components/preview](../src/components/preview) | PreviewTab、缩放/适配/页码和 PreviewPanel 浮窗；PreviewTab 负责模块选择与加载 |
+| [components/settings](../src/components/settings) | 设置界面，通过文本模块公开入口懒加载代码外观编辑器 |
+| [components/updates](../src/components/updates) | 更新中心和通知界面 |
+| [components/printing](../src/components/printing) | 通用打印面板、参数、队列状态、错误提示和打印宿主 |
+| [useApplication](../src/composables/useApplication.ts) | 当前文件会话、活动标签、键盘、拖放、打开/关闭和窗口移交订阅 |
+| [useAppSettings](../src/composables/useAppSettings.ts) | 设置加载/保存、系统主题监听与跨窗口设置同步 |
+| [services](../src/services) | 文件字节 LRU 缓存；编辑完成前的等待协调 |
+| [types](../src/types) | desktop.d.ts 声明 Window.localPreview，printing.ts 定义渲染器生命周期 |
 
-### 应用更新
+共用契约按 [files.ts](../shared/files.ts)、[settings.ts](../shared/settings.ts)、[formats.ts](../shared/formats.ts)、[bridge.ts](../shared/bridge.ts) 拆分。[contracts.ts](../shared/contracts.ts) 保留公开聚合入口；打印、更新、Excel 草稿和代码外观有各自的契约文件。shared 不包含 Vue 组件，也不承担格式解析。
 
-当前更新器使用匿名 GitHub Release 源，没有私有仓库认证通道。仓库私有时，应用内检查/下载无法访问该源；有仓库权限的用户可登录 GitHub 手动下载。实际仓库可见性见 README 与更新记录。
+## 依赖关系与路径解析
 
-Windows NSIS 安装版通过 electron/updates/ 接入 electron-updater 6.8.10，使用固定 Linn924/filePreview GitHub Release，正式三段版本递增，不降级、不接收预发布。安装版检查以 Windows/packaged/同目录 NSIS 卸载标记为条件；开发、解压版禁用。启动 8 秒后按 checkUpdatesOnStart 选择检查，手动检查可刷新可下载版本，但下载完成后禁止刷新导致安装包错配。状态机合并并发请求、限制元数据等待、清洗错误/进度，取消不安装，普通退出不自动安装。
+当前依赖关系按职责区分，而不是把整个 components 目录当成同一层：
 
-更新器只接受更高的正式版本，不执行降级。项目版本已由 3.x 重新编号为 1.x，已有 3.x 安装版不能自动转为 1.x；当前版本与发布历史见 README 和更新记录。
+- 应用组件调用公共 composable、预览容器、设置和更新界面。
+- PreviewTab 调用格式注册表；各格式组件复用 ui 控件、页码/浮窗等基础预览组件及公共工具。
+- 通用打印宿主调用 PDF、Word、图片各自的 printing 入口；格式渲染器使用公共打印样式和接口。
+- 设置界面调用 [text/settings.ts](../src/modules/text/settings.ts) 的懒加载入口。
+- 主进程和渲染端共享数据契约，通过 preload/IPC 交互；格式解析仍留在各模块。
 
-主进程更新使用独立内存网络 session，限制 HTTPS GitHub 及其资源域名，保持预览 session 原网络限制，不接收渲染层自定义 URL/路径/token。不做 Authenticode 签名或证书配置；SHA512 验证下载完整性，不能当作发布者认证。关闭库的磁盘日志，以会话匿名标识替代默认 .updaterId，并关闭设备分批投放；只允许持久化用户设置及下载的更新包/校验缓存，不保存预览内容或源路径。
+`@/` 对应 src/，`@shared/` 对应 shared/。[tsconfig.base.json](../tsconfig.base.json) 是 TypeScript/tsx/esbuild 的路径映射基础；[vite.config.ts](../vite.config.ts) 提供相同目录映射。主进程和测试入口的 esbuild 显式读取继承该配置的 tsconfig.electron.json。
 
-RestartCoordinator 在调用安装器前向全部 App 窗口发送随机令牌，冻结交互并收集待执行编辑/PDF 内存批注状态；响应身份/令牌/窗口集合必须一致，8 秒超时取消。主进程再次检查未保存标记、文件打开/移交、另存/批注导出与打印任务。Excel 未保存则拒绝重启；确认默认取消，批注提醒内存内容清空，确认后再复查状态。取消/失败/超时解除所有冻结并恢复输入焦点。实际安装器仍用系统 NSIS，成功关闭并重新启动后的行为须另行做安装版验收。
+模块内部通常使用短相对路径；跨目录可通过别名定位。PDF 搜索和语法 Worker 使用 `new URL(..., import.meta.url)`，由 Vite 生成 Worker 资源。别名是源码解析能力，产物中的 Node 入口不依赖直接执行带别名的 TypeScript。
 
-SettingsPanel 提供启动检查开关和 UpdateCenter，角落通知只给当前可见且已就绪窗口，所有窗口隐藏时延后到恢复显示，设置/沉浸状态不重复显示；更新说明只作为纯文字。App 只接公共冻结机制和更新入口，不解析任何文件类型。useEditor 保存及 activeOutputs 为另存/导出提供忙碌生命周期，失败/取消均释放。
+公开入口按用途设置：模块 index.ts 用于预览注册；printing/index.ts 用于打印能力；text/settings.ts 用于外观设置。没有为每个目录强制建立聚合入口，以免将懒加载界面提前引入。
 
-发布使用 package.json 的 GitHub publish 配置；完整 NSIS、blockmap、latest.yml 和 SHA256 清单上传为 Release 附件，不提交 Git。verify:update 只读校验版本/文件名/大小/SHA512/blockmap/无签名内置更新源，与原 verify:release 配合，不能代替真实升级。v<版本> 标签触发 Windows 构建工作流并创建草稿 Release，用户审阅后发布才进入更新渠道；手动发布造成标签事件时，若正式 Release 已有四个完整附件则跳过重复构建，不替换已验证产物。工作流独立编译运行资源，不运行类型检查；可用 workflow_dispatch 指定版本标签验证发布状态；本地功能开发不自动打包、发布或安装。旧版没有更新器，需先手动安装一次新安装版。
+## 格式模块与注册
 
-测试选择 updates、core、bulk、exceledit、pdfenhancements、printing；updates 自带六类文件窗口入口/确认覆盖，未改变格式解析时不机械全量回归。updateUnit 测状态机/版本/域名/重启确认与元数据，Electron 专项用 mock updater/installer 做 UI、取消、保存/批注保护；另用本机临时 HTTP 服务验证真实 updater 的 SHA512/损坏拒绝及会话标识不落盘，缓存只写独立测试目录，从不执行测试 EXE 或连接实体打印机。源码编译不代表已打包发布，真实 NSIS 旧新两版本升级另需明确授权。
+[modules/index.ts](../src/modules/index.ts) 汇总六个模块并按小写扩展名选择实现。[modules/types.ts](../src/modules/types.ts) 定义注册与界面契约：
 
-### PDF 阅读、搜索与资源
+| 字段或接口 | 用途 |
+| --- | --- |
+| id、extensions、component | 模块标识、扩展名及预览组件 |
+| pageFit、toolbar | 可选的页面适配能力与格式工具入口 |
+| closeFile(id) | 文件标签关闭时释放模块缓存；区别于闲置时卸载 DOM |
+| PreviewProps | 文件、倍率和适配模式 |
+| PreviewEmit | ready、error、update:zoom 等组件事件 |
 
-- `docCache.ts`：同渲染进程共享 PDFWorker，各文档独立 transport，使用凭据保护活动文档；命中只更新 LRU，源字节/份数分别计费，闲置解析文档 30 秒回收。
-- `metadata.ts`：共享尺寸读取并按使用者取消；预热取消不影响其他读取者。`pageIndex.ts`：前缀树；`rowIndex.ts`：固定物理页配对与行索引，未改变分组时增量修正行高，分组变化时重建映射和索引。
-- 按行虚拟化：1–2、3–4 固定配对，可用宽度为 scroll.clientWidth−52 px，双页宽度为各页真实 CSS 宽度之和+24 px；单页/双页行高取其中最高页，行间距 24 px。进入双页留 16 px 余量，已有双页只在实际放不下时拆分；不改变倍率或制造空白页。
-- 页码到行的映射保留右页身份，行内进度用于缩放/旋转/宽度重排定位。`view.pdfReading` 仅存本次内存页码/进度；标签隐藏时不从零尺寸容器覆盖阅读位置，重新加载后在公共滚动恢复之后恢复物理页。长文档只挂载附近行，文字/链接/批注仍以各页自身坐标计算。
-- 几何布局即时重算，位图重绘仍合并；自动滚动锚点关闭，避免浏览器与模块互相修正。普通滚动/平移不得被延后的布局恢复撤销。演示模式排除自动配对，打印及 PNG 导出不读取阅读行布局。
-- `canvasPool.ts`：正文/临时位图/缩略图/纸张示意统一增量计费，余额查询不访问 DOM；虚拟节点、标签可见性、预算改变时清理。单页最多 600 万像素/8192 长边，单窗最多 2400 万，共同参考 4800 万；必要活动数据可超过参考份额。
-- `workQueue.ts`：最多两个并发任务，后台最多一个通道；正文按阅读距离排序、优先级小于 1，后台不小于 3。同页一个任务，过期/离屏取消；100 ms 合并缩放/尺寸重绘，离屏完成后 blit 保留旧图直至新图可用。
-- 百页以上空闲预热 ±10 页尺寸，不预绘画布/提取全篇文字；全篇后台尺寸扫描继续保留，更新时保持阅读锚点。
-- 文字层结合 viewport/文字矩阵/字体方向，每 200 项 Fragment 分片提交；几何版本变化丢弃旧结果。`mappedPdfText` 同时供搜索字符串和 span 精确 start/end，处理空项、特殊空格与 Unicode 大小写展开。
-- `textCache.ts` 与搜索缓存按页数 40% 调整在 32–128 页、4–16 MB 内；活动提取仍受引用保护。搜索批次发布非逐项响应式坐标，清空/换词/关闭使旧扫描失效。
-- 模式搜索在可终止 Worker 中执行，表达式最多 512 字符，每页 1 秒 deadline，每次最多 50000 命中，零长度匹配不计入结果。无文字层提示必须检查全篇，不能仅凭前几页判定。
-- `annotationGeometry.ts` 合并约 2 CSS px 内且交叠至少 80% 的邻片，保留分行/分列并处理旋转；不承诺固定压缩率。
-- `exportNotes.ts` 用计费临时画布合成当前页/标记/页边备注；`electron/files/pdfExport.ts` 校验文件归属、PNG/尺寸，显式保存后才写。限 600 万像素、8192 长边、32 MB，不记录导出路径历史。
+每个模块保留 index.ts 和 index.vue。较大模块将实现分到 components、composables、core、styles、workers、printing、tests；较小模块只设置当前需要的目录。
 
-### Excel 编辑与保存生命周期
+| 模块 | 内部划分与关键实现 |
+| --- | --- |
+| [Excel](../src/modules/excel) | core/editing 管理输入、选区、格式/查找/排序模型；core/formula 管理公式与引用；core/workbook 管理载荷、读写和布局。useEditor 协调草稿、事务、撤销和另存 |
+| [PDF](../src/modules/pdf) | core 管理文档、尺寸、画布、队列和搜索索引；composables 组织预览/查询/批注；workers 执行模式搜索；printing 承担专用打印渲染与纸张示意 |
+| [文本](../src/modules/text) | core 管理语法、安全标记、Markdown、公式和图表，usePreview 处理编码与预览；workers 执行语法分析；components 提供 Markdown 阅读和代码外观设置 |
+| [Word](../src/modules/word) | usePreview 组织解析、分页、表格列宽与预览生命周期；printing 提供 DOCX 打印 |
+| [PPT](../src/modules/ppt) | core/renderer 与 snapshot 组织幻灯片渲染及快照；index.vue 管理视口与分页 |
+| [图片](../src/modules/image) | usePreview 管理解码、旋转、适配和视口；printing 提供图片输出 |
 
-`editModel.ts` 负责输入/基础公式/粘贴解析，`useEditor.ts` 负责原始 workbook 上的修改覆盖层、待提交输入、保存检查点和有界撤销历史；不原地修改原始 workbook。`shared/excelEditing.ts` 只定义会话契约，`view.excelDraft` 在 DOM 卸载与跨窗口移交时保留，不写设置或磁盘。默认预览，XLS 主动编辑后默认另存 XLS 副本。
+### 各格式的数据边界
 
-`exportCopy.ts` 在原 XLSX ZIP 中修补 worksheet 单元格 XML，保留其余载荷；内容修改重新计算受支持公式的缓存，未支持公式清除缓存并设置打开后重算。不伪造公式结果，不运行自定义公式 JavaScript，不支持 Strict OOXML 或共享/数组/数据表公式的改写。普通公式输入接受同工作簿同页/跨 Sheet 引用、基本运算/比较/连接/百分比及 formula.ts 声明的十二个函数，最多 4096 字符/64 层。CSV/TSV 使用原编码解码后的字面值，UTF-8 BOM 输出，只输出当前 Sheet，有公式拒绝导出；公式形态文本加单引号保护。
+- PDF：文档加载按文件与凭据复用，正文按行虚拟化；自动单双页、搜索、旋转与批注共享物理页坐标。文字缓存有界，模式搜索可取消。画布池、工作队列和主进程资源协调各自承担计费与释放。
+- Excel：原始载荷与内存草稿分离，区域操作先形成完整结果再安装。保存检查点区分单表文本输出和完整工作簿。XLSX 在 ZIP/XML 层修补以保留无关对象；XLS 由 BIFF 读写和兼容性检查处理，无法保真的内容明确提示。工作表管理、排序筛选复用同一撤销与草稿机制。
+- 文本：源码字符与显示标记分离，语法高亮使用本地 Shiki/TextMate Worker，超限回退纯文本。Markdown 通过清洗后渲染；公式、图表和本地图片有各自预算和取消机制，不执行作者脚本。
+- Word/PPT：文档渲染使用 Shadow DOM 隔离应用样式；旧格式的保真边界与新格式不同。分页和连续定位依赖实际渲染结果。
+- 图片：EXIF 方向由浏览器解码处理一次，手动旋转以已纠正图像为基准。原始像素、适配和旋转只保存在当前会话。
 
-`formula.ts` 使用有界 AST 解析和懒计算，不使用 eval 或执行文件中的代码；函数范围为 VLOOKUP、ROUND、ROUNDUP、ROUNDDOWN、SUM、AVERAGE、MIN、MAX、COUNT、COUNTA、ABS、IF。修改覆盖层后重建计算器，按可见区域批次计算、依赖结果缓存；缓存最多 50000 格，依赖深度 128，单批 100000 步/100 ms，单区域最多 100000 格。未知语法/函数显示表达式与说明，循环、超限和错误显式呈现，不回退旧结果。公式内容仍保留原表达式，数字结果使用单格数字格式；ƒx 入口在模块内提供参数窗口和焦点恢复。
+具体支持范围和资源上限见 README；各函数的实现参数以源码为准，实质断言及样例见 TESTING。
 
-`xlsCopy.ts` 写入 BIFF8 RPN 公式令牌及数值/字符串/布尔/错误缓存，补写行高/隐藏行、水平对齐 XF 和内部工作表引用；不能依赖 SheetJS 的普通 biff8 写入保留公式。每次输出重新读取检查必须保留公式。XLS 最大 IV65536、输出区域最多 200 万格，公式文本参数最多 255 字符；数组、未知函数或计算超限不能静默转值，拒绝 XLS 保存并提示选择 XLSX。XLS 保留数据、支持的公式、常见字体/边框/图案填充与基本布局；不承诺所有旧格式完整保真。XLS 经结构调整的基底仍为内存 XLSX，保存选择继续为 XLS；纯样式、结构快照与另存均须保留水平对齐。
+## 文件与状态生命周期
 
-`biff.ts` 提供有界记录读写；`xlsStyles.ts` 解析 BIFF8 FONT/XF/PALETTE 和单格样式，字体索引跳过保留的 4，fAtr 位控制未来父样式更新，不能用来覆盖已存储的单格字段。写入复用数字格式 XF 并生成字体/样式/调色板，常见图案、斜线/四边边框、对齐/缩进/换行等以实际字段保留；颜色超过 56 时按已有颜色的 RGB 距离近似。XLSX 基底用 ExcelJS 读全样式并解析文件主题色/tint，再编码 XLS；XLS 结构转换用带样式的内存 XLSX，先建合并再赋独立边缘样式，保留日期系统与 Sheet 可见性。样式读取失败保留基础预览并说明，不能把此降级说成完整保真。参考 [MS-XLS XF](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-xls/993d15c4-ec04-43e9-ba36-594dfb336c6d) 与 [CellXF](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-xls/671c8577-901f-4215-9ebf-6f5890e5896d)。
+### 打开、加载与释放
 
-`xlsCompatibility.ts` 检查原始 CFB/BIFF 及当前基底，按实际记录报告宏、用户绘图/图表、批注、条件规则/验证、命名/外链/超链接、保护、筛选/打印配置、扩展样式和字符级富文本；常见空绘图的 patriarch 不算用户对象，只有批注对象时也不误报图片；直接 XLS 副本可保留普通超链接，不列为丢失，经过结构/XLSX 基底转换时才提示链接目标损失。批注按无法确认完整性报告，不把部分普通文字保留说成全部丢失。清单区分丢失、近似和无法确认完整性，只显示已检测到的项及有限位置，不宣称全覆盖。`XlsSaveReview.vue` 在显式保存时显示，默认聚焦取消，Esc/取消保留草稿并恢复入口焦点，确认继续后才调用原另存 IPC；警告只在会话，既有源路径/硬链接保护不变。同格式未修改输出直接复制原字节，不显示丢失清单；另存 XLSX 不承诺恢复在转换中丢掉的旧式对象。
+1. [electron/files/index.ts](../electron/files/index.ts) 准备元数据、文件 ID 与来源路径，主进程维护窗口和任务引用。
+2. useApplication 接收文件列表，选择活动标签；[PreviewTab](../src/components/preview/PreviewTab.vue) 在实际需要预览时请求字节，同一来源读取合并。
+3. PreviewTab 通过注册表创建格式组件，组件报告 ready/error；原文件路径不作为应用历史持久化。
+4. 闲置标签释放预览 DOM，当前视图状态仍在 PreviewFile.view；已加载字节可留在有界内存缓存。
+5. 标签关闭触发模块 closeFile、字节缓存和主进程引用释放；最后使用者退出后清理路径、密码与未完成读取。
 
-函数语义参考 [Microsoft VLOOKUP](https://support.microsoft.com/zh-cn/excel/functions/vlookup-function)、[ROUND 系列](https://support.microsoft.com/en-us/excel/round-a-number-to-the-decimal-places-i-want-in-excel)、[MS-XLS Formula](https://learn.microsoft.com/en-us/openspecs/office_file_formats/ms-xls/bccb00ac-67a1-490a-9f0b-5ce59978eb9a)。精确查找文本不区分大小写、支持 */?/~；近似匹配要求升序首列且省略参数时开启。仅实现明确子集，不宣称覆盖全部 Excel 语义。
+视图状态包括倍率、适配、滚动、编码、临时列宽、工作表、PDF 阅读位置和批注。Excel 草稿及撤销快照同样保存在内存中，组件卸载不等同于丢弃草稿。
 
-单元格水平对齐属于 Excel 编辑覆盖层：`ExcelChange.alignment/alignmentOnly` 区分内容与纯样式修改，撤销/重做、内容输入/粘贴和结构快照保留对齐。保存复用原 cellXfs 项并克隆派生样式，仅调整 horizontal/applyAlignment，保留原字体、填充、边框和其他对齐属性；纯对齐不得重写原单元格内容或清公式缓存。CSV/TSV 拒绝当前 Sheet 的应用内对齐修改，`formatted` 记录合入结构基底的对齐，移交/撤销一并恢复，不能误标为已保存。编辑常驻提示和成功消息不占视觉行；错误与未保存提示保留，成功状态仅供辅助技术读取。
+### 跨窗口移交
 
-Excel 与其他模块共用 `src/components/ui/ToolbarIcon.vue` 的内联 SVG、`ToolButton.vue` 的 28 px 按钮、title、aria-label、禁用/按下/焦点状态和 `toolbar.css`；不引入图标依赖或位图，不再保留 Excel 专属副本。编辑工具栏组序固定为 save/history/clipboard/format/alignment/layout/formula/structure/more，组内不拆开换行；取消/确认位于名称框与内容之间，不与撤销/重做混放。插入/删除是选择菜单，恢复源内容只在更多菜单且继续原生确认。默认一行内容框按实际内容扩展到最多 88 px，工作表标签置于底部；定位名称框需先提交/校验待输入内容，工具栏复制也需先提交，菜单 Esc 关闭恢复触发按钮焦点，点击外部不抢焦点。
+[transfers.ts](../electron/files/transfers.ts) 使用导出、插入/接受、移除来源的限时事务。导出前等待 [pendingEdits](../src/services/pendingEdits.ts) 中的操作完成；目标确认前保留来源引用。失败、取消或目标关闭不会提前删除源标签。
 
-`electron/files/excelCopy.ts` 校验 IPC 来源/文件归属/格式与 100 MB 上限，原生另存对话框选择位置后才写入；检查所有打开源文件的路径、realpath 与设备/文件号，避免符号链接或硬链接覆盖。用所选目录的随机临时文件完成写入后替换目标，取消或失败清理临时文件，不保存输出路径历史。不承诺异常断电时恢复草稿。
+### 主动另存与导出
 
-`electron/files/modifiedFiles.ts` 只保存各窗口的未保存标记，标签关闭使用通用确认，原生窗口关闭及应用退出也检查；窗口移交同步迁移标记，文件释放清理。App.vue 不解析 Excel。保存取消/失败不清草稿，CSV/TSV 仅更新当前 Sheet 的保存检查点。普通预览关闭仍直接关闭，只有未保存修改需要选择。
+Excel 副本通过 [excelCopy.ts](../electron/files/excelCopy.ts)，批注 PNG 通过 [pdfExport.ts](../electron/files/pdfExport.ts) 校验并写入；来源路径和别名受到保护。[activeOutputs.ts](../electron/files/activeOutputs.ts) 跟踪在途输出，[modifiedFiles.ts](../electron/files/modifiedFiles.ts) 协调未保存状态。应用关闭和更新重启使用这些状态防止中断编辑或输出。
 
-`formatModel.ts` 验证属性和边框边界；formatWorkbook.ts 在原 ZIP 上派生字体/填充/边框/XF，保留未操作属性及其他载荷，字体变更同步修补富文本 run，共享字符串改为该格内联副本。行列默认样式及数字格式写回 ROW/COLINFO。格式应用沿用有界内存基底/撤销快照，先生成完整结果再安装，超预算不部分修改。pendingEdits.ts 按文件 ID 管理内存操作，通用 export 等待后再供给 view，不在 App.vue 解析 Excel；操作结束清理等待项，保持未保存保护。可见行高由安全观察器在 RAF 中读 DOM 后校正，离屏解除观察，换表/内容/基底/宽度清缓存，隐藏时不存零尺寸。
+### 资源管理
 
-`selection.ts` 负责范围规范化、合并闭包和有界操作目标，选区只存 anchor/focus/mode，不按全表创建单元格；ExcelSelection 仅在内存草稿/结构历史中保留。指针移动只更新轻量选区字段，不逐帧克隆完整撤销历史或发送未保存 IPC。拖动超过 3 px 才捕获指针，普通点击/双击保留浏览器事件；停止/隐藏/卸载清理监听和动画帧。区域清空/对齐先验证全部目标再一次提交，保留既有 20000 格预算。
+资源预算分布在文件字节缓存、PDF 文档/画布/文字缓存、语法 Worker 和 Excel 草稿中。它们不是整个应用进程内存的硬上限，活动任务和解码后的资源可能存在额外占用。
 
-`useGridInteraction.ts` 管理单元格内编辑、键盘移动、右键与自定义插入；输入法确认不提交，无效输入不切换选择。剪贴板只在显式菜单/按键操作中通过 `excel:clipboard` 读写文本，主进程校验受支持文件归属与 100 万字符上限，不放宽通用 session 权限。复制多行/制表符文本须按 TSV 引用，编号保留文本类型。
+代表性实现入口包括 [fileContentCache](../src/services/fileContentCache.ts)、[PDF canvasPool](../src/modules/pdf/core/canvasPool.ts)、[PDF workQueue](../src/modules/pdf/core/workQueue.ts)、[pdfResources](../electron/files/pdfResources.ts)、[syntaxClient](../src/modules/text/core/syntaxClient.ts) 与 [useEditor](../src/modules/excel/composables/useEditor.ts)。
 
-`structure.ts` 在内存 XLSX 中移动行列、普通单元格、合并区域、列元数据、筛选/视图和普通图片锚点；基础运算/声明的十二个函数的原有同页与跨页引用同步调整，删除整段引用产生 #REF!，清计算链/缓存并请求外部重算。复杂公式、命名区域、图表/透视表/外链、共享/数组公式及目标表保护/验证/条件格式/复杂对象/分页配置等拒绝结构编辑；先完整生成和校验结果再切换工作基底，失败不提交半完成状态。
+## 通用打印链路
 
-结构操作将当前覆盖层合入内存基底并保存前后快照；`ExcelDraft.baseBytes/revisions/serial` 只存内存，撤销/重做恢复基底、修改与临时列宽，移交仍走既有事务。保存检查点包含每个 Sheet 的结构版本，避免 CSV 保存把其他 Sheet 误标干净。结构历史快照参考总额 64 MB，单次无法保留撤销时拒绝；历史仍受 100 步/单元格/文本累计限额，不把此额度当成总内存上限。每次调整 1–1000 整行/整列，不实施局部单元格移位。
+1. FilePrintButton 或格式工具调用主进程打开独立 PrintPanel。
+2. [printing/window.ts](../electron/printing/window.ts) 管理文件汇入和预览联动；[usePrintQueue](../src/components/printing/usePrintQueue.ts) 管理当前窗口的参数、勾选、顺序、进度和失败状态。提交时冻结批次快照。
+3. [printing/index.ts](../electron/printing/index.ts) 保留任务与来源引用，创建或复用隐藏渲染窗口，分配任务 token。
+4. [PrintView](../src/components/printing/PrintView.vue) 消费任务，按格式加载渲染器。PDF、DOCX 和图片各自实现 [PrintRenderer](../src/types/printing.ts) 的 render/dispose。
+5. 渲染完成后带 token 报告 ready，主进程校验任务身份再提交系统打印。重复或迟到的回调不能重复提交。
+6. 窗口卸载调用 dispose 并清空宿主；PDF 取消渲染并释放文档/画布，图片释放对象 URL。失败、超时和来源关闭进入对应清理路径。
 
-边界：粘贴最多 10000 单元格/100 万字符，单格最多 32767 字符；修改最多 20000 格/1000 万字符，撤销最多 100 步并限制累计 20000 格/1000 万字符。编辑新增行范围到 50000 行，已有更长区域保留；列不超过 XFD。文本输出网格最多 200 万格。临时列宽/冻结/缩放只影响预览，不写副本。
+公共打印界面不负责格式解析。PDF 的 [printing 入口](../src/modules/pdf/printing/index.ts) 还提供栅格计划、纸张预览和尺寸扫描；[Word](../src/modules/word/printing/index.ts)与[图片](../src/modules/image/printing/index.ts)提供各自的输出实现。PDF 输出使用打印专用分辨率和裁切预算，与阅读倍率和画布布局分开。
 
-### 打印与安全
+打印状态区分取消、失败与已提交系统队列；系统接受任务不等于已实际出纸。
 
-PDF、图片、DOCX 通过模块 toolbar 进入唯一独立非模态设置窗口。`electron/printing/window.ts` 管理文件汇入与预览联动，`usePrintQueue.ts` 管理内存参数、勾选、顺序与状态，展开条目才准备尺寸/示意。提交冻结当前快照，新文件等待当前批次结束。
+## 设置、更新与安全
 
-`shared/printing.ts` 校验参数；`rasterPlan.ts` 供示意/输出共用。PDF 150 DPI，只栅格化可打印区域，实际大小不被 CSS 再缩小，超出部分居中裁切；总计划超过 6000 万像素在分配前拒绝，提示用户选页分批，不自动拆作业。打印分辨率不受阅读画布额度影响。
+[settings/index.ts](../electron/settings/index.ts) 持久化白名单设置，[shared/settings.ts](../shared/settings.ts) 提供默认值和归一化。主进程广播设置变化，渲染端订阅应用；文件路径、密码、查询和编辑草稿不在设置中。
 
-每任务独立 UUID/token，consume/ready/回调校验同一任务，防重复和迟到回调。隐藏执行窗口在成功的顺序任务间复用并重新导航隔离；空闲 1.5 秒释放，失败/超时/来源关闭立即销毁。结果区分提交、取消与驱动失败，提交仅代表系统接受，不证明出纸。
+[updates](../electron/updates) 包含更新状态机、electron-updater 驱动和重启协调。更新使用独立网络 session；下载与校验后，RestartCoordinator 检查窗口、未保存修改、在途输出和打印等状态。取消或失败解除界面冻结，普通退出不自动安装。当前源码采用匿名 GitHub Release 源，没有私有仓库认证通道；更新可访问性取决于发布源，版本比较不执行降级。
 
-本地协议、非持久 session、sandbox、contextIsolation 与 IPC 来源校验保持；外网请求和 webview/新窗口拒绝，仅受控 http(s) 外链可主动打开。Open With 只添加本应用候选，不写扩展名默认值/UserChoice；卸载只清理本应用键。
+[security/index.ts](../electron/security/index.ts) 提供非持久预览 session、本地协议映射与 IPC 来源检查。窗口启用 sandbox/contextIsolation，拒绝任意导航、webview 和新窗口。文档内容访问网络受限，明确点击的受控外链由系统浏览器打开。Markdown 链接、图片、导出、另存和打印仍各自复查来源与参数。
 
-### 非 PDF 模块的实现约定
+## 样式与交互组织
 
-- 代码外观契约在 shared/codeAppearance.ts：light/dark 各保存颜色/字体位标记的白名单，字体名称最多 100 字符，自定义 CSS 最多 16384 字符，未知字段不持久化。normalizeSettings 自动兼容缺少此字段的旧配置，SettingsStore.get 深拷贝避免调用方修改嵌套状态。外观是用户主动保存的应用偏好，不含源码、路径、命中或解析缓存。
-- CodeAppearanceSettings.vue 属于文本模块，设置面板只懒加载入口；独立草稿/预览、逐项/全部恢复、配色预设、明确应用保存、取消和失败重试；保存期间锁定编辑区域，避免晚输入被响应覆盖，Tab 无可用控件时也不移出对话框。白天/黑夜预览独立于应用当前主题。fieldset 仅负责禁用语义（display:contents），普通 .appearance-body 负责有界滚动，不能让 fieldset 的特殊内容盒承担溢出；窄窗口优先展示代码示例并随正文滚动，不用 sticky 遮住 CSS 编辑区，页脚保持可见。子对话框将底层设置 inert，Tab 限定焦点，Esc 只关闭子窗口，卸载解除 inert/预览缓存。
-- appearanceCss.ts 使用本地 css-tree 3.2.1 解析 AST/验证属性值，拒绝 Raw、@规则、Url 和非颜色函数；只允许公开的代码类别选择器及 light/dark 前缀，最多 64 个选择器/128 个声明，tab-size 仅 1–8。生成限定于 .text[data-code-appearance] 的 CSS，用 style.textContent 安装，禁止挂载原始 CSS/作者 HTML；CSS 优先于配色，字体/颜色配置不改变软件倍率。useCodeAppearance 每窗口共用一个样式节点/订阅，最后文本视图卸载即释放；外观改变先捕获阅读锚点，更新后恢复并刷新虚拟行高。错误配置保留有效配色、回退默认字体/CSS，编辑器显示错误且禁用保存。
+[styles/index.css](../src/styles/index.css) 是全局样式顺序入口：reset → tokens → base → 应用/组件样式。tokens 定义明暗主题变量，app 管理首页、标签及沉浸布局，components 管理公共操作栏、预览、状态与设置。格式样式由各模块 index.ts 引入 styles/index.css，组件自身也可使用局部样式。
 
-- 文本 `highlight.ts` 只在源字符串上分词和计算命中，再输出安全转义的标记；不得对生成 HTML 做搜索/语法替换，空行不得为了高度插入可复制字符。Markdown 仍独立使用 DOMPurify。
-- 代码语法使用 Shiki 4.5.0/TextMate 与本地 Oniguruma WASM（MIT 依赖，许可证由 copy-assets 收集），不复用参考项目的 GPL 平台代码。languages.ts 统一扩展名/围栏别名，syntaxEngine.ts 在窗口共享的懒加载 Worker 中解析整篇跨行状态，语法按需导入；明暗主题一次产生双份样式，主题切换不重新分词。源字符串偏移与每个 token 校验，显示层转义原文后合并搜索范围，禁止执行作者 HTML/脚本。
-- 语法解析预算：每篇最多 2 Mi 个 JS 字符单元、50000 行、单行 20000 字符、120000 个 token；Worker 请求 20 秒超时后终止并退回纯文本。窗口 token 缓存按估算最多 8 MiB/16 项，命中须语言与源文完全一致；闲置 30 秒释放 Worker，文件关闭清理该文件缓存/请求，异步结果以代次校验。预算不是进程总内存上限，超限不影响原文预览/搜索。Markdown 每篇最多高亮 64 个已识别语言的围栏、累计 2 Mi 字符，未知/超限保留源码；Mermaid 沿用独立图表处理。
+文件迁移保留了原级联顺序。Word/PPT 内容隔离于应用主题；表格已有样式和图片本身颜色不由全局暗色主题改写。字体、CSS 和尺寸改变可能影响虚拟行高与阅读锚点，相关处理仍属于各模块。
 
-- Markdown 的 `markdown.ts` 负责安全渲染/标题锚点、只读任务、脚注和 KaTeX；`MarkdownView.vue` 管理目录信息/定位、代码复制、内存图片和图表生命周期；`renderedSearch.ts` 按文本节点原始范围搜索并标记，不替换 HTML 字符串；`mermaid.ts` 懒加载且串行渲染，严格模式、配置/文本/边数限制和清洗后的 Shadow DOM 隔离。公式信任关闭且限制展开；图表使用本地依赖、跟随主题，不绑定作者点击行为。错误保留源码或显示提示，不扩大网络权限。
-- `electron/files/markdownLinks.ts` 负责来源窗口/文件引用校验、协议白名单、相对路径解析、图片读取和代码复制。主进程获取路径，不向渲染层暴露完整路径或保存历史；本地目标按现有 multiFileMode 设置打开，询问可取消，标签模式通过通用 preview:incoming 接入 App，App 不添加格式解析分支。等待选择/读取后再校验来源所有权，关闭后丢弃未持有目标。跨文档锚点只用于首次定位，等待图片/图表布局后定位；随后恢复正常阅读位置。仅明确点击 HTTP/HTTPS 链接时交给系统浏览器。
-- 图片逐张读取：文件句柄检查普通文件及 16 MB 上限、有限长度读取、所有权复查、finally 关闭；每页最多 64 张/64 MB 源字节。SVG 去除脚本、外部引用和主动内容，Blob URL 在源码切换/组件卸载释放，异步结果以代次检查防止迟到挂载。此预算不是图片解码后或进程内存硬上限。目录/模式保存在 view.markdown 内存中，查询/图片字节不写设置或历史。
-- 长文本 `lineHeights.ts` 维护实测/估算高度和前缀索引；自动换行可产生不同行高，不能用首行高度乘全篇行数。虚拟窗口改变、缩放/编码/宽度变化后重新测量可见行；用实际可见 DOM 行保持锚点。
-- Excel table-wrap 负责滚动，sheet-surface 不得用裁切建立额外 sticky 容器；“+行/+列”额外冻结已删除，仅保留表头/行号固定开关。合并区域按虚拟可见窗口截取。CSS zoom 与逻辑行列偏移必须明确转换；主动地址定位与编辑导航分开，后者根据可见 DOM 的边界仅滚动必要距离，聚焦使用 preventScroll。
-- PPT 的同一 renderer/stage 必须串行执行 render 与 snapshot，不仅串行保存结果。同页去重，异常/关闭清理，较早跳转不能覆盖新的目标页。
-- 图片由浏览器 from-image 解码 EXIF 一次，包括镜像方向；手动旋转以已经纠正的图像为基准。适配按旋转后的外框计算，原始大图的滚动原点可达。`view.image` 仅保存本次旋转/原始像素选择，不写设置；沉浸临时适配后恢复选择，显式软件适配可覆盖原始像素模式。ready 应在解码、视口测量和布局提交后发出。
+PreviewPanel 将浮窗挂到所属标签的 floating-tools 层，位置与查询保留在会话中。TabStrip 测量固有标签宽度，分别处理未溢出和有横向滚动条的布局；沉浸与演示隐藏整条标签区域。
 
-### Excel 布局与区域事务
+## 构建、产物与验证入口
 
-- `gridBook.ts` 封装原 ZIP 的工作表、样式和共享字符串读取、范围/合并校验和 XML 修改，缓存行/单元格位置；`layoutWorkbook.ts` 管理尺寸、隐藏和合并，`regionWorkbook.ts` 管理区域快照与粘贴，`regionFormula.ts` 区分复制相对位移和剪切引用移动，`dateSeries.ts` 处理明确 ISO 日期文本。保持其他 ZIP 载荷，主动另存才写磁盘。
-- `useEditor.mutateGrid` 安装完整快照、刷新支持的公式缓存、更新受影响 Sheet 版本、保留选区与撤销；失败/取消不安装半完成结果。尺寸、合并、样式计入 formatted；值/公式粘贴不因转换基底误判成样式修改。XLSX 内存基底不改变 XLS 保存选项，源路径/硬链接保护继续适用。
-- 行高/列宽数值及拖动保存到副本，预览列宽仍仅会话；合并检查交叠/内容冲突并默认取消，取消合并只保留实际内容位置。新行列继承邻近尺寸和普通单格样式，不继承隐藏、不复制值，样式继承每次最多 20000 格。
-- 一份当前区域剪贴板仅在主进程内存，最多 20000 格/100 万字符/16 MB 负载；ClipboardItem 原子写入文本和含真实表格内容的 HTML 标记。粘贴校验标记/文本，外部变更后回退文本；主进程操作串行并校验来源所有权，不持有源路径。剪切跨 Sheet、不跨工作簿，签名改变拒绝移动，成功才清空来源/剪切态。
-- 迁移常见字体/填充/边框/数字格式，解析来源主题/调色板并内联共享字符串；只粘贴值去掉公式及字符级样式，日期在不同工作簿基准间调整。部分相交的引用范围、未知公式、数组/共享公式、保护、特殊规则或命名样式继承等无法安全处理时明确拒绝，不静默降级。
-- `AdvancedTools.vue` 提供图标入口、键盘菜单、布局/填充与冲突确认；填充柄向下/向右延伸，数字差值、日期日序和文本重复，每次区域操作整体撤销。节点/样式查找复用索引和资源指纹，避免每格重解析剪贴板或重复扫描全部资源。
+| 源码或工具 | 产物与用途 |
+| --- | --- |
+| [build-electron.ts](../scripts/build-electron.ts) | esbuild 将 main/preload 打成 electron-dist/main.cjs 和 preload.cjs，构建后的相对资源位置保持稳定 |
+| [vite.config.ts](../vite.config.ts) | 编译 Vue、CSS、动态导入和 Worker，产物进入 dist/ |
+| [copy-assets.ts](../scripts/copy-assets.ts) | 将 PDF 离线字体、CMap、WASM 资源与许可说明放入 dist/ |
+| [icon.ts](../scripts/icon.ts)、[associations.ts](../scripts/associations.ts) | 图标与 NSIS Open With 注册资源 |
+| [package.json](../package.json) | 脚本入口、版本与 electron-builder 配置；安装包在 outputs/release/ |
+| [tests/run.ts](../tests/run.ts) | 基础/模块单测选择与 Electron 测试入口编译 |
+| [release.yml](../.github/workflows/release.yml) | Windows 发布构建及已有发布附件的完整性检查 |
 
-### Excel 查找替换与公式辅助
+运行资源编译、安装包生成、发布和真实安装是不同阶段。命令、影响矩阵和产物校验方法集中在 TESTING，执行授权见 DEVELOPMENT；dist/、electron-dist/、.test-build/、work/、outputs/ 不属于产品源码。
 
-- findModel.ts 只做字面匹配，使用原文 Unicode 偏移，不执行作者表达式或将替换文本作为正则替换模板。useFind.ts 仅扫描实际已有/草稿单元格，120 ms 输入合并、每 300 格让出事件循环，代次取消旧搜索；最多展示 20000 个匹配单元格，超过上限禁止全部替换并提示缩小范围。查询和命中仅组件内存，关闭/卸载取消任务，不写设置或历史。
-- FindPanel.vue 复用独立非模态 PreviewPanel；入口图标与 Ctrl+F 只对当前可见文件生效。选区为打开面板时的固定快照，可显式更新，不随命中导航改变。换表回到当前表范围。显示模式复用 usePreview.displayText，格式数值、布尔和未支持公式与实际预览一致；隐藏命中显示地址及恢复提示，不自动修改布局。
-- useEditor.replaceCells 对所有目标检查来源值/区域/文本/公式/XLS 边界，再一次提交覆盖层；保持文本为文本、已有对齐和原撤销/草稿/另存机制。显示模式不能替换公式结果或已格式化数字；表达式模式修改公式重新校验，包括原有文本格式的公式，失败不部分写入。单个/全部替换以单元格计数，每格替换所有匹配片段，字面文本不自动变公式。
-- 自动求和对多行选区逐列写下方、单行写右侧；空白单格识别上方连续数值/公式，找不到再识别左侧。来源最多 20000 格，目标必须全部为空并符合编辑边界，含合并来源拒绝，不静默覆盖。显式求和写公式，沿用十二函数计算器，整批对应一次撤销。
-- formulaAssist.ts 在未完成表达式中屏蔽字符串、识别函数参数/引用槽；useFormulaAssist.ts 管理自动补全、指针引用和当前输入焦点。上下键选择、Tab/Enter 接受、Esc 收起，输入法确认不提交。仅在操作数位置或选中引用时拦截点选/拖选；引用范围高亮、边缘滚动/列窗口切换，来源虚拟卸载后回到内容栏继续输入。跨 Sheet 引用正确转义名称，提交或取消回到来源；异步拖动/卸载移除监听，不使用 eval。
+## 扩展与定位入口
 
-### Excel 工作表管理
+新增格式的接入点是模块 index.ts/index.vue、modules/index.ts 注册表和 shared/formats.ts 扩展名集合；可选工具栏与缓存释放通过 PreviewModule 接入。格式组件、核心逻辑、样式和断言分别跟随模块，公共测试注册位于 tests/electron.entry.ts 与 tests/run.ts。
 
-- sheetWorkbook.ts 在原 XLSX ZIP 中调整 workbook/sheet 及关系；复制独立的工作表、drawing/comments/VML 部件并共享只读图片字节，使用兼容的部件编号和相对目标。删除清理独占的关联部件，其他表仍引用的图片不删除；不整本重写丢失已支持对象。
-- SheetTools.vue 在底部标签旁提供新建/管理图标，模态表单内完成全部管理；名称按 1–31 字符、非法/控制字符、首尾单引号、保留名 History 和不区分大小写的重名校验。默认预览不显示管理入口；隐藏表不作为普通阅读标签，用户主动取消隐藏可恢复原 veryHidden 表。删除说明非空内容和跨表公式数量，默认焦点在取消；Esc/取消恢复入口，提交中锁定，背景 inert，窄窗口可滚动。
-- useEditor.manageSheet 复用 mutateGrid/ExcelGridState；一次操作对应一次撤销，失败不安装结果。工作簿级 !/workbook 版本进入保存签名，CSV/TSV 不能清除此版本；XLS/XLSX 保存完整检查点。重命名迁移临时列宽，切换新表/删除或隐藏活动表时修复活动标签和选区；撤销/移交仍用内存快照。结构保护、无法安全改写的公式及复杂对象提前拒绝；不扩大十二函数范围。
+打印能力另由 printing 入口提供，并在通用 PrintView 和主进程支持范围中接入；仅增加预览注册不会自动获得打印能力。新增桥接能力同时涉及 shared/bridge.ts、preload、主进程来源/参数校验与渲染调用。
 
-### Excel 排序与筛选
-
-- tableModel.ts 明确数字/日期序列、文本、布尔、错误的稳定升降序与空值始终末尾；最多八列优先级。sortWorkbook.ts 在原 ZIP 中整组移动单元格/行样式、行高和隐藏状态；范围须覆盖数据行全部非空列，标题按用户选择排除。引用按区域移动的单元格身份调整（含绝对引用），完整连续范围保留；重排后非连续、部分跨列范围、共享/数组/复杂公式、数据区合并、目标表绘图/备注/特殊对象等提前拒绝。保留无关载荷，跨表公式同步，不把单列值排序打散同行数据。
-- filterWorkbook.ts 写标准 autoFilter/filterColumn/filters 条件与行 hidden；显示值匹配，列内“或”、列间“且”，空值独立选择。手动隐藏/筛选排除行分别记录在副本 customXml/filePreviewFilters.xml，经 workbook 的标准 customXml 关系关联；只含内部 worksheet part、范围和行号，不含本机路径、历史或源文件副本。元数据随内存基底/快照/移交恢复，工作表复制克隆对应记录、删除清理；清除筛选还原手动隐藏，并清理目标内置 _FilterDatabase 名称。外部改写导致隐藏记录不一致、高级筛选或原条件无法确认隐藏来源时拒绝覆盖。
-- 行布局改变手动隐藏时更新筛选元数据并重算排除，取消隐藏全部不撤销当前筛选；内容编辑后由用户重新应用筛选。活动筛选清除前拒绝排序/插删行列。XLSX 保存全部数据、条件与隐藏来源；新建活动条件时 XLS 输出明确拒绝并要求 XLSX，不静默丢弃条件；原有 XLS 兼容性边界沿用。CSV/TSV 可选全部/可见行，始终不保存筛选条件；可见行输出不清除完整草稿的保存标记。
-- SortFilterTools.vue 为模块内图标入口与模态表单，显示区域、标题、键优先级、条件、隐藏说明和保存范围；焦点限制/Esc/取消恢复、背景 inert、异步读取代次取消，窄窗口正文滚动但底部动作保持可见并实际命中。复制默认全部行且沿用富文本区域；仅可见行复制显示值并清除旧区域剪贴板，不支持可见行剪切。Excel 副本始终全部行，选择只影响复制和 CSV/TSV。
-
-### Markdown 图片、图表与目录
-
-图片用 IntersectionObserver 按视口上下 400 px 预加载、顺序读取/解码，维持既有预算和代次释放；不是总进程内存上限。图表重绘复用容器，变更时保存正文锚点，用户继续滚动则不覆盖用户操作；重建高亮按原正文块及块内次序恢复命中，不自动定位第一处。长目录采用固定行高虚拟窗口，滚动/键盘访问末项并保持当前章节可见；正文未改成虚拟 DOM。`markdownOptimization.ts` 随 text 验证远处图片未读/定位后加载、主题刷新后的搜索及滚动位置、三千标题节点上限与末项导航。
-
-## 设计约定
-
-当前界面采用紧凑 Windows 布局，CSS 为实现依据。控制高约 28 px、圆角 6 px、标签条 36 px、固定标签 168 px、身份条 28 px、操作条 36 px、页码条 28 px，窄窗口允许换行。控件/状态不挤占阅读区，不污染文档自身颜色。
-
-| Token | 白天 | 黑夜 |
-| --- | --- | --- |
-| bg | #F3F5F8 | #1B1F27 |
-| panel | #FFFFFF | #252A32 |
-| stage | #DCE2EA | #12161C |
-| well | #F0F3F7 | #2C3340 |
-| text | #20262E | #E8ECF2 |
-| muted | #5F6B7A | #9BA6B5 |
-| line | #C9D1DB | #3A4452 |
-| accent | #0F6CBD | #60A5FA |
-| danger | #C42B1C | #FF6B5A |
-
-工具图标用内联 SVG，不依赖 CDN。系统/托盘使用已选文档眼 logo（`assets/logo.png`、`assets/icon.ico`）；不重新引入已移除的内容区品牌。文件操作栏只含入口/即时操作，查询控件集中到可拖动的非模态浮窗，打开聚焦、Esc 关闭并恢复入口焦点；标签完整名用 tooltip，打印条目一行摘要/默认折叠。避免重复覆盖样式或用 display !important 破坏 v-show，减少动效并遵守 prefers-reduced-motion。
-
-公共操作组序为缩放/页面适配、格式专属入口、打印、末端沉浸。100% 按钮称为重置缩放，不能冒称适合窗口。PDF 格式组为目录/缩略图、查询/批注、旋转/演示；创建批注在选区旁，滚动/缩放/旋转清理旧选区操作条，导出/删除留在批注面板。图片状态只出现于页脚，原始像素/旋转在工具栏；文本统计在页脚、查询/行号和编码在工具栏，Markdown 排版模式不冒示已开启行号。缺少已有能力的格式不得为了统一图标添加假按钮或新功能；旧 DOC 打印禁用并用 tooltip 说明。
-
-标签栏由外层 `.tabbar`、仅容纳滚动标签的 `.tabs` 与固定 `.tab-actions` 组成。未溢出时添加按钮随末标签，溢出时移至固定操作区；设置始终位于最右侧，首页/预览共用齿轮图标。普通行高 36 px，溢出行高 46 px，标签本身保持 32 px；滚动区禁止纵向滚动，横向条单独占位。`useTabStrip.ts` 按标签固有宽度、间距与相同按钮预留计算两种状态，不能用随状态变化的 scrollWidth 反复切换；观察窗口/列表变化，不随手动滚动拉回当前标签，卸载释放 observer。沉浸与演示隐藏整个外层，不能漏出固定按钮。
-
-`PreviewPanel.vue` 将查询浮窗 Teleport 到所属标签的 `.floating-tools`，定位为绝对层且容器不拦截背景指针、不占 flex 高度；不用全局 body Portal，避免遮盖其他标签。标题拖动使用真实 Pointer capture，关闭/resize/卸载处理边界与焦点，隐藏标签不抢焦点；位置与查询只在当前模块内存中，不写偏好。PDF 关闭查询清理命中，文本关闭清理高亮，Markdown 保持当前源码/排版模式；演示模式隐藏浮窗。搜索算法仍属于各模块，App.vue 不增加解析分支。
+查找界面问题从对应组件与 composable 开始，格式保真问题从模块 core 开始，窗口/文件所有权问题从 electron 开始。源码路径链接指向当前实现；既往迁移与验证结果只记录在 [CHANGELOG](CHANGELOG.md)。
