@@ -84,5 +84,5 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           $releaseVersion = (Get-Content package.json -Raw | ConvertFrom-Json).version
-          gh release create "$env:RELEASE_TAG" --draft --title "magic file box $releaseVersion" --generate-notes "outputs/release/MagicFileBox-Setup-$releaseVersion-x64.exe" "outputs/release/MagicFileBox-Setup-$releaseVersion-x64.exe.blockmap" "outputs/release/latest.yml" "outputs/release/SHA256SUMS.txt"
+          gh release create "$env:RELEASE_TAG" --draft --title "magic file box $releaseVersion" --notes "" "outputs/release/MagicFileBox-Setup-$releaseVersion-x64.exe" "outputs/release/MagicFileBox-Setup-$releaseVersion-x64.exe.blockmap" "outputs/release/latest.yml" "outputs/release/SHA256SUMS.txt"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

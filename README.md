@@ -40,14 +40,6 @@ magic file box 是一个 Windows 本地文件预览工具。把 PDF、Word、Exc
 
 安装包目前未做代码签名，Windows SmartScreen 可能提示未知发布者；请从本仓库的 [Releases](https://github.com/Linn924/magic-file-box/releases) 下载。
 
-**已有 3.x 安装版？** 项目已重新编号为 **1.x**，更新器不会自动降级，需要手动下载安装包。仓库现已迁移至 magic-file-box；1.0.4 及更早版本内置旧更新地址，需要手动安装一次 1.0.5。此后版本从新仓库检查更新。
-
-当前 Release 提供 Windows x64 NSIS 安装包及更新校验附件。免安装 ZIP 是可选构建产物；只有发布页面提供 ZIP 时才能下载使用，需完整解压后运行 `magic file box.exe`。
-
-1.0.5 将发布与更新源迁移至新仓库 magic-file-box，保留主页托盘设置、最新图标和 PDF 缩略图修复。专属 KEY 继续使用离线签名激活。
-
-专属服务可在设置中粘贴专属 KEY 并确认，重启软件后生效；“恢复标准服务”同样在重启后生效。KEY 离线验签、不绑定设备，内容不作为脚本执行。
-
 ## 支持的格式
 
 | 类型 | 格式 | 可以做什么 |
