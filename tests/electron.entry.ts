@@ -173,6 +173,7 @@ program.ready
         program.updateSettings({
           theme: "light",
           closeAction: "ask",
+          openHomeAction: name === 'core' ? 'ask' : 'keep',
           multiFileMode: "windows",
         });
         await suites[name](context);

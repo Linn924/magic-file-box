@@ -15,6 +15,7 @@ const args=process.argv.slice(2),skipPrint=args.includes('--skip-print'),checkUp
 const exe = resolve(args.find(arg=>!arg.startsWith('--')) || "outputs/release/win-unpacked/magic file box.exe");
 const profile = resolve("work/test-profiles/package-" + process.pid);
 mkdirSync(profile, { recursive: true });
+writeFileSync(resolve(profile, 'preferences.json'), JSON.stringify({openHomeAction:'keep'}));
 mkdirSync("outputs/verification", { recursive: true });
 const child = spawn(
   exe,

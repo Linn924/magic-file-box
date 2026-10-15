@@ -40,6 +40,15 @@ const emit = defineEmits<{ close: []; change: [value: Partial<Settings>] }>();
       <CodeAppearanceSettings :value="settings.codeAppearance"/>
       <ExclusiveSettings />
       <div class="setting-row">
+        <label for="open-home-action">打开文件时隐藏主页到托盘</label>
+        <select id="open-home-action" :value="settings.openHomeAction"
+          @change="emit('change', {openHomeAction: ($event.target as HTMLSelectElement).value as Settings['openHomeAction']})">
+          <option value="ask">每次询问</option>
+          <option value="tray">始终隐藏</option>
+          <option value="keep">不隐藏</option>
+        </select>
+      </div>
+      <div class="setting-row">
         <label for="close-action">关闭首页时</label
         ><select
           id="close-action"

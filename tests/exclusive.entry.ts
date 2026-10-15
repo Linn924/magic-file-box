@@ -13,7 +13,7 @@ program.ready.then(async home=>{
  if(!home)throw Error('Test home missing');
  const evaluate=(s:string)=>home.webContents.executeJavaScript(s);
  await wait(()=>evaluate("!!document.querySelector('.dropzone')"),'exclusive test home ready');
- program.updateSettings({checkUpdatesOnStart:false,closeAction:'quit'});
+ program.updateSettings({checkUpdatesOnStart:false,closeAction:'quit',openHomeAction:'keep'});
  const settings=async()=>{await evaluate("document.querySelector('.settings-button').click()");await wait(()=>evaluate("!!document.querySelector('#exclusive-key:not(:disabled)')"),'exclusive setting available');};
  if(stage==='activate'){
   await wait(()=>evaluate("document.documentElement.dataset.exclusive==='false'&&!document.querySelector('.home-intro')"),'no effects without activation');

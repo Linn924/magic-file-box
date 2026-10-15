@@ -24,6 +24,7 @@ import {
 import path from "node:path";
 import {DISPLAY_NAME} from '@shared/branding';
 import {applicationProfile} from './settings/profile';
+import {createHomeOnOpen} from './windows/homeOnOpen';
 import {setupExclusive} from './exclusive';
 import { SettingsStore } from "./settings";
 import { preparePreviewFile, loadPreparedFile, fileArguments, preparedFileCount,rememberPdfPassword,ownsPreparedFile,discardUnownedFiles } from "./files";
@@ -72,6 +73,13 @@ let opening=0;
 export let updates:UpdateController;
 const icon = path.join(__dirname, "../assets/logo.png");
 const forceClose = new Set<number>();
+const homeOnOpen = createHomeOnOpen({
+  home: () => home,
+  settings: () => settings.get(),
+  save: (value) => updateSettings(value),
+  hide: (win) => hideToTray(win),
+  quitting: () => quitting,
+});
 
 function broadcast(value: Settings) {
   for (const win of BrowserWindow.getAllWindows())
@@ -191,7 +199,9 @@ function createWindow(preview: boolean) {
 }
 async function createHome() {
   home = createWindow(false);
+  const shown = new Promise<void>((resolve) => home!.once('show', () => resolve()));
   await home.loadURL("preview://local/index.html");
+  await shown;
   return home;
 }
 export async function openPaths(paths: string[], mode?: "tabs" | "windows",view?:PreviewFile['view']) {
@@ -217,6 +227,7 @@ export async function openPaths(paths: string[], mode?: "tabs" | "windows",view?
   }
   const groups = mode === "tabs" ? [paths] : paths.map((p) => [p]);
   const created: BrowserWindow[] = [];
+  let hasOpenableFiles = false;
   for (const group of groups) {
     const files: PreviewFile[] = [];
     for (const name of group){const file=await preparePreviewFile(name);if(view)file.view=view;files.push(file);}
@@ -226,7 +237,9 @@ export async function openPaths(paths: string[], mode?: "tabs" | "windows",view?
     try { await win.loadURL("preview://local/index.html?preview=1"); }
     catch(error) { if(!win.isDestroyed())win.destroy();throw error; }
     created.push(win);
+    if (files.some((file) => !file.error)) hasOpenableFiles = true;
   }
+  if (hasOpenableFiles && created.some((win) => !win.isDestroyed())) await homeOnOpen();
   return created;
   }finally{opening--;}
 }
@@ -276,7 +289,7 @@ export const ready = owner
         if(sender.isDestroyed()||!ownsPreparedFile(sender.id,id))return;
         const view=anchor?{zoom:100,scroll:[],markdownAnchor:anchor}:undefined;
         if(mode==='windows'){await openPaths([target],'windows',view);return;}
-        const file=await preparePreviewFile(target);if(sender.isDestroyed()||!ownsPreparedFile(sender.id,id)){discardUnownedFiles([file]);return;}if(view)file.view=view;registerFiles(sender.id,[file]);if(!sender.isDestroyed())sender.send('preview:incoming',file);
+        const file=await preparePreviewFile(target);if(sender.isDestroyed()||!ownsPreparedFile(sender.id,id)){discardUnownedFiles([file]);return;}if(view)file.view=view;registerFiles(sender.id,[file]);if(!sender.isDestroyed()){sender.send('preview:incoming',file);if(!file.error)await homeOnOpen();}
       });
       setupFullscreen();
       local = await createLocalSession(path.resolve(__dirname, "../dist"));
@@ -326,6 +339,7 @@ export const ready = owner
         for (const name of result.filePaths)
           files.push(await preparePreviewFile(name));
         registerFiles(event.sender.id, files);
+        if (files.some((file) => !file.error)) await homeOnOpen();
         return files;
       });
       ipcMain.handle("preview:drop", async (event, paths: unknown) => {

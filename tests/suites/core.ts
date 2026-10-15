@@ -3,6 +3,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Suite } from "../context";
 import {checkTabbarLayout} from '../tabbarLayout';
+import {SettingsStore} from '../../electron/settings';
 const suite: Suite = async (c) => {
   const cleanHome = "document.documentElement.dataset.exclusive==='false'&&!document.querySelector('.home-credit,.home-intro,.home-intro-title,.home-intro-canvas')";
   await c.check(c.home, "main home uses the standard entry", cleanHome);
@@ -20,6 +21,9 @@ const suite: Suite = async (c) => {
     "!document.querySelector('.app-logo,.brand')",
   );
   await c.click(c.home, ".settings-button");
+  await c.check(c.home, 'open-home default is ask', "document.querySelector('#open-home-action')?.value==='ask'");
+  await c.evaluate(c.home, "(()=>{const s=document.querySelector('#open-home-action');s.value='keep';s.dispatchEvent(new Event('change',{bubbles:true}))})()");
+  await c.check(c.home, 'open-home setting saves via UI', "document.querySelector('#open-home-action')?.value==='keep'");
   await c.evaluate(
     c.home,
     "(()=>{const s=document.querySelector('#theme');s.value='dark';s.dispatchEvent(new Event('change',{bubbles:true}))})()",
@@ -43,8 +47,72 @@ const suite: Suite = async (c) => {
   )
     throw Error("Preference persistence");
   c.pass("preferences persist without file paths");
+  if(config.openHomeAction!=='keep'||new SettingsStore(path.join(app.getPath('userData'),'preferences.json')).get().openHomeAction!=='keep')throw Error('Open-home preference must survive settings reload');
   await c.snapshot(c.home, "settings-dark");
   await c.click(c.home, 'button[aria-label="关闭设置"]');
+  const originalMessageBox = dialog.showMessageBox;
+  const originalOpenDialog = dialog.showOpenDialog;
+  let openPrompts = 0;
+  let answer = {response:1,checkboxChecked:false};
+  dialog.showMessageBox = (async (...args:unknown[]) => {
+    const options = args.at(-1) as Electron.MessageBoxOptions;
+    if(options.title!=='打开文件后的主页')throw Error('Unexpected open-home dialog');
+    if(options.cancelId!==1||options.checkboxChecked!==false)throw Error('Open-home must default to keeping home without remembering');
+    openPrompts++;
+    return answer;
+  }) as typeof dialog.showMessageBox;
+  try {
+    c.program.updateSettings({openHomeAction:'ask'});
+    const first=await c.open('text.txt');c.close(first);
+    const second=await c.open('data.json');c.close(second);
+    if(openPrompts!==2||!c.home.isVisible()||c.program.settings.get().openHomeAction!=='ask')throw Error('Each visible-home open must ask without saving an unchecked choice');
+    answer={response:0,checkboxChecked:false};
+    const hidden=await c.open('text.txt');
+    if(c.home.isVisible()||!hidden.isVisible()||c.program.settings.get().openHomeAction!=='ask')throw Error('Open-home hide must preserve preview and ask preference');
+    const count=openPrompts;
+    const hiddenAgain=await c.open('data.json');c.close(hiddenAgain);
+    if(openPrompts!==count)throw Error('Hidden home must not prompt');
+    c.close(hidden);c.home.showInactive();
+    answer={response:1,checkboxChecked:true};
+    const keep=await c.open('text.txt');c.close(keep);
+    const savedCount=openPrompts;
+    const keepAgain=await c.open('text.txt');c.close(keepAgain);
+    if(openPrompts!==savedCount||!c.home.isVisible()||c.program.settings.get().openHomeAction!=='keep')throw Error('Remembered keep must suppress prompts');
+    c.program.updateSettings({openHomeAction:'ask'});
+    answer={response:0,checkboxChecked:true};
+    const tray=await c.open('text.txt');c.close(tray);
+    c.home.showInactive();
+    const beforeTray=openPrompts;
+    const trayAgain=await c.open('text.txt');
+    if(openPrompts!==beforeTray||c.home.isVisible()||!trayAgain.isVisible()||c.program.settings.get().closeAction!=='ask'||new SettingsStore(path.join(app.getPath('userData'),'preferences.json')).get().openHomeAction!=='tray')throw Error('Remembered tray must persist independently of home-close preference');
+    c.close(trayAgain);c.home.showInactive();
+    c.program.updateSettings({openHomeAction:'ask'});
+    const beforeCancel=openPrompts;
+    if((await c.program.openPaths([])).length)throw Error('Empty open');
+    const missing = await c.program.openPath(c.fixture('missing-file.txt'));c.close(missing);
+    dialog.showOpenDialog=(async()=>({canceled:true,filePaths:[]})) as typeof dialog.showOpenDialog;
+    await c.evaluate(c.home,'window.localPreview.select()');
+    if(openPrompts!==beforeCancel||!c.home.isVisible())throw Error('Canceled/failed opens must not hide or ask');
+    c.program.updateSettings({multiFileMode:'ask'});
+    dialog.showMessageBox=(async(...args:unknown[])=>{if((args.at(-1) as Electron.MessageBoxOptions).title!=='打开多个文件')throw Error('Canceled batch asked about home');return {response:2,checkboxChecked:false};}) as typeof dialog.showMessageBox;
+    if((await c.program.openPaths([c.fixture('text.txt'),c.fixture('data.json')])).length||!c.home.isVisible())throw Error('Canceled multi-file open must preserve home');
+    c.program.updateSettings({openHomeAction:'keep'});
+    const addTarget=await c.open('text.txt');
+    c.program.updateSettings({openHomeAction:'ask'});
+    dialog.showMessageBox=(async()=>{openPrompts++;return {response:0,checkboxChecked:false};}) as typeof dialog.showMessageBox;
+    dialog.showOpenDialog=(async()=>({canceled:false,filePaths:[c.fixture('data.json')]})) as typeof dialog.showOpenDialog;
+    await c.click(addTarget,'.tab-add-file');
+    await c.check(addTarget,'adding a file also applies open-home preference',"document.querySelectorAll('.tab').length===2");
+    if(c.home.isVisible()||!addTarget.isVisible())throw Error('Add-file must hide only home');
+    c.close(addTarget);
+    c.home.showInactive();
+    c.pass('open-home asks each time, preserves previews, remembers choices, skips hidden/failed/canceled opens');
+  } finally {
+    dialog.showMessageBox=originalMessageBox;
+    dialog.showOpenDialog=originalOpenDialog;
+    c.program.updateSettings({openHomeAction:'keep'});
+    c.home.showInactive();
+  }
   c.program.updateSettings({ theme: "light", multiFileMode: "ask" });
   const real = dialog.showMessageBox;
   let prompts = 0;

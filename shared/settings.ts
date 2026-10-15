@@ -4,6 +4,7 @@ export type PrintEntry = "all" | "current" | "none";
 export interface Settings {
   theme: Theme;
   closeAction: "ask" | "quit" | "tray";
+  openHomeAction: "ask" | "tray" | "keep";
   multiFileMode: "ask" | "tabs" | "windows";
   defaultZoom: number;
   maximizePreview: boolean;
@@ -14,6 +15,7 @@ export interface Settings {
 export const defaults: Settings = {
   theme: "light",
   closeAction: "ask",
+  openHomeAction: "ask",
   multiFileMode: "ask",
   defaultZoom: 100,
   maximizePreview: true,
@@ -32,6 +34,9 @@ export function normalizeSettings(
     closeAction: ["ask", "quit", "tray"].includes(input.closeAction ?? "")
       ? input.closeAction!
       : base.closeAction,
+    openHomeAction: ["ask", "tray", "keep"].includes(input.openHomeAction ?? "")
+      ? input.openHomeAction!
+      : base.openHomeAction,
     multiFileMode: ["ask", "tabs", "windows"].includes(
       input.multiFileMode ?? "",
     )
