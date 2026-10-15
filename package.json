@@ -1,9 +1,9 @@
 {
-  "name": "file-preview",
-  "version": "1.0.2",
+  "name": "magic-file-box",
+  "version": "1.0.3",
   "private": true,
   "description": "Offline, read-only file preview tool for Windows",
-  "author": "File Preview",
+  "author": "magic file box",
   "license": "MIT",
   "type": "module",
   "main": "electron-dist/main.cjs",
@@ -26,7 +26,8 @@
     "bench": "tsx scripts/bench.ts",
     "bench:ui": "npm test -- --suite bench",
     "verify:update": "tsx scripts/verify-update.ts",
-    "sync:mind": "tsx scripts/sync-mind.ts"
+    "exclusive:key": "tsx scripts/exclusive-key.ts",
+    "test:exclusive": "tsx tests/exclusive.ts"
   },
   "devDependencies": {
     "@aiden0z/pptx-renderer": "^1.2.4",
@@ -62,7 +63,7 @@
   },
   "build": {
     "appId": "local.preview.desktop",
-    "productName": "File Preview",
+    "productName": "magic file box",
     "directories": {
       "output": "outputs/release"
     },
@@ -82,13 +83,13 @@
       "signExecutable": false,
       "verifyUpdateCodeSignature": false
     },
-    "artifactName": "FilePreview-${version}-Windows-x64.${ext}",
+    "artifactName": "MagicFileBox-${version}-Windows-x64.${ext}",
     "nsis": {
       "oneClick": false,
       "perMachine": false,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
-      "artifactName": "FilePreview-Setup-${version}-x64.exe",
+      "artifactName": "MagicFileBox-Setup-${version}-x64.exe",
       "include": "electron-dist/associations.nsh"
     },
     "publish": {

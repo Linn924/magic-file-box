@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="assets/logo.png" width="96" height="96" alt="File Preview 图标" />
+  <img src="assets/logo.png" width="96" height="96" alt="magic file box 图标" />
 </p>
 
-<h1 align="center">File Preview · 文件预览</h1>
+<h1 align="center">魔法文件匣 · magic file box</h1>
 
 <p align="center"><strong>文档、表格、代码与图片，一个窗口查看。</strong></p>
 
@@ -11,14 +11,14 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Linn924/filePreview/releases/tag/v1.0.2">下载 1.0.2</a> ·
+  <a href="https://github.com/Linn924/filePreview/releases/tag/v1.0.3">下载 1.0.3</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
   <a href="docs/CHANGELOG.md">更新记录</a> ·
   <a href="https://github.com/Linn924/filePreview/issues">反馈问题</a>
 </p>
 
-File Preview 是一个 Windows 本地文件预览工具。把 PDF、Word、Excel、PPT、文本或图片拖进窗口，就能开始阅读；多个文件可以放在同一窗口的标签里，也可以并排打开。
+magic file box 是一个 Windows 本地文件预览工具。把 PDF、Word、Excel、PPT、文本或图片拖进窗口，就能开始阅读；多个文件可以放在同一窗口的标签里，也可以并排打开。
 
 文件在本机解析，不上传，不改写打开的源文件。需要修改表格时，主动进入“编辑副本”，完成后另存；PDF 的高亮与备注留在当前会话，也可以把当前页批注导出为 PNG。
 
@@ -28,23 +28,25 @@ File Preview 是一个 Windows 本地文件预览工具。把 PDF、Word、Excel
 - 经常同时打开几份文件，需要标签切换、并排阅读、查询或批量打印。
 - 想阅读 Markdown 和代码，或对表格做常用修改后保存一份副本。
 
-如果你需要完整的 Office 编辑、复杂 Excel 计算或严格还原所有排版，请继续使用相应的专业软件。File Preview 侧重本地预览与常用操作。
+如果你需要完整的 Office 编辑、复杂 Excel 计算或严格还原所有排版，请继续使用相应的专业软件。magic file box 侧重本地预览与常用操作。
 
 ## 快速开始
 
-仓库与 Release 现为私有，访问源码、安装包和反馈入口需要相应的 GitHub 仓库权限。当前安装版使用匿名更新渠道，暂时无法从私有仓库检查或下载更新；请登录 GitHub 后手动下载。
+安装包来自当前仓库的公开 Release；Windows 安装版可通过设置中的更新入口检查后续版本。
 
-1. **安装。** 从 [1.0.2 Release](https://github.com/Linn924/filePreview/releases/tag/v1.0.2) 下载 `FilePreview-Setup-1.0.2-x64.exe` 并安装。无需 Office 或其他预览软件。
-2. **打开文件。** 拖入文件、点击打开入口，或按 `Ctrl+O`。安装后也可在资源管理器的“打开方式”中选择 File Preview；是否设为默认程序由你决定。
+1. **安装。** 从 [1.0.3 Release](https://github.com/Linn924/filePreview/releases/tag/v1.0.3) 下载 `MagicFileBox-Setup-1.0.3-x64.exe` 并安装。无需 Office 或其他预览软件。
+2. **打开文件。** 拖入文件、点击打开入口，或按 `Ctrl+O`。安装后也可在资源管理器的“打开方式”中选择 magic file box；是否设为默认程序由你决定。
 3. **开始阅读。** 多文件打开时选择标签或独立窗口。悬停图标可查看用途；查询使用独立浮窗，放大、适配和全屏操作留在阅读工具栏。
 
 安装包目前未做代码签名，Windows SmartScreen 可能提示未知发布者；请从本仓库的 [Releases](https://github.com/Linn924/filePreview/releases) 下载。
 
-**已有 3.x 安装版？** 项目已重新编号为 **1.x**，更新器不会自动降级，需要手动下载安装包。1.x 版本正常递增，目前需手动下载 1.0.2 安装包。
+**已有 3.x 安装版？** 项目已重新编号为 **1.x**，更新器不会自动降级，需要手动下载安装包。1.x 版本正常递增，目前需手动下载 1.0.3 安装包。
 
-当前 Release 提供 Windows x64 NSIS 安装包及更新校验附件。免安装 ZIP 是可选构建产物；只有发布页面提供 ZIP 时才能下载使用，需完整解压后运行 `File Preview.exe`。
+当前 Release 提供 Windows x64 NSIS 安装包及更新校验附件。免安装 ZIP 是可选构建产物；只有发布页面提供 ZIP 时才能下载使用，需完整解压后运行 `magic file box.exe`。
 
-1.0.2 安装包包含排序与筛选，以及代码高亮外观 / 自定义 CSS 弹窗的滚动和遮挡修复。
+1.0.3 使用新名称和图标，包含目录与公共职责整理、专属 KEY 设置，以及关闭设置后清理“已是最新版”提示。
+
+专属服务可在设置中粘贴专属 KEY 并确认，重启软件后生效；“恢复标准服务”同样在重启后生效。KEY 离线验签、不绑定设备，内容不作为脚本执行。
 
 ## 支持的格式
 
@@ -198,7 +200,7 @@ PowerPoint 可连续查看幻灯片，按页码跳转。文字与图片等静态
 | 打印入口 | 本窗口全部可打印文件、仅当前文件、不自动加入 |
 | 软件更新 | 启动检查开关、手动检查、下载、取消/重试与重启更新 |
 
-更新功能支持 Windows 安装版启动后后台检查，也可在设置中手动检查；当前私有仓库无法通过应用内匿名渠道访问，需手动下载。发现新版只提示，点击后才下载；下载包校验通过后可选择重启更新，保留应用设置。多个窗口共用检查，提示避开设置和沉浸阅读，普通退出不自动安装。源码启动与免安装版本不执行自动安装更新。
+更新功能支持 Windows 安装版启动后后台检查，也可在设置中手动检查。发现新版只提示，点击后才下载；下载包校验通过后可选择重启更新，保留应用设置。关闭设置后，“当前已是最新版本”的临时提示清空，重新打开时不残留。多个窗口共用检查，提示避开设置和沉浸阅读，普通退出不自动安装。源码启动与免安装版本不执行自动安装更新。
 
 重启前检查各窗口：未保存的 Excel 修改需先处理，编辑、另存、导出、打印或窗口移交进行中暂不重启。有 PDF 会话批注时提示清空，确认默认取消；取消或失败保留当前会话。发布源码不会更新已经安装的软件。
 

@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import {edition, homeIntro} from './edition';
+import {useExclusive} from '@/composables/useExclusive';
 import {useApplication} from '@/composables/useApplication';
 import {HomeView, TabStrip} from '@/components/app';
 import PreviewTab from '@/components/preview/PreviewTab.vue';
 import SettingsPanel from '@/components/settings';
 import UpdateCenter from '@/components/updates';
-document.documentElement.dataset.edition = edition;
+const {effect} = useExclusive();
 const {isPreview, immersive, files, active, updateLocked, settings, showSettings, error, dragging, tabStrip,
   select, openFiles, enter, leave, drop, startDrag, endDrag, dropTab, closeTab, selectTab, onTabsWheel, save} = useApplication();
 </script>
@@ -18,7 +18,7 @@ const {isPreview, immersive, files, active, updateLocked, settings, showSettings
     @drop.prevent="drop"
   >
     <HomeView v-if="!isPreview" @open="select" @settings="showSettings = true">
-      <component :is="homeIntro" v-if="homeIntro" />
+      <component :is="effect" v-if="effect" />
     </HomeView>
     <template v-else
       ><TabStrip ref="tabStrip" :files="files" :active="active"

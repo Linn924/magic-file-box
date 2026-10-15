@@ -1,6 +1,6 @@
 # 架构说明
 
-File Preview 是采用 Electron、Vue 3、TypeScript 和 Vite 的 Windows 桌面应用。本文描述目录迁移后的实际结构、依赖与运行链路；开发规则见 [DEVELOPMENT](DEVELOPMENT.md)，验证方法见 [TESTING](TESTING.md)，功能范围见 [README](../README.md)，未实施方向见 [BACKLOG](BACKLOG.md)。
+magic file box 是采用 Electron、Vue 3、TypeScript 和 Vite 的 Windows 桌面应用。本文描述目录迁移后的实际结构、依赖与运行链路；开发规则见 [DEVELOPMENT](DEVELOPMENT.md)，验证方法见 [TESTING](TESTING.md)，功能范围见 [README](../README.md)，未实施方向见 [BACKLOG](BACKLOG.md)。
 
 项目保持单应用、单 package.json 和 npm 构建。组件入口与职责归属借鉴了 [Element Plus 的组件目录](https://github.com/element-plus/element-plus/tree/dev/packages/components/button)，未引入多包发布机制。源码与运行产物分离，文件类型继续通过注册表接入。
 
@@ -22,7 +22,7 @@ flowchart LR
 | [electron/preload.ts](../electron/preload.ts) | 通过 contextBridge 暴露 localPreview，将受控操作与事件映射到 IPC |
 | [src/main.ts](../src/main.ts) | 加载全局样式，根据窗口 URL 选择应用、打印面板或打印渲染入口 |
 | [src/App.vue](../src/App.vue) | 组装首页、标签栏、文件预览、设置、错误提示和更新通知 |
-| [src/edition.ts](../src/edition.ts) | 集中的版本差异入口 |
+| [useExclusive](../src/composables/useExclusive.ts) | 读取启动时专属状态，按已识别的方案加载对应组件 |
 | [shared/bridge.ts](../shared/bridge.ts) | DesktopBridge 的跨进程接口类型 |
 
 窗口共用 `preview://local/index.html`：无参数为首页，`?preview=1` 为文件预览，`?print-panel=1` 为打印设置，`?print=1` 为隐藏打印渲染。主进程负责创建窗口；src/main.ts 负责选择渲染界面。
@@ -162,6 +162,12 @@ Excel 副本通过 [excelCopy.ts](../electron/files/excelCopy.ts)，批注 PNG �
 公共打印界面不负责格式解析。PDF 的 [printing 入口](../src/modules/pdf/printing/index.ts) 还提供栅格计划、纸张预览和尺寸扫描；[Word](../src/modules/word/printing/index.ts)与[图片](../src/modules/image/printing/index.ts)提供各自的输出实现。PDF 输出使用打印专用分辨率和裁切预算，与阅读倍率和画布布局分开。
 
 打印状态区分取消、失败与已提交系统队列；系统接受任务不等于已实际出纸。
+
+## 专属服务
+
+[electron/exclusive](../electron/exclusive) 在主进程验证 MFB1 格式的 Ed25519 签名 KEY，仅接受已登记的产品、方案和功能字段。输入长度上限为 4096 字符，不执行输入中的代码或地址。激活信息由 Windows safeStorage 加密保存于应用设置目录，启动时重新验签；当前进程的服务状态固定，更改或清除 KEY 在重启后生效。
+
+客户端只包含 shared/exclusiveKey.ts 中的公钥。npm run exclusive:key -- init 为签发工具初始化本机 Windows 保护的私钥，默认存放于当前账户 AppData 的 MagicFileBoxIssuer 目录，不在仓库内；issue --subject user-id --out file.txt 签发 KEY。私钥不进入 Git 或安装包，Windows 保护的私钥文件依赖当前账户和机器，迁移或重装前需要保留可恢复的签发环境。当前方案离线、不绑定设备，KEY 可以转发，没有在线撤销机制；它用于确认签发来源，不能保证客户端无法被修改。
 
 ## 设置、更新与安全
 

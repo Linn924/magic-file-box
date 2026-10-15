@@ -2,6 +2,9 @@ import { contextBridge, ipcRenderer, shell, webUtils } from "electron";
 import type { DesktopBridge, Settings } from "@shared/contracts";
 
 const bridge: DesktopBridge = {
+  getExclusiveState:()=>ipcRenderer.invoke('exclusive:get'),
+  activateExclusiveKey:key=>ipcRenderer.invoke('exclusive:activate',key),
+  clearExclusiveKey:()=>ipcRenderer.invoke('exclusive:clear'),
   getUpdateState:()=>ipcRenderer.invoke('updates:get'),
   updateAction:action=>ipcRenderer.invoke('updates:action',action),
   onUpdateState:handler=>{const listener=(_event:Electron.IpcRendererEvent,value:import('@shared/updates').UpdateState)=>handler(value);ipcRenderer.on('updates:changed',listener);return ()=>ipcRenderer.removeListener('updates:changed',listener);},

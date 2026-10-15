@@ -1,6 +1,9 @@
 import type {PreviewFile} from './files';
 import type {Settings} from './settings';
 export interface DesktopBridge {
+  getExclusiveState(): Promise<import('./exclusive').ExclusiveState>;
+  activateExclusiveKey(key: string): Promise<import('./exclusive').ExclusiveState>;
+  clearExclusiveKey(): Promise<import('./exclusive').ExclusiveState>;
   getUpdateState():Promise<import('./updates').UpdateState>;
   updateAction(action:import('./updates').UpdateAction):Promise<import('./updates').UpdateState>;
   onUpdateState(handler:(state:import('./updates').UpdateState)=>void):()=>void;

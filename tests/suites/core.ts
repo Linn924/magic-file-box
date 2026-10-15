@@ -4,7 +4,7 @@ import path from "node:path";
 import type { Suite } from "../context";
 import {checkTabbarLayout} from '../tabbarLayout';
 const suite: Suite = async (c) => {
-  const cleanHome = "document.documentElement.dataset.edition==='main'&&!document.querySelector('.home-credit,.home-intro,.home-intro-title,.home-intro-canvas')&&!localStorage.getItem('fp-home-intro-v1')";
+  const cleanHome = "document.documentElement.dataset.exclusive==='false'&&!document.querySelector('.home-credit,.home-intro,.home-intro-title,.home-intro-canvas')";
   await c.check(c.home, "main home uses the standard entry", cleanHome);
   c.home.webContents.reload();
   await c.check(c.home, "home reload is ready", "!!document.querySelector('.dropzone')");
@@ -151,7 +151,7 @@ const suite: Suite = async (c) => {
   c.pass("independent windows default maximized");
   const source = await c.open("text.txt"),
     target = await c.open("data.json");
-  if (source.getTitle() !== "文件预览" || c.home.getTitle() !== "文件预览")
+  if (source.getTitle() !== "魔法文件匣" || c.home.getTitle() !== "魔法文件匣")
     throw Error("Chinese native title");
   const id = await c.evaluate<string>(
     source,

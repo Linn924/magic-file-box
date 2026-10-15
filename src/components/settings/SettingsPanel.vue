@@ -2,6 +2,7 @@
 import type { Settings } from "@shared/contracts";
 import UpdateCenter from '@/components/updates/UpdateCenter.vue';
 import {defineAsyncComponent} from 'vue';
+import ExclusiveSettings from '@/components/exclusive/ExclusiveSettings.vue';
 import {loadCodeAppearanceSettings} from '@/modules/text/settings';
 const CodeAppearanceSettings=defineAsyncComponent(loadCodeAppearanceSettings);
 defineProps<{ settings: Settings }>();
@@ -37,6 +38,7 @@ const emit = defineEmits<{ close: []; change: [value: Partial<Settings>] }>();
         </select>
       </div>
       <CodeAppearanceSettings :value="settings.codeAppearance"/>
+      <ExclusiveSettings />
       <div class="setting-row">
         <label for="close-action">关闭首页时</label
         ><select

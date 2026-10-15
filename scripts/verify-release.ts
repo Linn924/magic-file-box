@@ -9,8 +9,8 @@ const args = process.argv.slice(2);
 const wantZip = args.includes('--zip');
 const root = resolve(args.find((a) => !a.startsWith('-')) || 'outputs/release');
 const { version } = JSON.parse(await readFile('package.json', 'utf8'));
-const setupName = `FilePreview-Setup-${version}-x64.exe`;
-const zipName = `FilePreview-${version}-Windows-x64.zip`;
+const setupName = `MagicFileBox-Setup-${version}-x64.exe`;
+const zipName = `MagicFileBox-${version}-Windows-x64.zip`;
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const setup = await readFile(resolve(root, setupName));
 const asar = await readFile(resolve(root, 'win-unpacked/resources/app.asar'));
@@ -25,7 +25,7 @@ const lines = [`${hash(setup)}  ${setupName}`];
 if (wantZip) {
   const zipBytes = await readFile(resolve(root, zipName));
   const zip = await JSZip.loadAsync(zipBytes, { checkCRC32: true });
-  for (const relative of ['File Preview.exe', 'resources/app.asar']) {
+  for (const relative of ['magic file box.exe', 'resources/app.asar']) {
     const entry = zip.file(relative);
     if (!entry) throw Error(`ZIP 缺少 ${relative}`);
     const packaged = await entry.async('uint8array');

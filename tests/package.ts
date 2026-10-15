@@ -12,7 +12,7 @@ type Command = (
   params?: Record<string, unknown>,
 ) => Promise<any>;
 const args=process.argv.slice(2),skipPrint=args.includes('--skip-print'),checkUpdates=args.includes('--updates');
-const exe = resolve(args.find(arg=>!arg.startsWith('--')) || "outputs/release/win-unpacked/File Preview.exe");
+const exe = resolve(args.find(arg=>!arg.startsWith('--')) || "outputs/release/win-unpacked/magic file box.exe");
 const profile = resolve("work/test-profiles/package-" + process.pid);
 mkdirSync(profile, { recursive: true });
 mkdirSync("outputs/verification", { recursive: true });
@@ -103,7 +103,7 @@ try {
   if(checkUpdates){
     const state=await evaluate(view,"window.localPreview.getUpdateState()"),version=JSON.parse(readFileSync('package.json','utf8')).version;
     if(state.currentVersion!==version)throw Error('Packaged update version mismatch');
-    const installed=existsSync(resolve(dirname(exe),'Uninstall File Preview.exe'));
+    const installed=existsSync(resolve(dirname(exe),'Uninstall magic file box.exe'));
     if(installed?state.phase==='unsupported':state.phase!=='unsupported')throw Error('Packaged updater installation detection mismatch');
     await evaluate(view,"document.querySelector('.settings-button').click();true");
     await waitFor(()=>evaluate(view,"!!document.querySelector('#check-updates')&&document.querySelector('.settings-panel .update-center').textContent.includes("+JSON.stringify(version)+")"),'Packaged update settings');

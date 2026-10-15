@@ -6,7 +6,7 @@ import {stableVersion} from '@shared/updates';
 const parse=async(file:string)=>{if((await stat(file)).size>1024*1024)throw Error('更新元数据超过 1 MB。');return load(await readFile(file,'utf8'),{schema:JSON_SCHEMA}) as any;};
 export async function verifyUpdateArtifacts(root:string,version:string){
   if(!stableVersion(version))throw Error('更新版本必须为正式三段版本号。');
-  const manifest=await parse(path.join(root,'latest.yml')),name=`FilePreview-Setup-${version}-x64.exe`;
+  const manifest=await parse(path.join(root,'latest.yml')),name=`MagicFileBox-Setup-${version}-x64.exe`;
   if(manifest?.version!==version||!Array.isArray(manifest.files)||manifest.files.length!==1||manifest.packages)throw Error('更新版本或安装包类型不匹配。');
   const file=manifest.files[0];if(file?.url!==name||manifest.path!==undefined&&manifest.path!==name)throw Error('更新清单必须指向本次完整 NSIS 安装包。');
   const bytes=await readFile(path.join(root,name)),hash=createHash('sha512').update(bytes).digest('base64');

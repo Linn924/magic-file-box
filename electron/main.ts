@@ -22,6 +22,9 @@ import {
   type Session,
 } from "electron";
 import path from "node:path";
+import {DISPLAY_NAME} from '@shared/branding';
+import {applicationProfile} from './settings/profile';
+import {setupExclusive} from './exclusive';
 import { SettingsStore } from "./settings";
 import { preparePreviewFile, loadPreparedFile, fileArguments, preparedFileCount,rememberPdfPassword,ownsPreparedFile,discardUnownedFiles } from "./files";
 import { createLocalSession, protectWindow, trusted } from "./security";
@@ -35,6 +38,10 @@ import {
 export function previewResourceStats(){return {paths:preparedFileCount(),pdfWindows:pdfResourceStats().clients};}
 const profile = app.commandLine.getSwitchValue("user-data-dir");
 if (profile && path.isAbsolute(profile)) app.setPath("userData", profile);
+else if (app.getPath('userData') === path.join(app.getPath('appData'), app.getName())) {
+  // Retain existing preferences when the product's display name changes.
+  app.setPath('userData', applicationProfile(app.getPath('appData')));
+}
 protocol.registerSchemesAsPrivileged([
   {
     scheme: "preview",
@@ -87,7 +94,7 @@ function showWindows() {
 function hideToTray(win:BrowserWindow) {
   if (!tray) {
     tray = new Tray(nativeImage.createFromPath(icon));
-    tray.setToolTip("File Preview");
+    tray.setToolTip(DISPLAY_NAME);
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: "显示窗口", click: showWindows },
@@ -113,7 +120,7 @@ async function requestClose(win: BrowserWindow) {
     if (action === "ask") {
       const result = await dialog.showMessageBox(win, {
         type: "question",
-        title: "关闭文件预览",
+        title: "关闭魔法文件匣",
         message: "这次想怎样关闭？",
         detail: "退出会关闭所有预览。隐藏后可点击右下角托盘图标继续查看。",
         buttons: ["退出软件", "隐藏到托盘", "取消"],
@@ -142,7 +149,7 @@ function createWindow(preview: boolean) {
     minWidth: 720,
     minHeight: 520,
     show: false,
-    title: "文件预览",
+    title: DISPLAY_NAME,
     icon,
     backgroundColor: settings.get().theme === "dark" ? "#151b25" : "#f5f6f8",
     autoHideMenuBar: true,
@@ -259,6 +266,7 @@ export const ready = owner
       settings = new SettingsStore(
         path.join(app.getPath("userData"), "preferences.json"),
       );
+      setupExclusive();
       Menu.setApplicationMenu(null);
       setupTransfers();
       setupModifiedFiles();setupExcelCopy();

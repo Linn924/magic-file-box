@@ -12,7 +12,7 @@ export function setupUpdates(autoCheck:()=>boolean,busy:()=>boolean){
   let phase:UpdateState['phase']='idle',restart:RestartCoordinator|undefined,installing:Promise<UpdateState>|undefined,checked=false,noticePending=false;
   const readyWindows=new Set<number>();
   const appWindows=()=>BrowserWindow.getAllWindows().filter(win=>{if(win.isDestroyed())return false;try{const u=new URL(win.webContents.getURL());return u.protocol==='preview:'&&u.hostname==='local'&&u.pathname==='/index.html'&&!u.searchParams.has('print')&&!u.searchParams.has('print-panel');}catch{return false;}});
-  const installed=app.isPackaged&&process.platform==='win32'&&existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall File Preview.exe'));
+  const installed=app.isPackaged&&process.platform==='win32'&&existsSync(path.join(path.dirname(app.getPath('exe')),'Uninstall magic file box.exe'));
   const controller=new UpdateController(version,installed?createUpdateDriver():undefined,state=>{
     for(const win of appWindows())win.webContents.send('updates:changed',state);
     if(!['available','downloaded'].includes(state.phase))noticePending=false;
@@ -24,7 +24,7 @@ export function setupUpdates(autoCheck:()=>boolean,busy:()=>boolean){
   app.on('browser-window-created',created);
   restart=new RestartCoordinator(()=>appWindows().map(win=>({id:win.webContents.id,send:(channel:string,token:string)=>win.webContents.send(channel,token)})),busy,()=>hasModified(),async notes=>{
     const wins=appWindows(),parent=wins.find(w=>w.isFocused())||wins.find(w=>w.isVisible());if(!parent)return false;
-    const result=await dialog.showMessageBox(parent,{type:'question',title:'重启并更新文件预览',message:'现在关闭所有窗口并安装新版本？',detail:notes?'PDF 临时批注会清空，不能在重启后恢复。请确认已导出需要保留的批注。':'当前预览会关闭，密码和内存会话将清空。源文件及已另存副本不会改变。',buttons:['重启并更新','取消'],defaultId:1,cancelId:1,noLink:true});return result.response===0;
+    const result=await dialog.showMessageBox(parent,{type:'question',title:'重启并更新魔法文件匣',message:'现在关闭所有窗口并安装新版本？',detail:notes?'PDF 临时批注会清空，不能在重启后恢复。请确认已导出需要保留的批注。':'当前预览会关闭，密码和内存会话将清空。源文件及已另存副本不会改变。',buttons:['重启并更新','取消'],defaultId:1,cancelId:1,noLink:true});return result.response===0;
   });
   const allowed=(event:Electron.IpcMainInvokeEvent)=>{trusted(event);if(!appWindows().some(w=>w.webContents.id===event.sender.id))throw Error('无效更新窗口。');};
   ipcMain.handle('updates:get',event=>{allowed(event);readyWindows.add(event.sender.id);queueMicrotask(notify);return controller.snapshot();});

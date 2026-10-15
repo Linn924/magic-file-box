@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import {APP_NAME,DISPLAY_NAME,EXECUTABLE_NAME,INSTALLER_PREFIX} from '@shared/branding';
+import {applicationProfile} from '../electron/settings/profile';
 import {beginFileEdit,waitForFileEdits} from '@/services/pendingEdits';
 import {preparePreviewFile,loadPreparedFile} from '../electron/files';
 import {resolve} from 'node:path';
@@ -117,6 +119,14 @@ assert.ok((await pendingRead).error.includes('关闭'),'closed file must not ref
 assert.equal(preparedFileCount(),countBefore);unlinkSync(sourceSample);
 console.log('PASS file read single flight, source ownership and closing during read');
 const associations = readFileSync("electron-dist/associations.nsh", "utf8");
+const originalProfile=path.join('profile-root','file-preview'),displayProfile=path.join('profile-root','File Preview');
+assert.equal(applicationProfile('profile-root',()=>false),originalProfile);
+assert.equal(applicationProfile('profile-root',file=>file===path.join(originalProfile,'preferences.json')),originalProfile);
+assert.equal(applicationProfile('profile-root',file=>file===path.join(displayProfile,'preferences.json')),displayProfile);
+const product=JSON.parse(readFileSync('package.json','utf8'));
+assert.equal(product.build.productName,APP_NAME);assert.equal(EXECUTABLE_NAME,APP_NAME+'.exe');assert.equal(DISPLAY_NAME,'魔法文件匣');
+assert.ok(product.build.nsis.artifactName.startsWith(INSTALLER_PREFIX+'-Setup-'));
+assert.ok(associations.includes('Applications\\'+EXECUTABLE_NAME));
 const crop=pdfRasterPlan({width:595,height:842},{width:148,height:210},'actual',150);
 assert.equal(crop.scale,150/72);
 assert.ok(crop.widthMm<=128&&crop.heightMm<=190);

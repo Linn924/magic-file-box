@@ -1,18 +1,21 @@
 /**
  * Post-install verification (no physical printer).
  * Checks Open With ProgId registration and lists install dir.
- * Usage (after installing to D:\file-preview\File Preview):
- *   npm run verify:install
+ * Usage (after installing):
+ *   npm run verify:install -- <install-directory>
  * Uninstall check:
  *   npm run verify:install -- --expect-absent
  */
 import { existsSync, readdirSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
-import { resolve } from "node:path";
+import { resolve, join } from "node:path";
+import {homedir} from 'node:os';
+import {APP_NAME} from '@shared/branding';
 
 const installDir =
-  process.env.FILE_PREVIEW_DIR || "D:\\file-preview\\File Preview";
-const exe = resolve(installDir, "File Preview.exe");
+  process.argv.slice(2).find(arg=>!arg.startsWith('--')) || process.env.MAGIC_FILE_BOX_DIR || process.env.FILE_PREVIEW_DIR
+    || join(process.env.LOCALAPPDATA || join(homedir(),'AppData','Local'),'Programs',APP_NAME);
+const exe = resolve(installDir, "magic file box.exe");
 const expectAbsent = process.argv.includes("--expect-absent");
 
 function regQuery(key: string): string {
@@ -23,7 +26,7 @@ function regQuery(key: string): string {
   }
 }
 
-const progId = "FilePreview.FilePreview";
+const progId = "FilePreview.Document";
 const appId = "local.preview.desktop";
 
 if (expectAbsent) {
@@ -38,7 +41,7 @@ if (expectAbsent) {
   process.exit(0);
 }
 
-if (!existsSync(exe)) throw Error("未找到安装的 File Preview.exe: " + exe);
+if (!existsSync(exe)) throw Error("未找到安装的 magic file box.exe: " + exe);
 const files = readdirSync(installDir);
 if (!files.includes("resources")) throw Error("安装目录缺少 resources");
 const size = statSync(exe).size;
