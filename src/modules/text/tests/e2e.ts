@@ -4,7 +4,9 @@ import type { Suite } from "../../../../tests/context";
 import markdownLinks from './markdownLinks';
 import markdownReading from './markdownReading';
 import markdownOptimization from './markdownOptimization';
+import sourceSearch from './sourceSearch';
 const suite: Suite = async (c) => {
+  await sourceSearch(c);
   const source='const item = "quoted 42"; // return 7\nspan class <node> &lt;';
   writeFileSync(c.fixture('audit-highlight.js'),source);
   const audit=await c.open('audit-highlight.js');

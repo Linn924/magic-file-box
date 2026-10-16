@@ -4,7 +4,8 @@ import type { PreviewProps } from "@/modules/types";
 import { usePreview } from "./composables/usePreview";
 import { createSafeResizeObserver } from "@/utils/safeResizeObserver";
 import textModule from "./";
-import {renderTextLine,renderSyntaxLine,textMatches} from './core/highlight';
+import {renderTextLine,renderSyntaxLine} from './core/highlight';
+import {indexSourceMatches,sourceMatchAt} from './core/sourceSearch';
 import {useSyntax} from './composables/useSyntax';
 import {languageNames} from './core/languages';
 import {useCodeAppearance} from './composables/useCodeAppearance';
@@ -38,6 +39,7 @@ const searchInput = ref<HTMLInputElement>();
 watch(showSearch, async value => { if (value) { await nextTick(); searchInput.value?.focus({preventScroll:true}); } else query.value=''; });
 function findKey(event:KeyboardEvent){if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='f'&&pane.value?.clientWidth){event.preventDefault();showSearch.value=true;void nextTick(()=>searchInput.value?.focus({preventScroll:true}));}}
 const lines = computed(() => (pretty.value || "").split("\n"));
+const showHtml = computed(() => props.file.ext === 'md' && !sourceMode.value);
 const syntaxText=computed(()=>props.file.ext==='md'&&!sourceMode.value?'':pretty.value);
 function sourcePosition(force=false){const root=textScroll.value;if(!root?.clientHeight)return ()=>{};const top=root.getBoundingClientRect().top,node=Array.from(root.querySelectorAll<HTMLElement>('.text-line')).find(n=>n.getBoundingClientRect().bottom>top),before=root.scrollTop,offset=node?node.getBoundingClientRect().top-top:0;return ()=>{if((force||root.scrollTop===before)&&node?.isConnected)root.scrollTop+=node.getBoundingClientRect().top-root.getBoundingClientRect().top-offset;};}
 const syntax=useSyntax(props.file.id,syntaxText,props.file.ext,sourcePosition);
@@ -102,7 +104,7 @@ watch(()=>props.zoom,async(value,old)=>{
 watch([showLines,query],()=>{void nextTick().then(updateVirtual);});
 let resizeObs:ResizeObserver|undefined;
 onMounted(()=>{window.addEventListener('keydown',findKey);updateVirtual();resizeObs=createSafeResizeObserver(updateVirtual);if(textScroll.value)resizeObs.observe(textScroll.value);});
-onBeforeUnmount(()=>{window.removeEventListener('keydown',findKey);virtualDisposed=true;virtualRevision++;resizeObs?.disconnect();});
+onBeforeUnmount(()=>{window.removeEventListener('keydown',findKey);virtualDisposed=true;virtualRevision++;searchRevision++;resizeObs?.disconnect();});
 
 /** 当前视口内实际渲染的行（小文件为全部，大文件为虚拟窗口） */
 const virtualLines = computed(() => {
@@ -110,20 +112,62 @@ const virtualLines = computed(() => {
   return lines.value.slice(vStart.value, vEnd.value);
 });
 
-const hitCount = computed(() => {
-  const q = query.value.trim().toLowerCase();
-  if (!q) return 0;
-  // 始终基于全量 lines 统计，不受虚拟化影响
-  return lines.value.reduce(
-    (n, line) => n + (textMatches(line,query.value).length ? 1 : 0),
-    0,
-  );
-});
-function markSearch(line:string,index:number) {const data=syntax.data.value;return data?renderSyntaxLine(line,data.lines[index],data.styles,query.value):renderTextLine(line,'',query.value);}
+const sourceHits = computed(() => indexSourceMatches(showHtml.value ? [] : lines.value, query.value));
+const selectedHit = ref(-1);
+const currentHit = computed(() => sourceMatchAt(sourceHits.value, lines.value, query.value, selectedHit.value));
+const matchCount = computed(() => showHtml.value ? renderedHits.value.count : sourceHits.value.count);
+const matchIndex = computed(() => showHtml.value ? renderedHits.value.index : selectedHit.value);
+let searchRevision = 0;
+
+async function revealSourceHit() {
+  const revision = ++searchRevision, hit = currentHit.value, root = textScroll.value;
+  // Cancel any queued virtual anchor correction from before this navigation.
+  virtualRevision++;
+  await nextTick();
+  const valid = () => revision === searchRevision && !virtualDisposed && !showHtml.value && !!root?.clientHeight && !!root.clientWidth;
+  if (!hit || !root || !valid()) return;
+  const selector = `.text-line[data-line="${hit.line + 1}"] .text-current-hit`;
+  if (useVirtual.value && !root.querySelector(selector)) {
+    const target = contentPadding(root) + heights.prefix(hit.line);
+    windowAt(target);
+    root.scrollTop = target;
+    await nextTick();
+    if (!valid()) return;
+    updateVirtual();
+    await nextTick();
+  }
+  if (!valid()) return;
+  const mark = root.querySelector<HTMLElement>(selector);
+  const rect = mark?.getClientRects()[0];
+  if (!rect) return;
+  root.scrollTop += rect.top - root.getBoundingClientRect().top - Math.max(8, (root.clientHeight - rect.height) / 2);
+  if (useVirtual.value) windowAt(root.scrollTop);
+  await nextTick();
+  if (valid()) updateVirtual();
+}
+
+watch(sourceHits, index => {
+  selectedHit.value = index.count ? 0 : -1;
+  void revealSourceHit();
+}, {flush: 'post'});
+
+function findNext(direction: number) {
+  if (showHtml.value) { mdReader.value?.findNext(direction); return; }
+  if (!sourceHits.value.count) return;
+  selectedHit.value = (selectedHit.value + direction + sourceHits.value.count) % sourceHits.value.count;
+  void revealSourceHit();
+}
+function searchKey(event: KeyboardEvent) {
+  if (event.isComposing) return;
+  event.preventDefault();
+  findNext(event.shiftKey ? -1 : 1);
+}
+function markSearch(line:string,index:number) {
+  const data=syntax.data.value, current=currentHit.value;
+  const start=current?.line===index?current.start:-1;
+  return data?renderSyntaxLine(line,data.lines[index],data.styles,query.value,start):renderTextLine(line,'',query.value,start);
+}
 watch(syntax.data,()=>void nextTick().then(updateVirtual));
-const showHtml = computed(
-  () => props.file.ext === "md" && !sourceMode.value,
-);
 </script>
 <template>
   <section ref="pane" class="text" data-code-appearance>
@@ -151,10 +195,10 @@ const showHtml = computed(
           class="text-search-input"
           aria-label="搜索文本"
           placeholder="搜索"
-          @keydown.enter.prevent="showHtml&&mdReader?.findNext($event.shiftKey?-1:1)"
+          @keydown.enter="searchKey"
         />
         <ToolButton icon="clear" title="清除搜索" :disabled="!query" @click="query=''" /></div>
-        <div class="query-results"><span class="text-search-count" aria-live="polite">{{query.trim()?(showHtml?(renderedHits.count?(renderedHits.index+1)+' / '+renderedHits.count+' 处匹配':'0 处匹配'):hitCount+' 行匹配'):'输入内容开始查找'}}</span><template v-if="showHtml"><ToolButton class="md-find-previous" icon="up" title="上一处匹配（Shift+Enter）" :disabled="!renderedHits.count" @click="mdReader?.findNext(-1)"/><ToolButton class="md-find-next" icon="down" title="下一处匹配（Enter）" :disabled="!renderedHits.count" @click="mdReader?.findNext(1)"/></template></div>
+        <div class="query-results"><span class="text-search-count" aria-live="polite">{{query.trim()?(matchCount?(matchIndex+1)+' / '+matchCount+' 处匹配':'0 处匹配'):'输入内容开始查找'}}</span><ToolButton class="text-find-previous" :class="{'md-find-previous':showHtml}" icon="up" title="上一处匹配（Shift+Enter）" :disabled="!matchCount" @click="findNext(-1)"/><ToolButton class="text-find-next" :class="{'md-find-next':showHtml}" icon="down" title="下一处匹配（Enter）" :disabled="!matchCount" @click="findNext(1)"/></div>
       </div>
     </PreviewPanel>
     <div v-if="invalidJson" class="notice">

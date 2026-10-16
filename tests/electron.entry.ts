@@ -24,6 +24,7 @@ import ppt from "@/modules/ppt/tests/e2e";
 import pdf from "@/modules/pdf/tests/e2e";
 import pdfthumbs from '@/modules/pdf/tests/thumbnails';
 import text from "@/modules/text/tests/e2e";
+import textsearch from '@/modules/text/tests/sourceSearch';
 import syntax from '@/modules/text/tests/syntax';
 import appearance from '@/modules/text/tests/appearance';
 import appearancelayout from '@/modules/text/tests/appearanceLayout';
@@ -76,6 +77,7 @@ const suites: Record<string, Suite> = {
   pdf,
   pdfthumbs,
   text,
+  textsearch,
   syntax,
   appearance,
   appearancelayout,
@@ -88,7 +90,7 @@ const suites: Record<string, Suite> = {
 };
 const selected =
   requested === "all"
-    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind" && n !== "excelsheets" && n !== "exceltable")
+    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind" && n !== "excelsheets" && n !== "exceltable" && n !== "textsearch")
     : requested.split(",");
 const output = path.resolve("outputs/verification");
 const fixtureRoot = path.resolve("work/fixtures");

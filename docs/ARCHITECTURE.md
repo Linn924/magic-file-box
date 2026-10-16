@@ -124,6 +124,8 @@ electron/main.ts 仍持有应用和窗口的总调度，并非所有窗口逻辑
 
 具体支持范围和资源上限见 README；各函数的实现参数以源码为准，实质断言及样例见 TESTING。
 
+文本源码搜索由 [sourceSearch.ts](../src/modules/text/core/sourceSearch.ts) 按匹配行保存累计计数，选中结果时才展开该行的字符范围。JSON 按格式化后的显示文本搜索；[highlight.ts](../src/modules/text/core/highlight.ts) 在原字符范围上合并语法标记、普通命中和当前命中，不改写源码。[index.vue](../src/modules/text/index.vue) 在跳转远处结果前挂载对应虚拟窗口，再按命中文字的实际位置定位，支持长换行行；新查询、关闭与卸载使旧导航失效。Markdown 排版查询继续使用渲染正文的搜索流程。
+
 PDF 的 [PdfNav.vue](../src/modules/pdf/components/PdfNav.vue) 独立管理目录和缩略图。缩略图虚拟偏移包含画布高度、卡片装饰/页码与项间距，并计入顶部页数说明；画布不参与 Flex 压缩。列表关闭浏览器滚动锚定，避免占位高度变化反向移动视口。异步取页后再次检查节点是否仍挂载，任务结束时释放未成功交付当前节点的画布，防止失效绘制占用共享像素预算。
 
 ## 文件与状态生命周期

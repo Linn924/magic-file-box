@@ -22,6 +22,7 @@ const names = [
   "pdf",
   "pdfthumbs",
   "text",
+  "textsearch",
   "syntax",
   "appearance",
   "appearancelayout",

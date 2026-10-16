@@ -131,6 +131,8 @@ PDF 滚轮测试固定 1000×700，避免短样例在大屏无溢出。80 页混
 
 各模块 `tests/e2e.ts`。文本检查原文安全显示、JSON 格式化/无效 JSON 回退、Markdown 渲染；图片检查 PNG/SVG/JPEG/WebP/GIF/BMP 的实际解码。缺失的小型位图样例由图片测试自动生成。均检查滚轮不改变倍率或图片显示尺寸。黑夜模式检查图片背景没有亮色棋盘格，使用 #252a32 深灰，并保存截图。扩展某种编码或图片格式时，应在对应套件加入真实样例和断言。
 
+`src/modules/text/tests/sourceSearch.ts` 可单独运行 textsearch，已纳入 text，all 不重复执行。覆盖 JSON 远处首项定位、同一行多处匹配计数、上一处/下一处及 Enter/Shift+Enter 循环、未命中/关闭清理、原字符与源文件保持、明暗主题，以及 5000 项 JSON 的虚拟窗口、175% 缩放长换行行和新查询取消旧导航；同路径补纯文本、代码、无效 JSON 与 Markdown 源码。源码搜索修复运行 text、syntax，保留 Markdown 排版搜索回归。syntaxUnit 同时检查字面匹配计数、选中偏移与跨语法标记的命中片段。
+
 ## 非 PDF 现有功能专项
 
 ```powershell

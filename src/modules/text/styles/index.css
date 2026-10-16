@@ -122,6 +122,10 @@
   color: inherit;
   border-radius: 2px;
 }
+.text-current-hit {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
 .text-search-input {
   width: 160px;
   padding: 4px 8px;
