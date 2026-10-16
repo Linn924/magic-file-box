@@ -11,7 +11,7 @@ type Command = (
   method: string,
   params?: Record<string, unknown>,
 ) => Promise<any>;
-const args=process.argv.slice(2),skipPrint=args.includes('--skip-print'),checkUpdates=args.includes('--updates');
+const args=process.argv.slice(2),skipPrint=args.includes('--skip-print'),checkUpdates=args.includes('--updates'),checkTextSearch=args.includes('--text-search');
 const exe = resolve(args.find(arg=>!arg.startsWith('--')) || "outputs/release/win-unpacked/magic file box.exe");
 const profile = resolve("work/test-profiles/package-" + process.pid);
 mkdirSync(profile, { recursive: true });
@@ -155,6 +155,32 @@ try {
     "Packaged PPT render",
   );
   results.push("PASS second-instance PPTX delivered to existing application");
+  if (checkTextSearch) {
+    const marker = 'package-json-search-target', file = resolve('work/fixtures/package-json-search-v1.json');
+    if (!existsSync(file)) writeFileSync(file, JSON.stringify(Array.from({length: 3600}, (_, index) =>
+      index === 3200 ? marker + ' / ' + marker : index === 3500 ? marker : 'row ' + index)));
+    const original = readFileSync(file), known = new Set((await targets()).map(target => target.id));
+    const jsonChild = spawn(exe, ['--user-data-dir=' + profile, file], {windowsHide: true, stdio: 'ignore'});
+    try {
+      const target = await waitFor(async () => (await targets()).find(item => !known.has(item.id) && item.url.includes('?preview=1')), 'Packaged JSON file delivery');
+      const json = await connect(target.webSocketDebuggerUrl);
+      await waitFor(() => evaluate(json, "!!document.querySelector('.text-search-toggle')&&!document.querySelector('.loading')"), 'Packaged JSON ready');
+      await evaluate(json, "document.querySelector('.text-search-toggle').click();true");
+      await waitFor(() => evaluate(json, "!!document.querySelector('.text-search-input')"), 'Packaged JSON search input');
+      await evaluate(json, `(() => {const input=document.querySelector('.text-search-input');input.value=${JSON.stringify(marker)};input.dispatchEvent(new Event('input',{bubbles:true}));return true})()`);
+      const visible = `(() => {const root=document.querySelector('.text-scroll'),bounds=root.getBoundingClientRect();return root.scrollTop>0&&document.querySelectorAll('.text-line').length<100&&[...root.querySelectorAll('.text-current-hit')].some(hit=>[...hit.getClientRects()].some(r=>r.top>=bounds.top&&r.bottom<=bounds.bottom&&r.width>0))})()`;
+      await waitFor(() => evaluate(json, "document.querySelector('.text-search-count').textContent.includes('1 / 3')&&" + visible), 'Packaged JSON first match is highlighted and visible');
+      for (const index of [2, 3]) {
+        await evaluate(json, "document.querySelector('.text-find-next').click();true");
+        await waitFor(() => evaluate(json, `document.querySelector('.text-search-count').textContent.includes('${index} / 3')&&` + visible), 'Packaged JSON match ' + index);
+      }
+      await evaluate(json, "document.querySelector('.search-close').click();true");
+      await waitFor(() => evaluate(json, "!document.querySelector('.text-hit,.text-current-hit')"), 'Packaged JSON search cleanup');
+      if (!readFileSync(file).equals(original)) throw Error('Packaged JSON search modified its source');
+      await evaluate(json, "setTimeout(()=>window.localPreview.close(),100);true");
+      results.push('PASS packaged JSON search reveals distant virtual matches, counts same-line occurrences, navigates and clears highlights without changing the source');
+    } finally { if (jsonChild.exitCode === null) jsonChild.kill(); }
+  }
   await evaluate(view, "setTimeout(()=>window.localPreview.close(),100);true");
   await evaluate(ppt, "setTimeout(()=>window.localPreview.close(),100);true");
   await pause(250);
