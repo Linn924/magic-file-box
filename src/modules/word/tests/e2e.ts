@@ -3,10 +3,12 @@ import type { Suite } from "../../../../tests/context";
 import { checkResize } from "../../../../tests/resize";
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import JSZip from "jszip";
+import navigation from './navigation';
 const suite: Suite = async (c) => {
+  await navigation(c);
   for (const name of ["document.docx", "legacy.doc"]) {
     const win = await c.open(name);
-    if(name==='legacy.doc')await c.check(win,'legacy DOC print is disabled with a clear tooltip',"document.querySelector('.file-print-button').disabled&&document.querySelector('.file-print-button').title.includes('不支持打印')");
+    if(name==='legacy.doc')await c.check(win,'legacy DOC keeps its existing supported tools',"document.querySelector('.file-print-button')?.disabled&&document.querySelector('.file-print-button').title.includes('不支持打印')&&!document.querySelector('.word-search-toggle,.word-outline-toggle')");
     await c.check(
       win,
       "Word content " + name,

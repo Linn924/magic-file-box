@@ -101,6 +101,10 @@ openHomeAction 覆盖缺省及旧配置回退为 ask、tray/keep 合法值、非
 
 检查 DOCX/DOC 内容、DOCX 表格边界控件；通过真实鼠标事件拖动列边界，单元格必须实际变宽；内容滚轮后倍率不变。自动从样例生成含分页符的 `pages.docx`，通过真实 Chromium 鼠标滚轮验证连续滚动，右下角输入 2 定位到第二页，上一页滚动返回。损坏文件必须显示明确错误。Word 分页依赖实际渲染页面，不伪造旧 DOC 页数。
 
+`navigation.ts` 随 word 执行，也可单独运行 wordnav，all 不重复执行。DOCX 样例验证跨加粗/斜体文字片段的逻辑计数、表格/页眉/脚注/字面特殊字符搜索、首项定位、前后及 Enter/Shift+Enter 循环、未命中与关闭清理、焦点恢复、原文与源字节保持；目录验证继承标题、显式大纲级别、正文覆盖、同名标题、滚动同步、空目录、长目录键盘与挂载数量。补充窄窗口、明暗主题、缩放、标签闲置卸载与窗口移交；旧 DOC 保持现有工具范围。outlineUnit 检查标题级别、样式继承和循环保护。
+
+DOCX 搜索/目录变更运行 word、text、core：text 覆盖提取到公共工具后的 Markdown/源码搜索行为，core 覆盖共享视图状态与窗口流程；不扩展到无关格式解析或实体打印。
+
 ### excel
 
 文件：`src/modules/excel/tests/e2e.ts`；样例 `styled.xlsx`、`legacy.xls`、`table.csv`。

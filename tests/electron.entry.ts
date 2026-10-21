@@ -12,6 +12,7 @@ import visual from "./suites/visual";
 import bulk from "./suites/bulk";
 import zoom from "./suites/zoom";
 import word from "@/modules/word/tests/e2e";
+import wordnav from '@/modules/word/tests/navigation';
 import exceledit from '@/modules/excel/tests/editing';
 import excelgrid from '@/modules/excel/tests/selectionEditing';
 import excelformat from '@/modules/excel/tests/formatEditing';
@@ -65,6 +66,7 @@ const suites: Record<string, Suite> = {
   nonpdfprinting,
   zoom,
   word,
+  wordnav,
   excel,
   exceledit,
   excelgrid,
@@ -90,7 +92,7 @@ const suites: Record<string, Suite> = {
 };
 const selected =
   requested === "all"
-    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind" && n !== "excelsheets" && n !== "exceltable" && n !== "textsearch")
+    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind" && n !== "excelsheets" && n !== "exceltable" && n !== "textsearch" && n !== "wordnav")
     : requested.split(",");
 const output = path.resolve("outputs/verification");
 const fixtureRoot = path.resolve("work/fixtures");

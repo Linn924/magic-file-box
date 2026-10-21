@@ -110,7 +110,7 @@ electron/main.ts 仍持有应用和窗口的总调度，并非所有窗口逻辑
 | [Excel](../src/modules/excel) | core/editing 管理输入、选区、格式/查找/排序模型；core/formula 管理公式与引用；core/workbook 管理载荷、读写和布局。useEditor 协调草稿、事务、撤销和另存 |
 | [PDF](../src/modules/pdf) | core 管理文档、尺寸、画布、队列和搜索索引；composables 组织预览/查询/批注；workers 执行模式搜索；printing 承担专用打印渲染与纸张示意 |
 | [文本](../src/modules/text) | core 管理语法、安全标记、Markdown、公式和图表，usePreview 处理编码与预览；workers 执行语法分析；components 提供 Markdown 阅读和代码外观设置 |
-| [Word](../src/modules/word) | usePreview 组织解析、分页、表格列宽与预览生命周期；printing 提供 DOCX 打印 |
+| [Word](../src/modules/word) | usePreview 组织解析、分页、表格列宽与生命周期；core/outline 标记 DOCX 标题，useDocxNavigation 管理搜索与目录；printing 提供 DOCX 打印 |
 | [PPT](../src/modules/ppt) | core/renderer 与 snapshot 组织幻灯片渲染及快照；index.vue 管理视口与分页 |
 | [图片](../src/modules/image) | usePreview 管理解码、旋转、适配和视口；printing 提供图片输出 |
 
@@ -125,6 +125,10 @@ electron/main.ts 仍持有应用和窗口的总调度，并非所有窗口逻辑
 具体支持范围和资源上限见 README；各函数的实现参数以源码为准，实质断言及样例见 TESTING。
 
 文本源码搜索由 [sourceSearch.ts](../src/modules/text/core/sourceSearch.ts) 按匹配行保存累计计数，选中结果时才展开该行的字符范围。JSON 按格式化后的显示文本搜索；[highlight.ts](../src/modules/text/core/highlight.ts) 在原字符范围上合并语法标记、普通命中和当前命中，不改写源码。[index.vue](../src/modules/text/index.vue) 在跳转远处结果前挂载对应虚拟窗口，再按命中文字的实际位置定位，支持长换行行；新查询、关闭与卸载使旧导航失效。Markdown 排版查询继续使用渲染正文的搜索流程。
+
+DOCX 通过 docx-preview 的 parseAsync/renderDocument 流程渲染。[core/outline.ts](../src/modules/word/core/outline.ts) 在解析后的内存模型中标记段落大纲级别和继承的标题样式，显式正文级别覆盖标题样式，样式循环被截断；标题标签不覆盖原书签。目录按标记映射到 Shadow DOM，长目录按可见行挂载。[useDocxNavigation.ts](../src/modules/word/composables/useDocxNavigation.ts) 管理查找浮窗、定位与活动章节，目录开关存于 PreviewFile.view.word，和临时列宽一起随会话卸载/移交；查询与命中节点仅属于当前组件。卸载清理计时器、滚动/键盘监听和动画帧。
+
+[utils/renderedSearch.ts](../src/utils/renderedSearch.ts) 提供字面匹配及跨文字节点的搜索标记，Word 与 Markdown 各自传入段落边界、排除区域和标记类。每个逻辑匹配保留全部显示片段，DOCX 当前高亮覆盖所有片段；清理仅合并原文字节点。打印仍从原始文件字节独立渲染，不复用预览搜索标记。
 
 PDF 的 [PdfNav.vue](../src/modules/pdf/components/PdfNav.vue) 独立管理目录和缩略图。缩略图虚拟偏移包含画布高度、卡片装饰/页码与项间距，并计入顶部页数说明；画布不参与 Flex 压缩。列表关闭浏览器滚动锚定，避免占位高度变化反向移动视口。异步取页后再次检查节点是否仍挂载，任务结束时释放未成功交付当前节点的画布，防止失效绘制占用共享像素预算。
 

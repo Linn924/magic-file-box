@@ -1,5 +1,7 @@
 type Token={start:number;end:number;kind?:string};
 import type {SyntaxData,SyntaxPart} from './syntaxTypes';
+import {textMatches} from '@/utils/renderedSearch';
+export {textMatches} from '@/utils/renderedSearch';
 const escapeHtml=(text:string)=>text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\r/g,'&#13;');
 const quoted=String.raw`"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\x60(?:\\.|[^\x60\\])*\x60`;
 function tokens(line:string,ext:string):Token[] {
@@ -23,12 +25,6 @@ function tokens(line:string,ext:string):Token[] {
     cursor=start+value.length;out.push({start,end:cursor,kind});
   }
   if(cursor<line.length)out.push({start:cursor,end:line.length});return out;
-}
-export function textMatches(line:string,query:string):Array<{start:number;end:number}> {
-  const q=query.trim();if(!q)return [];
-  const escaped=Array.from(q,char=>'\\^$.*+?()[]{}|'.includes(char)?'\\'+char:char).join('');
-  const regex=new RegExp(escaped,'gi');
-  return Array.from(line.matchAll(regex),match=>({start:match.index!,end:match.index!+match[0].length}));
 }
 /** Tokenize source once, then merge source ranges; never replace generated markup. */
 export function renderTextLine(line:string,ext:string,query='',currentStart=-1) {

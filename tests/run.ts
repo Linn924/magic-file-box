@@ -10,6 +10,7 @@ const names = [
   "settingslayout",
   "updates",
   "word",
+  "wordnav",
   "excel",
   "exceledit",
   "excelgrid",
@@ -56,6 +57,7 @@ if (!args.includes("--skip-build"))
     process.platform === "win32",
   );
 run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);
+if(selected.includes('word')||selected.includes('wordnav')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/word/tests/outlineUnit.ts']);
 if(selected.includes('text')||selected.includes('syntax')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/text/tests/syntaxUnit.ts']);
 if(selected.includes('text')||selected.includes('appearance')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/text/tests/appearanceUnit.ts']);
 if(selected.includes('updates')||selected.includes('all'))run(process.execPath,['--import','tsx','tests/updateUnit.ts']);

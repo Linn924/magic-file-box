@@ -30,7 +30,7 @@ export interface PreviewFile {
       widths: Record<string, number>;
     };
     /** Word temporary table column widths: `tableIndex:colIndex` → px. */
-    word?: { widths: Record<string, number> };
+    word?: { widths: Record<string, number>; outline?: boolean };
   };
 }
 export interface PdfTemporaryMark {

@@ -1,13 +1,16 @@
 import { fitScale } from "@/utils/fit";
 import { previewError } from '@shared/previewError';
 import { createSafeResizeObserver } from "@/utils/safeResizeObserver";
-import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
+import { onMounted, onBeforeUnmount, ref, shallowRef, watch, nextTick } from "vue";
+import {markDocxHeadings} from '../core/outline';
 import { attachTableResize } from "@/utils/resizeTable";
 import type { PreviewFile } from "@shared/files";
 import type { PreviewProps, PreviewEmit } from "@/modules/types";
 export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   const pane = ref<HTMLElement>();
   const host = ref<HTMLElement>();
+  const bodyRoot = shallowRef<HTMLElement>();
+  const scroll = ref<HTMLElement>();
   const warning = ref("");
   let destroyed = false;
   let cleanupResize: (() => void) | undefined;
@@ -72,9 +75,9 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
         if ((e.target as HTMLElement).closest("a")) e.preventDefault();
       });
       if (props.file.ext === "docx") {
-        const { renderAsync } = await import("docx-preview");
+        const { parseAsync, renderDocument } = await import("docx-preview");
         if (destroyed) return;
-        await renderAsync(props.file.bytes, body, body, {
+        const options = {
           useBase64URL: true,
           renderAltChunks: false,
           breakPages: true,
@@ -83,7 +86,11 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
           renderFootnotes: true,
           renderEndnotes: true,
           ignoreLastRenderedPageBreak: false,
-        });
+        };
+        const document = await parseAsync(props.file.bytes, options);
+        if (destroyed) return;
+        markDocxHeadings(document);
+        await renderDocument(document, body, body, options);
       } else {
         const { parseMsDocToHtml, mountMsDoc } = await import(
           "@file-viewer/doc"
@@ -103,7 +110,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       if (!destroyed) {
         const style = document.createElement("style");
         style.textContent =
-          ".docx-wrapper{background:transparent!important;padding:24px!important}section.docx{overflow:visible!important}table{overflow:visible}";
+          ".docx-wrapper{background:transparent!important;padding:24px!important;width:max-content;min-width:100%;box-sizing:border-box}section.docx{overflow:visible!important}table{overflow:visible}mark.word-search-hit{background:#ffdf7e;color:inherit;border-radius:2px}mark.word-current-hit{outline:2px solid var(--accent);outline-offset:1px}";
         shadow.append(style);
         pages = Array.from(
           shadow.querySelectorAll<HTMLElement>("section.docx"),
@@ -112,18 +119,19 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
         for (const pageElement of pages)
           pageElement.classList.add("preview-content");
         pageCount.value = pages.length;
-        scroller = pane.value?.querySelector(".document-scroll") as HTMLElement;
+        scroller = scroll.value;
         scroller?.addEventListener("scroll", syncPage, { passive: true });
         cleanupResize = attachTableResize(shadow, {
           initial: props.file.view?.word?.widths,
           onChange: (widths) => {
             props.file.view ??= { zoom: props.zoom, scroll: [] };
-            props.file.view.word = { widths };
+            props.file.view.word = {...props.file.view.word, widths};
           },
         });
         resize = createSafeResizeObserver(fit);
-        resize.observe(scroller);
+        if (scroller) resize.observe(scroller);
         fit();
+        bodyRoot.value = body;
         emit("ready");
       }
     } catch (e) {
@@ -140,7 +148,8 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     cleanupResize?.();
     scroller?.removeEventListener("scroll", syncPage);
     host.value?.shadowRoot?.replaceChildren();
+    bodyRoot.value = undefined;
   });
 
-  return { pane, host, warning, page, pageCount, jump };
+  return { pane, host, bodyRoot, scroll, warning, page, pageCount, jump, fit };
 }

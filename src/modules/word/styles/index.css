@@ -22,6 +22,17 @@
 .word-host:empty {
   min-width: 0;
 }
+.word-body { display:flex; flex:1; min-height:0; overflow:hidden; }
+.word-body > .document-scroll { min-width:0; }
+.word-tools.filebar-inline { display:inline-flex; align-items:center; }
+.word-outline { flex:0 0 210px; max-width:30%; min-width:0; overflow:auto; border-right:1px solid var(--line); padding:8px 4px; background:var(--well); }
+.word-outline button { display:block; width:100%; border:0; border-radius:4px; background:transparent; color:var(--text); text-align:left; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.word-outline button:hover,.word-outline button:focus-visible,.word-outline button[aria-current] { background:var(--panel); color:var(--accent); }
+.word-outline button[aria-current] { font-weight:600; }
+.word-outline-empty { font-size:12px; line-height:1.6; color:var(--muted); padding:8px; overflow-wrap:anywhere; }
+.word-search-input { width:100%; min-width:0; }
+.word-search-count { color:var(--muted); font-size:12px; }
+@media(max-width:800px) { .word-outline { flex-basis:160px; } }
 .word-host .msdoc-page {
   box-shadow: 0 3px 18px #1d2d491c;
 }
