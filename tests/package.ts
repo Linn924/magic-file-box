@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { resolve,dirname } from "node:path";
 import { writeFileSync, mkdirSync,existsSync,readFileSync } from "node:fs";
+import {createNavigationFixture} from '../src/modules/word/tests/navigation';
 type Target = {
   id: string;
   type: string;
@@ -11,7 +12,7 @@ type Command = (
   method: string,
   params?: Record<string, unknown>,
 ) => Promise<any>;
-const args=process.argv.slice(2),skipPrint=args.includes('--skip-print'),checkUpdates=args.includes('--updates'),checkTextSearch=args.includes('--text-search');
+const args=process.argv.slice(2),skipPrint=args.includes('--skip-print'),checkUpdates=args.includes('--updates'),checkTextSearch=args.includes('--text-search'),checkWordNavigation=args.includes('--word-navigation');
 const exe = resolve(args.find(arg=>!arg.startsWith('--')) || "outputs/release/win-unpacked/magic file box.exe");
 const profile = resolve("work/test-profiles/package-" + process.pid);
 mkdirSync(profile, { recursive: true });
@@ -180,6 +181,35 @@ try {
       await evaluate(json, "setTimeout(()=>window.localPreview.close(),100);true");
       results.push('PASS packaged JSON search reveals distant virtual matches, counts same-line occurrences, navigates and clears highlights without changing the source');
     } finally { if (jsonChild.exitCode === null) jsonChild.kill(); }
+  }
+  if (checkWordNavigation) {
+    const name='word-navigation-v1.docx',file=resolve('work/fixtures',name);
+    await createNavigationFixture({fixture:name=>resolve('work/fixtures',name)},name);
+    const original=readFileSync(file),known=new Set((await targets()).map(target=>target.id));
+    const wordChild=spawn(exe,['--user-data-dir='+profile,file],{windowsHide:true,stdio:'ignore'});
+    try {
+      const target=await waitFor(async()=>(await targets()).find(item=>!known.has(item.id)&&item.url.includes('?preview=1')),'Packaged DOCX file delivery');
+      const word=await connect(target.webSocketDebuggerUrl);
+      await waitFor(()=>evaluate(word,"!!document.querySelector('.word-search-toggle:not(:disabled)')&&!document.querySelector('.loading')"),'Packaged DOCX ready');
+      await evaluate(word,"document.querySelector('.word-outline-toggle').click();true");
+      await waitFor(()=>evaluate(word,"document.querySelectorAll('.word-outline button').length===5"),'Packaged DOCX heading directory');
+      await evaluate(word,"document.querySelector('.word-search-toggle').click();true");
+      await waitFor(()=>evaluate(word,"!!document.querySelector('.word-search-input')"),'Packaged DOCX search input');
+      await evaluate(word,"(()=>{const input=document.querySelector('.word-search-input');input.value='跨格式搜索';input.dispatchEvent(new Event('input',{bubbles:true}));return true})()");
+      const visible="(()=>{const root=document.querySelector('.document-scroll'),bounds=root.getBoundingClientRect();return [...document.querySelector('.word-host').shadowRoot.querySelectorAll('.word-current-hit')].some(hit=>[...hit.getClientRects()].some(r=>r.top>=bounds.top&&r.bottom<=bounds.bottom&&r.left>=bounds.left&&r.right<=bounds.right))})()";
+      await waitFor(()=>evaluate(word,"document.querySelector('.word-search-count').textContent.includes('1 / 3')&&document.querySelector('.word-host').shadowRoot.querySelectorAll('.word-current-hit').length===3&&"+visible),'Packaged DOCX search across formatted runs');
+      for(const index of [2,3]) {
+        await evaluate(word,"document.querySelector('.word-find-next').click();true");
+        await waitFor(()=>evaluate(word,`document.querySelector('.word-search-count').textContent.includes('${index} / 3')&&`+visible),'Packaged DOCX search result '+index);
+      }
+      await evaluate(word,"document.querySelector('.search-close').click();true");
+      await waitFor(()=>evaluate(word,"!document.querySelector('.word-host').shadowRoot.querySelector('.word-search-hit')"),'Packaged DOCX search cleanup');
+      await evaluate(word,"document.querySelector('[data-word-outline-index=\"3\"]').click();true");
+      await waitFor(()=>evaluate(word,"document.querySelector('[data-word-outline-index=\"3\"]').hasAttribute('aria-current')&&document.querySelector('.document-scroll').scrollTop>500"),'Packaged DOCX duplicate-title directory navigation');
+      if(!readFileSync(file).equals(original))throw Error('Packaged DOCX navigation modified its source');
+      await evaluate(word,"setTimeout(()=>window.localPreview.close(),100);true");
+      results.push('PASS packaged DOCX searches across formatted runs, navigates table/distant results, clears marks and locates duplicate headings without changing the source');
+    } finally {if(wordChild.exitCode===null)wordChild.kill();}
   }
   await evaluate(view, "setTimeout(()=>window.localPreview.close(),100);true");
   await evaluate(ppt, "setTimeout(()=>window.localPreview.close(),100);true");

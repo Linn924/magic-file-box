@@ -5,7 +5,7 @@ import type {Suite} from '../../../../tests/context';
 
 const escape = (value: string) => value.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
 const p = (value: string, properties = '') => `<w:p>${properties?'<w:pPr>'+properties+'</w:pPr>':''}<w:r><w:t>${escape(value)}</w:t></w:r></w:p>`;
-async function fixture(c: Parameters<Suite>[0], name: string, long = false) {
+export async function createNavigationFixture(c: Pick<Parameters<Suite>[0], 'fixture'>, name: string, long = false) {
   if (existsSync(c.fixture(name))) return;
   const zip = new JSZip();
   zip.file('[Content_Types].xml',`<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/>${[['document','document.main'],['styles','styles'],['header','header'],['footnotes','footnotes']].map(([name,type])=>`<Override PartName="/word/${name}.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.${type}+xml"/>`).join('')}</Types>`);
@@ -30,7 +30,7 @@ async function fixture(c: Parameters<Suite>[0], name: string, long = false) {
 }
 
 const suite: Suite = async c => {
-  const name='word-navigation-v1.docx'; await fixture(c,name);
+  const name='word-navigation-v1.docx'; await createNavigationFixture(c,name);
   const original=readFileSync(c.fixture(name)), win=await c.open(name);
   const theme=c.program.settings.get().theme, zoom=c.home.webContents.getZoomFactor();
   const shadow="document.querySelector('.word-host').shadowRoot";
@@ -100,7 +100,7 @@ const suite: Suite = async c => {
     await c.evaluate(receiver,`(()=>{const d=new DataTransfer();d.setData('application/x-file-preview-tab',${JSON.stringify(id)});document.querySelector('main').dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}))})()`);
     await c.check(receiver,'DOCX outline survives transfer without a persisted search',"document.querySelectorAll('.word-outline button').length===5&&!document.querySelector('.word-search-input')");
   }finally{c.close(tabs);c.close(receiver);}
-  const longName='word-long-outline-v1.docx';await fixture(c,longName,true);const long=await c.open(longName);
+  const longName='word-long-outline-v1.docx';await createNavigationFixture(c,longName,true);const long=await c.open(longName);
   try{await c.click(long,'.word-outline-toggle');await c.check(long,'long DOCX outline keeps a bounded set of entries',"document.querySelectorAll('.word-outline button').length>0&&document.querySelectorAll('.word-outline button').length<60");await c.evaluate(long,"document.querySelector('.word-outline button').dispatchEvent(new KeyboardEvent('keydown',{key:'End',bubbles:true,cancelable:true}))");await c.check(long,'DOCX outline keyboard navigation reaches the final heading',"document.activeElement?.textContent==='长目录章节 239'");await c.evaluate(long,"document.activeElement.click()");await c.check(long,'last DOCX directory entry navigates to real content',"document.querySelector('.document-scroll').scrollTop>500&&document.querySelector('.word-outline [aria-current]').textContent==='长目录章节 239'");}finally{c.close(long);}
 };
 export default suite;
