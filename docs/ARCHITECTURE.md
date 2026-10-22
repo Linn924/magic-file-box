@@ -138,7 +138,7 @@ PDF 的 [PdfNav.vue](../src/modules/pdf/components/PdfNav.vue) 独立管理目�
 
 1. [electron/files/index.ts](../electron/files/index.ts) 准备元数据、文件 ID 与来源路径，主进程维护窗口和任务引用。
 2. useApplication 接收文件列表，选择活动标签；[PreviewTab](../src/components/preview/PreviewTab.vue) 在实际需要预览时请求字节，同一来源读取合并。
-3. PreviewTab 通过注册表创建格式组件，组件报告 ready/error；原文件路径不作为应用历史持久化。
+3. PreviewTab 通过注册表创建格式组件，组件报告 ready/error；原文件路径不作为应用历史持久化。内容区域由 preview-body 单独承载，加载提示以转圈图标与文字卡片居中覆盖，位置随工具栏换行和沉浸模式自适应，不参与文档排版且不拦截鼠标。完成或失败后移除提示，减少动态效果偏好下停止转圈动画。
 4. 闲置标签释放预览 DOM，当前视图状态仍在 PreviewFile.view；已加载字节可留在有界内存缓存。
 5. 标签关闭触发模块 closeFile、字节缓存和主进程引用释放；最后使用者退出后清理路径、密码与未完成读取。
 

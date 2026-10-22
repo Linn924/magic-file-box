@@ -205,12 +205,16 @@ async function loaded() {
       <ToolButton class="immersive-toggle" icon="fullscreen" :title="immersive ? '退出全屏（Esc）' : '沉浸阅读（F11）'" :pressed="immersive" @click="toggleFullscreen" />
     </div>
     <div class="floating-tools"></div>
+    <div class="preview-body">
     <div v-if="error" class="error" role="alert">
       <strong>暂时无法预览</strong>
       <p>{{ error }}</p>
     </div>
     <template v-else
-      ><div v-if="active && !ready" class="loading" role="status">正在解析文件…</div>
+      ><div v-if="active && !ready" class="loading" role="status" aria-live="polite">
+        <span class="loading-spinner" aria-hidden="true"></span>
+        <span>正在解析文件…</span>
+      </div>
       <component
         v-if="content && !content.error"
         :is="getPreviewModule(file.ext)?.component"
@@ -224,5 +228,6 @@ async function loaded() {
           ready = true;
         "
     /></template>
+    </div>
   </section>
 </template>
