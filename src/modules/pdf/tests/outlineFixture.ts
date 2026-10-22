@@ -1,7 +1,7 @@
 import {writeFileSync} from 'node:fs';
 
 /** Three local-only pages with enough bookmarks to scroll the outline pane. */
-export function outlineFixture(path:string){
+export function outlineFixture(path:string,titles?:string[]){
  const content='0.2 0.4 0.8 rg 40 40 100 100 re f';
  const count=30;
  const objects=[
@@ -15,9 +15,10 @@ export function outlineFixture(path:string){
   ...Array.from({length:count},(_,i)=>{
    const prev=i?`/Prev ${7+i} 0 R`:'';
    const next=i<count-1?`/Next ${9+i} 0 R`:'';
-   const title=i===0?'Section One':i===count-1?'Section Two':`Chapter ${i}`;
+   const title=titles?.[i]??(i===0?'Section One':i===count-1?'Section Two':`Chapter ${i}`);
+   const encoded=titles?'<FEFF'+title.split('').map(char=>char.charCodeAt(0).toString(16).padStart(4,'0')).join('')+'>':`(${title})`;
    const target=i===0?3:i===count-1?5:4;
-   return `<< /Title (${title}) /Parent 7 0 R ${prev} ${next} /Dest [${target} 0 R /Fit] >>`;
+   return `<< /Title ${encoded} /Parent 7 0 R ${prev} ${next} /Dest [${target} 0 R /Fit] >>`;
   }),
  ];
  let pdf='%PDF-1.4\n';const offsets=objects.map((object,i)=>{const offset=Buffer.byteLength(pdf);pdf+=`${i+1} 0 obj\n${object}\nendobj\n`;return offset;});

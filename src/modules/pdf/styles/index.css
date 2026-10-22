@@ -233,11 +233,13 @@
 .pdf-thumbs { overflow-anchor: none; }
 .thumb-meta { height:20px;line-height:20px;margin:0 0 8px; }
 .outline-item {
-  height:auto;
+  height:28px;
   min-height:28px;
-  white-space:normal;
-  overflow-wrap:anywhere;
+  white-space:nowrap;
+  overflow:hidden;
+  line-height:16px;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: 6px;
   width: 100%;
@@ -257,6 +259,13 @@
 .outline-item small {
   color: var(--muted);
   flex-shrink: 0;
+}
+.outline-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .thumb {
   height:auto;

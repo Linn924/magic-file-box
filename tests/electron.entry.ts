@@ -29,6 +29,7 @@ import excel from "@/modules/excel/tests/e2e";
 import ppt from "@/modules/ppt/tests/e2e";
 import pdf from "@/modules/pdf/tests/e2e";
 import pdfthumbs from '@/modules/pdf/tests/thumbnails';
+import pdfoutline from '@/modules/pdf/tests/outlineLayout';
 import text from "@/modules/text/tests/e2e";
 import textsearch from '@/modules/text/tests/sourceSearch';
 import syntax from '@/modules/text/tests/syntax';
@@ -88,6 +89,7 @@ const suites: Record<string, Suite> = {
   ppt,
   pdf,
   pdfthumbs,
+  pdfoutline,
   text,
   textsearch,
   syntax,

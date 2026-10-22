@@ -26,6 +26,7 @@ const names = [
   "ppt",
   "pdf",
   "pdfthumbs",
+  "pdfoutline",
   "text",
   "textsearch",
   "syntax",
@@ -60,7 +61,8 @@ if (!args.includes("--skip-build"))
     ["run", "build"],
     process.platform === "win32",
   );
-run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);
+if (selected.some(name => name !== 'pdfoutline'))
+  run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);
 if(selected.includes('sources')||selected.includes('all')){
   run(process.execPath,['--import','tsx','src/modules/text/tests/fileRecordsUnit.ts']);
   run(process.execPath,['--import','tsx','tests/sourceArchiveUnit.ts']);

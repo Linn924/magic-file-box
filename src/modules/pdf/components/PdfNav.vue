@@ -503,11 +503,12 @@ const hasOutline = computed(() => outline.value.length > 0);
           <button
             type="button"
             class="outline-item"
+            :title="item.title"
             :disabled="!item.page"
             :class="{ current: item.key === currentOutlineKey }"
             @click="item.page && emit('jump', item.page)"
           >
-            {{ item.title }}
+            <span class="outline-title">{{ item.title }}</span>
             <small v-if="item.page" class="outline-page" :aria-label="'第 '+item.page+' 页'">{{ item.page }}</small>
           </button>
         </div>
