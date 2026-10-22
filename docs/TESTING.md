@@ -208,6 +208,8 @@ npm test -- --suite immersive,visual,bulk
 - `immersive`：PDF 默认显示/适合宽度/整页适配携带自定义倍率进入原生全屏，模式和倍率保持；沉浸中主动更改适配后，Esc 恢复进入前状态，首页不受影响。Word/PPT/图片补充适合宽度与自定义倍率的全屏往返，Excel/文本补充自定义倍率往返；保留各格式等比适配断言，PDF 演示仍单页整页适配并在退出后恢复选择。仅移除沉浸入口的模式/倍率覆盖时运行该专项；工具栏、标签布局和多文件流程变化仍按上方矩阵选专项。
 - `bulk`：13 标签、26 独立窗口及按需加载；不以测试数量声称无限资源。
 
+打印设置简化检查 printing、nonpdfprinting：展开后保留纸张选择和排版示意，移除只读页码/尺寸清单及截断页数；继续验证 PDF、图片和 DOCX 的实际内存打印布局、页码范围、物理纸张尺寸与队列行为。自动检查拦截打印机枚举和提交出口，不连接实体打印机。
+
 ## 性能方法与验收边界
 
 `npm run bench` 做库级测量；`npm test -- --suite bench` 测 Electron 打开→ready。PDF 全链路场景：invoice-50、long-500、scan-12、dense-20、windows-6、print-10。用 FILE_PREVIEW_PERF_SCENARIO 指定所需场景，FILE_PREVIEW_PERF_PHASE 控制输出文件；保持相同样例、脚本和后台节流策略。保存原基线，避免覆盖已交付历史结果。

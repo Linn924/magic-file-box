@@ -3,7 +3,7 @@ import { onMounted, onBeforeUnmount, ref, watch, toRaw, computed } from "vue";
 import type { PreviewFile } from "@shared/contracts";
 import type { Printer } from "@shared/printing";
 import { paperSupportHint } from "@shared/printing";
-import {PdfPageDimensions as PageDimensions, PdfPaperPreview as PaperPreview} from "@/modules/pdf/printing";
+import {PdfPaperPreview as PaperPreview} from "@/modules/pdf/printing";
 import PrintOptions from "./PrintOptions.vue";
 import { usePrintQueue } from "./usePrintQueue";
 import { printError } from "./errorMessage";
@@ -313,11 +313,6 @@ const orderLabel = (o?: string) =>
               <PaperPreview
                 v-if="row.expanded"
                 class="print-paper-preview"
-                :file="row.file"
-                :options="row.options"
-              />
-              <PageDimensions
-                v-if="row.expanded"
                 :file="row.file"
                 :options="row.options"
               />

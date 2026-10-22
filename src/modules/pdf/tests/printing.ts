@@ -119,14 +119,15 @@ const suite: Suite = async (c) => {
     await c.click(win, ".toggle-print-options");
     await c.check(
       win,
-      "original and target dimensions shown",
-      "document.querySelector('.paper-dimensions')?.textContent.includes('mm')",
+      "expanded print settings keep the selected paper without a read-only dimensions list",
+      "document.querySelector('[aria-label=打印纸张]')?.value==='A4'&&document.querySelector('.paper-caption')?.textContent.includes('A4')&&!document.querySelector('.page-dims,.paper-dimensions,.page-size-list,.page-size-row,.page-size-more')",
     );
     await c.check(
       win,
       "paper layout preview canvas present",
       "!!document.querySelector('.paper-layout-preview canvas')",
     );
+    await c.snapshot(win,'print-settings-without-dimensions');
     await c.check(
       win,
       "PDF paper choices include A4/A5",

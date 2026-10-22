@@ -444,11 +444,6 @@ html[data-theme="dark"] .paper-chip.warn{color:#fbbf24}
 .print-footer{position:sticky;bottom:0;z-index:5;display:flex;align-items:center;gap:10px;min-height:48px;padding:0 2px;margin-top:auto;background:var(--panel);border-top:1px solid var(--line)}
 .print-foot-note{margin-right:auto;font-size:12px;color:var(--muted);line-height:1.4}
 .print-go{min-width:148px;height:32px;font-size:13px;font-weight:600}
-.page-dims{margin-top:4px}
-.paper-dimensions{font-size:11px!important;margin:0;color:var(--muted)}
-.page-size-list{display:flex;flex-direction:column;gap:2px;max-height:96px;overflow:auto}
-.page-size-row{display:grid;grid-template-columns:28px 1fr;gap:6px;font-size:11px;padding:2px 4px;border-radius:4px;color:var(--muted)}
-.page-size-row.active{background:var(--accent-soft);color:var(--text)}
 .paper-layout-preview{display:flex;align-items:flex-start;gap:10px;margin:0;padding:8px;border-radius:8px;background:var(--well)}
 .paper-sheet{flex-shrink:0;background:#fff;border:1px solid var(--line);box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:center;overflow:hidden;transform:scale(.7);transform-origin:top center;margin-bottom:-20px}
 .paper-sheet canvas{max-width:92%;max-height:92%;object-fit:contain}

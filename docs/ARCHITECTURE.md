@@ -192,7 +192,7 @@ PDF 的 [fileRange.ts](../src/modules/pdf/core/fileRange.ts) 适配 PDFDataRange
 5. 渲染完成后带 token 报告 ready，主进程校验任务身份再提交系统打印。重复或迟到的回调不能重复提交。
 6. 窗口卸载调用 dispose 并清空宿主；PDF 取消渲染并释放文档/画布，图片释放对象 URL。失败、超时和来源关闭进入对应清理路径。
 
-公共打印界面不负责格式解析。PDF 的 [printing 入口](../src/modules/pdf/printing/index.ts) 还提供栅格计划、纸张预览和尺寸扫描；[Word](../src/modules/word/printing/index.ts)与[图片](../src/modules/image/printing/index.ts)提供各自的输出实现。PDF 输出使用打印专用分辨率和裁切预算，与阅读倍率和画布布局分开。
+公共打印界面不负责格式解析。PDF 的 [printing 入口](../src/modules/pdf/printing/index.ts) 还提供栅格计划与纸张预览；[Word](../src/modules/word/printing/index.ts)与[图片](../src/modules/image/printing/index.ts)提供各自的输出实现。打印设置不再为只读尺寸清单额外扫描前 40 页，所选纸张、方向和缩放仍通过设置及排版示意显示。PDF 输出使用打印专用分辨率和裁切预算，与阅读倍率和画布布局分开。
 
 打印状态区分取消、失败与已提交系统队列；系统接受任务不等于已实际出纸。
 

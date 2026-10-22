@@ -21,6 +21,7 @@ const suite:Suite=async c=>{
       let panel:BrowserWindow|undefined;
       for(let i=0;i<40&&!panel;i++){panel=BrowserWindow.getAllWindows().find(w=>!w.isDestroyed()&&w.webContents.getURL().includes('print-panel=1'));if(!panel)await c.pause(50);}
       assert.ok(panel);await c.check(panel,name+' print row ready',"!!document.querySelector('.toggle-print-options')");await c.click(panel,'.toggle-print-options');
+      await c.check(panel,name+' print settings omit the read-only PDF dimensions block',"!!document.querySelector('[aria-label=打印纸张]')&&!document.querySelector('.page-dims,.paper-dimensions,.page-size-list')");
       await c.evaluate(panel,`(()=>{const p=document.querySelector('[aria-label=打印纸张]');p.value='${paper}';p.dispatchEvent(new Event('change',{bubbles:true}))})()`);
       const before=submissions.length;await c.click(panel,'.print-go');await c.check(panel,name+' submits through intercepted print exit',"document.querySelector('.print-status').textContent.includes('已提交到系统队列')");
       assert.equal(submissions.length,before+1);const result=submissions.at(-1)!;assert.ok(result.pages>=1);assert.equal(result.paper,paper);
