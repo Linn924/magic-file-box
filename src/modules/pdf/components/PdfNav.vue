@@ -466,12 +466,12 @@ const hasOutline = computed(() => outline.value.length > 0);
     </div>
     <div
       v-show="tab === 'outline'"
-      ref="outlineHost"
-      class="pdf-outline"
+      class="pdf-outline-panel"
       role="tabpanel"
       aria-label="目录"
     >
       <label v-if="hasOutline" class="outline-filter"><span class="sr-only">搜索目录</span><input v-model="outlineQuery" aria-label="搜索目录" placeholder="搜索章节标题"/><button v-if="outlineQuery" type="button" aria-label="清除目录搜索" @click="outlineQuery=''">×</button></label>
+      <div ref="outlineHost" class="pdf-outline">
       <p v-if="hasOutline && !visibleOutline.length" class="pdf-nav-empty" role="status">没有匹配的章节</p>
       <p v-if="!hasOutline" class="pdf-nav-empty">本文档没有目录/书签</p>
       <template v-else>
@@ -485,16 +485,17 @@ const hasOutline = computed(() => outline.value.length > 0);
           <button
             v-if="item.hasChildren"
             type="button"
-            class="outline-toggle icon-only-btn"
+            class="outline-toggle"
             :disabled="!!outlineQuery.trim()"
-            :title="collapsed.has(item.key) ? '展开' : '折叠'"
-            :aria-label="collapsed.has(item.key) ? '展开' : '折叠'"
+            :title="!outlineQuery.trim() && collapsed.has(item.key) ? '展开' : '折叠'"
+            :aria-label="!outlineQuery.trim() && collapsed.has(item.key) ? '展开' : '折叠'"
+            :aria-expanded="!!outlineQuery.trim() || !collapsed.has(item.key)"
             @click="toggleOutline(item.key)"
           >
-            <svg class="btn-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true">
+            <svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
               <path
                 :d="
-                  !outlineQuery.trim() && collapsed.has(item.key) ? 'M5 3l5 5-5 5' : 'M3 5l5 5 5-5'
+                  !outlineQuery.trim() && collapsed.has(item.key) ? 'M5 3l6 5-6 5Z' : 'M3 5l5 6 5-6Z'
                 "
               />
             </svg>
@@ -513,6 +514,7 @@ const hasOutline = computed(() => outline.value.length > 0);
           </button>
         </div>
       </template>
+      </div>
     </div>
     <div
       v-show="tab === 'thumbs'"
