@@ -226,6 +226,8 @@ UpdateCenter 通过 [releaseNotes.ts](../src/components/updates/releaseNotes.ts)
 
 PreviewPanel 将浮窗挂到所属标签的 floating-tools 层，位置与查询保留在会话中。TabStrip 测量固有标签宽度，分别处理未溢出和有横向滚动条的布局；沉浸与演示隐藏整条标签区域。
 
+PreviewTab 进入沉浸全屏时保存阅读状态，保持当前显示模式和倍率；退出时恢复进入前的模式、倍率及滚动位置。PDF 的自动单双页继续按可用宽度和页面尺寸判断，演示模式仍由 PDF 模块独立强制单页整页适配。
+
 ## 构建、产物与验证入口
 
 | 源码或工具 | 产物与用途 |

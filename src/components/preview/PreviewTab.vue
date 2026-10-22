@@ -70,10 +70,6 @@ watch(
           left: el.scrollLeft,
         })),
       };
-      if (module.value?.pageFit) {
-        fitMode.value = "page";
-        zoom.value = 100;
-      }
     } else if (saved) {
       zoom.value = saved.zoom;
       fitMode.value = saved.fit;
