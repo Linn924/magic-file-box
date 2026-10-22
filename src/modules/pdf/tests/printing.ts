@@ -128,6 +128,12 @@ const suite: Suite = async (c) => {
       "!!document.querySelector('.paper-layout-preview canvas')",
     );
     await c.snapshot(win,'print-settings-without-dimensions');
+    await c.evaluate(win,"document.querySelector('.print-range input').focus()");
+    await c.snapshot(win,'print-fields-focused-light');
+    c.program.updateSettings({theme:'dark'});
+    await c.snapshot(win,'print-fields-focused-dark');
+    await c.evaluate(win,"document.querySelector('.print-range input').blur()");
+    c.program.updateSettings({theme:'light'});
     await c.check(
       win,
       "PDF paper choices include A4/A5",
@@ -275,6 +281,10 @@ const suite: Suite = async (c) => {
     );
     for (let i = 0; i < 100 && !release; i++) await c.pause(50);
     if (!release) throw Error("Print job not ready for stop test");
+    await c.snapshot(win,'print-fields-disabled-light');
+    c.program.updateSettings({theme:'dark'});
+    await c.snapshot(win,'print-fields-disabled-dark');
+    c.program.updateSettings({theme:'light'});
     const heldWorker = BrowserWindow.getAllWindows().find(w => w.webContents.getURL().includes('?print=1'));
     if (!heldWorker) throw Error('Missing active print worker');
     await c.evaluate(heldWorker, "window.localPreview.printReady('late failure','old-task-token')");

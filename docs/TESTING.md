@@ -210,6 +210,8 @@ npm test -- --suite immersive,visual,bulk
 
 打印设置简化检查 printing、nonpdfprinting：展开后保留纸张选择和排版示意，移除只读页码/尺寸清单及截断页数；继续验证 PDF、图片和 DOCX 的实际内存打印布局、页码范围、物理纸张尺寸与队列行为。自动检查拦截打印机枚举和提交出口，不连接实体打印机。
 
+打印控件配色调整运行 printing，复核明暗主题的正常、聚焦及真实忙碌禁用状态截图；保留已有纸张、份数、范围及停止/恢复提交行为断言。阅读区浅色背景使用 stage 的 #DCE2EA，打印控件局部样式不覆盖文档画布。
+
 ## 性能方法与验收边界
 
 `npm run bench` 做库级测量；`npm test -- --suite bench` 测 Electron 打开→ready。PDF 全链路场景：invoice-50、long-500、scan-12、dense-20、windows-6、print-10。用 FILE_PREVIEW_PERF_SCENARIO 指定所需场景，FILE_PREVIEW_PERF_PHASE 控制输出文件；保持相同样例、脚本和后台节流策略。保存原基线，避免覆盖已交付历史结果。

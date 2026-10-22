@@ -398,7 +398,8 @@
 }
 
 .pdf-print-panel{box-sizing:border-box;width:100%;display:flex;flex-direction:column}
-.print-workspace{height:100vh;background:var(--bg);overflow:auto}
+.print-workspace{height:100vh;background:var(--bg);overflow:auto;--print-input-bg:#fff;--print-input-border:#7d8b9d}
+html[data-theme="dark"] .print-workspace{--print-input-bg:#1b1f27;--print-input-border:#65748a}
 .print-workspace .pdf-print-panel{width:100%;min-height:100%;max-height:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;gap:10px;padding:12px 14px 10px;font-size:13px}
 .print-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .print-top h2{margin:0;font-size:14px;font-weight:600}
@@ -436,7 +437,12 @@ html[data-theme="dark"] .paper-chip.warn{color:#fbbf24}
 .print-side .paper-layout-preview{margin:0;padding:8px;flex-direction:column;align-items:center;text-align:center;gap:6px}
 .print-options{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin:0}
 .print-options label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.print-options select,.print-options input{height:28px;border:1px solid var(--line);border-radius:6px;background:var(--well);color:var(--text);padding:0 6px;font-size:12px}
+.print-workspace .print-options select,.print-workspace .print-options input{height:28px;border:1px solid var(--print-input-border);border-radius:6px;background:var(--print-input-bg);color:var(--text);padding:0 6px;font-size:12px}
+.print-printer-bar select{background:var(--print-input-bg);border-color:var(--print-input-border);color:var(--text)}
+.print-options input::placeholder{color:var(--muted);opacity:1}
+.print-options select:enabled:hover,.print-options input:enabled:hover,.print-printer-bar select:enabled:hover{border-color:var(--accent)}
+.print-options select:enabled:focus,.print-options input:enabled:focus,.print-printer-bar select:enabled:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.print-options select:disabled,.print-options input:disabled,.print-printer-bar select:disabled{background:var(--well);border-color:var(--line);color:var(--muted);cursor:not-allowed;opacity:1;box-shadow:none}
 .print-options small{display:none}
 .print-range{grid-column:1/-1}
 .print-file-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted)}
