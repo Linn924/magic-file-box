@@ -212,6 +212,8 @@ PDF 的 [fileRange.ts](../src/modules/pdf/core/fileRange.ts) 适配 PDFDataRange
 
 [updates](../electron/updates) 包含更新状态机、electron-updater 驱动和重启协调。更新使用独立网络 session；下载与校验后，RestartCoordinator 检查窗口、未保存修改、在途输出和打印等状态。取消或失败解除界面冻结，普通退出不自动安装。当前源码采用匿名 GitHub Release 源，没有私有仓库认证通道；更新可访问性取决于发布源，版本比较不执行降级。
 
+UpdateCenter 通过 [releaseNotes.ts](../src/components/updates/releaseNotes.ts) 将更新源的 HTML 说明转换成纯文本：DOMPurify 仅保留分行所需的结构标签、移除全部属性及主动内容，再按段落和列表生成换行与条目标记。设置和更新通知复用同一转换，最终仍通过 Vue 文本插值显示，不插入远程 HTML 或加载其中的资源；普通文本和多版本说明同样适用。
+
 从 1.0.5 起，构建的 GitHub 发布源为 Linn924/magic-file-box，产物校验同步拒绝旧仓库配置。Git 历史和既有版本标签保留，历史 1.0.3/1.0.4 安装包原样迁移，其内置旧更新地址不能通过修改仓库代码改变；这些已安装版本需手动安装一次 1.0.5 才切换更新源。appId、文件关联标识、原设置目录与专属公钥不因仓库迁移改变。
 
 [security/index.ts](../electron/security/index.ts) 提供非持久预览 session、本地协议映射与 IPC 来源检查。窗口启用 sandbox/contextIsolation，拒绝任意导航、webview 和新窗口。文档内容访问网络受限，明确点击的受控外链由系统浏览器打开。Markdown 链接、图片、导出、另存和打印仍各自复查来源与参数。
