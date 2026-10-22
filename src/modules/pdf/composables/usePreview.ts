@@ -1,4 +1,5 @@
 import { fitScale } from "@/utils/fit";
+import { usePreviewTask } from '@/composables/usePreviewTask';
 import { previewError } from "@shared/previewError";
 import { createSafeResizeObserver } from "@/utils/safeResizeObserver";
 import { previewPixelRatio } from "../core/bitmap";
@@ -30,6 +31,7 @@ const OVERSCAN = 2;
 const SCROLL_PADDING = 26;
 
 export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermission?:(allowed:boolean,password?:string)=>void,presentation=ref(false)) {
+  const previewTask = usePreviewTask();
   GlobalWorkerOptions.workerSrc = workerUrl;
   const scroll = ref<HTMLElement>();
   const layout = ref(0);
@@ -420,6 +422,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     const attempt=++bootstrapRevision;
     needPassword.value = false;
     passwordError.value = "";
+    previewTask.report('parsing');
     try {
       const lease = await acquireCachedPdf(props.file.id, props.file.bytes, {
         cMapUrl: base + "cmaps/",
@@ -427,7 +430,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
         standardFontDataUrl: base + "standard_fonts/",
         wasmUrl: base + "wasm/",
         password,
-      });
+      }, previewTask.signal);
       if(scroll.value)scroll.value.dataset.pdfStage='document';
       if (disposed||attempt!==bootstrapRevision) { lease.release(); return; }
       releaseLease?.();
@@ -451,6 +454,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
       const first = await doc.getPage(1);
       if (disposed) return;
       const initial = first.getViewport({ scale: 1 });
+      previewTask.report('rendering');
       rememberPageSize(doc,1,{width:initial.width,height:initial.height});
       pages.value = Array.from({ length: doc.numPages }, (_,index) => cachedPageSize(doc,index+1) || ({
         width: initial.width,
@@ -501,9 +505,10 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
       updateVirtualWindow();
       observe();
     } catch (e) {
-      if (disposed||attempt!==bootstrapRevision) return;
+      if (disposed||previewTask.signal.aborted||attempt!==bootstrapRevision) return;
       const name = (e as { name?: string })?.name || "";
       if (name === "PasswordException" || /password/i.test(String(e))) {
+        previewTask.report('password');
         needPassword.value = true;
         passwordError.value = password
           ? "密码不正确，请重试。"

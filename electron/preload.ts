@@ -29,7 +29,10 @@ const bridge: DesktopBridge = {
     ipcRenderer.on('pdf:resources',listener);
     return ()=>ipcRenderer.removeListener('pdf:resources',listener);
   },
-  loadPreview: (file) => ipcRenderer.invoke("preview:load", file),
+  loadPreview: (file, task) => ipcRenderer.invoke("preview:load", file, task),
+  cancelPreviewLoad: task => ipcRenderer.invoke('preview:cancel-load', task),
+  acquirePreviewParser: (id, task) => ipcRenderer.invoke('preview:acquire-parser', id, task),
+  releasePreviewParser: task => ipcRenderer.invoke('preview:release-parser', task),
   setPdfPassword:(id,password)=>ipcRenderer.invoke('pdf:password',id,password),
   openExternal: async (url: string) => {
     if (!/^https?:\/\//i.test(url)) throw Error("仅允许打开 http(s) 链接。");

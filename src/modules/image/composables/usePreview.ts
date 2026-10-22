@@ -1,10 +1,12 @@
 import { fitScale } from "@/utils/fit";
+import { usePreviewTask } from '@/composables/usePreviewTask';
 import { createSafeResizeObserver } from "@/utils/safeResizeObserver";
 import { computed, onBeforeUnmount, onMounted, ref, watch, nextTick } from "vue";
 import DOMPurify from "dompurify";
 import type { PreviewProps, PreviewEmit } from "@/modules/types";
 
 export function usePreview(props: PreviewProps, emit: PreviewEmit) {
+  const task = usePreviewTask();
   const pane = ref<HTMLElement>();
   const types: Record<string, string> = {
     jpg: "image/jpeg",
@@ -48,6 +50,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     available.value={width:Math.max(0,surface.clientWidth-50),height:Math.max(0,surface.clientHeight-50)};
   }
   onMounted(() => {
+    task.report('rendering');
     fullscreenCleanup=window.localPreview.onFullscreen(value=>{
       fullscreen.value=value;
       if(!value){restoringFullscreen=true;void nextTick().then(()=>{restoringFullscreen=false;});}

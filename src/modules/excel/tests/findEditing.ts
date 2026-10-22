@@ -5,7 +5,9 @@ import path from 'node:path';
 import ExcelJS from 'exceljs';
 import * as XLSX from 'xlsx';
 import type {Suite} from '../../../../tests/context';
+import {withSettledHistory} from './editingContext';
 const suite:Suite=async c=>{
+  c=withSettledHistory(c);
   const name='edit-find-assist-v2.xlsx';if(!existsSync(c.fixture(name))){const book=new ExcelJS.Workbook(),ws=book.addWorksheet('Data'),other=book.addWorksheet("O'Brien");ws.getCell('A1').value='Alpha';ws.getCell('A2').value='alpha';ws.getCell('B1').value='Alpha Alpha';ws.getCell('A3').value=2;ws.getCell('A4').value=3;ws.getCell('B3').value=10;ws.getCell('B4').value=20;ws.getCell('B5').value='occupied';ws.getCell('C1').value={formula:'SUM(A3:A4)',result:5};ws.getCell('C2').value={formula:'SUM(A3:A4)',result:5};ws.getCell('D1').value=12;ws.getCell('D1').numFmt='0.00';ws.getCell('E1').value='001';ws.getCell('F1').value=true;ws.getCell('F2').value={formula:'TEXT(A3,"0")',result:'2'};ws.getCell('G1').value='hidden match';ws.getColumn(7).hidden=true;ws.getCell('C2').numFmt='@';ws.getCell('A650').value='remote needle';other.getCell('A1').value=7;writeFileSync(c.fixture(name),Buffer.from(await book.xlsx.writeBuffer()));}
   const original=readFileSync(c.fixture(name)),realSave=dialog.showSaveDialog;let dest=path.resolve('outputs/verification/find-assist.xlsx');dialog.showSaveDialog=(async()=>({canceled:false,filePath:dest})) as typeof realSave;
   const win=await c.open(name);const cell=(a:string)=>`.spreadsheet td[data-address="${a}"]`;

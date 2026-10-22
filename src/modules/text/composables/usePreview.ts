@@ -1,7 +1,9 @@
 import { computed, onMounted, ref, watch } from "vue";
+import { usePreviewTask } from '@/composables/usePreviewTask';
 import type { PreviewFile } from "@shared/files";
 import type { PreviewProps, PreviewEmit } from "@/modules/types";
 export function usePreview(props: PreviewProps, emit: PreviewEmit) {
+  const task = usePreviewTask();
   const pane = ref<HTMLElement>();
   const bytes = props.file.bytes;
   const encoding = ref(
@@ -43,7 +45,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       return true;
     }
   });
-  onMounted(() => emit("ready"));
+  onMounted(() => { task.report('rendering'); emit("ready"); });
 
   return { pane, encoding, raw, pretty, invalidJson };
 }

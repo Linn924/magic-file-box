@@ -72,7 +72,7 @@ openHomeAction 覆盖缺省及旧配置回退为 ask、tray/keep 合法值、非
 
 文件：`tests/suites/core.ts`。
 
-预览加载提示布局调整时运行 core、word、excel、ppt、pdf、text、image、immersive，检查内容区域包装未影响各格式尺寸及滚动。另在隔离测试入口延迟 preview:load 响应，检查提示位于工具栏下方内容区中心、明暗主题和窄窗口/沉浸模式，完成与失败后不残留；减少动态效果时转圈动画停止。延迟读取只用于观察加载状态，不代表已验证大文件解析性能。
+预览加载流程调整时运行 loading、excelbackground、core、word、excel、exceledit、ppt、pdf、pdfchain、text、image、immersive；文件读取亦用于打印预览，补 printing、nonpdfprinting。检查内容区尺寸、滚动、标签卸载/移交及打印载荷；这不等同于安装或实体打印验证。
 
 1. main 首页初始化及重载均使用标准入口，预览只含文件操作；首页内部品牌图标和文字已移除；系统标题为“文件预览”；旧宣传文案、只读标记和底部状态条不存在。
 2. 设置中选择黑夜；文档根节点主题同步，preferences.json 只包含偏好字段，不包含路径或历史。
@@ -90,6 +90,16 @@ openHomeAction 覆盖缺省及旧配置回退为 ask、tray/keep 合法值、非
 `tests/quit.entry.ts` 分别另起进程验证询问中选择退出、已配置 quit 两种路径；两者都须在 will-quit 时确认首页和实际预览窗口已销毁，配置 quit 不再询问。所有套件执行前后对已有样例计算 SHA256，预览、缩放和列宽调整不得改变源文件。基础检查还验证生成的 NSIS 注册只添加 Open With 候选，不改扩展名默认值或 UserChoice。
 
 系统模态选择框在测试中替换返回值，以便自动化；真实对话框文案、按钮位置、托盘菜单操作还应按下方手工流程检查。
+
+### loading：统一加载、取消与重试
+
+文件：`tests/suites/previewLoading.ts`、`tests/previewLoadDriver.ts`。测试执行器在单独测试偏好下暂缓已完成的读取响应，验证各格式阶段、居中提示、取消按钮可命中及文字居中、窄窗口/深色/150% 缩放、取消保留标签、旧响应不重挂载、重试和错误重试、标签切换及读取中关闭。读取本身的真实中止、共享消费者保留和取消后新读取由 tests/unit.ts 验证，延迟响应不能代替这些断言。跨窗口检查单解析名额、排队取消、关闭持有者后的队列推进和外部文件身份拒绝；结束检查任务登记归零。PDF 密码取消及共享文档取消分别由 pdfchain 与 optimization.ts 覆盖。
+
+### excelbackground：后台表格解析
+
+文件：`src/modules/excel/tests/background.ts`。生成 50000×12 XLSX 与含引号逗号/跨行字段的 100000 行 CSV，验证真实解析期间界面计时器持续运行、取消在途 Worker、释放队列名额并重试至实际单元格。记录解析/准备显示阶段的计时器最大间隔（低于 600 ms），不将该测量称为总打开耗时或所有文件性能保证。生成样例前后核对 SHA256；现有 excel 与 exceledit 检查样式、图片、富文本、行列、工作表、编辑与另存行为。loadWorkbookUnit.ts 另核对可克隆显示模型中的空白样式、隐藏行列、图片锚点及样式降级。
+
+`src/modules/excel/tests/editingContext.ts` 为编辑专项共用的历史操作等待入口：撤销/重做可能通过后台重新安装工作簿，必须等到编辑保存门禁恢复后再执行下一步，原有数据、样式、选择与副本断言继续执行，不能用固定暂停代替事务完成。
 
 ### settingslayout：设置弹窗布局与分组导航
 

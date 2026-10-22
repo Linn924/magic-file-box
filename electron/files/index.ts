@@ -5,8 +5,8 @@ import { randomUUID } from "node:crypto";
 import { extensions, type PreviewFile } from "@shared/contracts";
 
 const selectedPaths = new Map<string, string>();
-const reads = new Map<string, Promise<PreviewFile>>();
-const readControllers = new Map<string,AbortController>();
+type ReadTask = { promise: Promise<PreviewFile>; controller: AbortController; users: Set<symbol>; done: boolean };
+const reads = new Map<string, ReadTask>();
 const references = new Map<string, Set<number>>();
 const passwords=new Map<string,string>();
 export function rememberPdfPassword(owner:number,id:string,password:string) {
@@ -86,23 +86,45 @@ export async function preparePreviewFile(filePath: string): Promise<PreviewFile>
 }
 
 /** 按需加载：标签挂载时读取字节。 */
-export async function loadPreparedFile(file: PreviewFile): Promise<PreviewFile> {
+export async function loadPreparedFile(file: PreviewFile, signal?: AbortSignal): Promise<PreviewFile> {
+  signal?.throwIfAborted();
   if (file.bytes?.byteLength || file.error) return sessionFile(file);
   const selected = selectedPaths.get(file.id);
   if (!selected) return { ...file, error: "文件已关闭，请重新选择。" };
   let pending = reads.get(file.id);
   if (!pending) {
-    const controller=new AbortController();readControllers.set(file.id,controller);
-    pending = readPreviewFile(selected,controller.signal);
+    const controller = new AbortController();
+    pending = { controller, users: new Set(), done: false, promise: readPreviewFile(selected, controller.signal) };
     reads.set(file.id, pending);
-    void pending.finally(() => { if (reads.get(file.id) === pending) { reads.delete(file.id);readControllers.delete(file.id); } }).catch(() => {});
+    const task = pending;
+    void task.promise.finally(() => {
+      task.done = true;
+      if (reads.get(file.id) === task) reads.delete(file.id);
+    }).catch(() => {});
   }
-  const loaded = await pending;
+  const task = pending, user = Symbol();
+  task.users.add(user);
+  const loaded = await new Promise<PreviewFile>((resolve, reject) => {
+    const finish = () => {
+      signal?.removeEventListener('abort', cancel);
+      task.users.delete(user);
+      if (!task.done && !task.users.size) {
+        // A retry must never attach to the read that was just cancelled.
+        if (reads.get(file.id) === task) reads.delete(file.id);
+        task.controller.abort();
+      }
+    };
+    const cancel = () => { finish(); reject(signal!.reason); };
+    signal?.addEventListener('abort', cancel, { once: true });
+    task.promise.then(value => { finish(); resolve(value); }, error => { finish(); reject(error); });
+    if (signal?.aborted) cancel();
+  });
+  signal?.throwIfAborted();
   if (selectedPaths.get(file.id) !== selected) return { ...file, error: "文件已关闭，请重新选择。" };
   return sessionFile({ ...loaded, id: file.id, view: file.view });
 }
 
-export function releasePreparedFile(id: string) { selectedPaths.delete(id);passwords.delete(id);readControllers.get(id)?.abort(); }
+export function releasePreparedFile(id: string) { selectedPaths.delete(id);passwords.delete(id);reads.get(id)?.controller.abort(); }
 export function preparedFileName(owner:number,id:string){return ownsPreparedFile(owner,id)?path.basename(selectedPaths.get(id)||''):'';}
 export function preparedFilePath(owner:number,id:string){if(!ownsPreparedFile(owner,id))throw Error('来源文件已关闭。');return selectedPaths.get(id)||'';}
 export async function isPreparedSourceTarget(target:string){

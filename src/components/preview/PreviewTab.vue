@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, shallowRef, nextTick, watch, computed, provide, onMounted, onBeforeUnmount } from "vue";
+import { ref, nextTick, watch, computed, provide, onBeforeUnmount } from "vue";
 import { getPreviewModule } from "@/modules";
 import FitControl from "./FitControl.vue";
 import type { FitMode } from "@/utils/fit";
@@ -8,7 +8,7 @@ import ZoomControl from "./ZoomControl.vue";
 import ToolButton from '@/components/ui/ToolButton.vue';
 import {fileSize} from '@/utils/formatters';
 import type {PreviewFile} from '@shared/files';
-import { cachePut, cacheGet, cacheDrop, cacheHas } from "@/services/fileContentCache";
+import { usePreviewLoad } from '@/composables/usePreviewLoad';
 const props = defineProps<{
   file: PreviewFile;
   initialZoom: number;
@@ -25,44 +25,6 @@ provide('pdf:set-print-permission',(allowed:boolean,password?:string)=>{
   if(password)props.file.view.pdfPassword=password;
 });
 
-const content=shallowRef<PreviewFile>();
-let disposed=false;
-let idleTimer: ReturnType<typeof setTimeout> | undefined;
-/** Stagger loadPreview across tabs so multi-open does not spike CPU. */
-let loadQ: Promise<unknown> = Promise.resolve();
-function enqueueLoad(fn: () => Promise<unknown>) {
-  loadQ = loadQ.then(fn).catch(() => undefined);
-  return loadQ;
-}
-
-async function ensureLoaded() {
-  if (content.value?.bytes?.byteLength || content.value?.error) return content.value;
-  const hit = cacheGet(props.file.id);
-  if (hit) {
-    hit.view = props.file.view;
-    content.value = hit;
-    ready.value = true;
-    return hit;
-  }
-  if (props.file.error) {
-    content.value = props.file;
-    ready.value = true;
-    return content.value;
-  }
-  ready.value = false;
-  const loaded = await window.localPreview.loadPreview(props.file);
-  if (disposed) return;
-  if(loaded.view?.pdfPassword){props.file.view??={zoom:props.initialZoom,scroll:[]};props.file.view.pdfPassword=loaded.view.pdfPassword;}
-  loaded.view = props.file.view;
-  cachePut(props.file.id, loaded);
-  content.value = loaded;
-  if (loaded.error) {
-    error.value = loaded.error;
-    ready.value = true;
-  }
-  return loaded;
-}
-
 function saveViewState() {
   props.file.view ??= { zoom: zoom.value, scroll: [] };
   props.file.view.zoom = zoom.value;
@@ -73,41 +35,10 @@ function saveViewState() {
   }));
 }
 
-function scheduleUnload() {
-  clearTimeout(idleTimer);
-  idleTimer = setTimeout(() => {
-    if (props.active || disposed) return;
-    // Drop mounted module/PDF.js state only; bytes stay in shared cache.
-    content.value = undefined;
-  }, 2000);
-}
-
-onMounted(() => {
-  if (!props.active) return;
-  void enqueueLoad(async () => {
-    await ensureLoaded();
-    if (!props.active) scheduleUnload();
-  });
-});
-watch(
-  () => props.active,
-  (on) => {
-    if (on) {
-      clearTimeout(idleTimer);
-      void enqueueLoad(() => ensureLoaded());
-    } else {
-      if (!content.value) return;
-      saveViewState();
-      scheduleUnload();
-    }
-  },
-);
+const { preview, phase, error, busy, label, elapsed, cancel, retry } = usePreviewLoad(props, loaded);
+watch(() => props.active, active => { if (!active && preview.value) saveViewState(); }, { flush: 'sync' });
 onBeforeUnmount(()=>{
- disposed=true;
- clearTimeout(idleTimer);
  saveViewState();
- content.value=undefined;
- cacheDrop(props.file.id);
  void module.value?.closeFile?.(props.file.id);
 });
 const module = computed(
@@ -159,14 +90,11 @@ watch(
   },
 );
 const zoom = ref(props.file.view?.zoom ?? props.initialZoom);
-const error = ref(props.file.error);
-const ready = ref(false);
 function toggleFullscreen() {
   (document.activeElement as HTMLElement)?.blur();
   void window.localPreview.setFullscreen(!props.immersive);
 }
 async function loaded() {
-  ready.value = true;
   await nextTick();
   const root = document.querySelector(`[data-file-id="${props.file.id}"]`);
   root
@@ -205,29 +133,32 @@ async function loaded() {
       <ToolButton class="immersive-toggle" icon="fullscreen" :title="immersive ? '退出全屏（Esc）' : '沉浸阅读（F11）'" :pressed="immersive" @click="toggleFullscreen" />
     </div>
     <div class="floating-tools"></div>
-    <div class="preview-body">
-    <div v-if="error" class="error" role="alert">
-      <strong>暂时无法预览</strong>
-      <p>{{ error }}</p>
-    </div>
-    <template v-else
-      ><div v-if="active && !ready" class="loading" role="status" aria-live="polite">
-        <span class="loading-spinner" aria-hidden="true"></span>
-        <span>正在解析文件…</span>
+    <div class="preview-body" :aria-busy="busy && phase !== 'password'" :data-load-phase="phase">
+      <div v-if="error" class="error" role="alert">
+        <strong>暂时无法预览</strong>
+        <p>{{ error }}</p>
+        <button v-if="!file.error" class="preview-retry" @click="retry">重新加载</button>
+      </div>
+      <div v-else-if="phase === 'cancelled'" class="empty preview-cancelled" role="status">
+        <p>已取消加载</p>
+        <button class="preview-retry" @click="retry">重新加载</button>
+      </div>
+      <div v-if="active && busy" class="loading" :class="{ 'loading-password': phase === 'password' }" role="status" aria-live="polite">
+        <span v-if="phase !== 'password'" class="loading-spinner" aria-hidden="true"></span>
+        <span>{{ label }}</span>
+        <small v-if="elapsed >= 3 && phase !== 'password'" aria-live="off">已用 {{ elapsed }} 秒</small>
+        <button class="preview-cancel-load" @click="cancel">取消加载</button>
       </div>
       <component
-        v-if="content && !content.error"
+        v-if="preview"
+        :key="preview.key"
         :is="getPreviewModule(file.ext)?.component"
-        :file="content"
+        :file="preview.file"
         :zoom="zoom"
         :fit-mode="fitMode"
         @update:zoom="zoom = $event"
-        @ready="loaded"
-        @error="
-          error = $event;
-          ready = true;
-        "
-    /></template>
+        v-on="preview.events"
+      />
     </div>
   </section>
 </template>

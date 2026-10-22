@@ -1,4 +1,5 @@
 import {setupModifiedFiles,hasModified,confirmModified,forgetModified} from './files/modifiedFiles';
+import {setupPreviewTasks,previewTaskStats} from './files/previewTasks';
 import {setupExcelCopy} from './files/excelCopy';
 import {setupMarkdownLinks} from './files/markdownLinks';
 import {setupPrintWindow} from "./printing/window";
@@ -27,7 +28,7 @@ import {applicationProfile} from './settings/profile';
 import {createHomeOnOpen} from './windows/homeOnOpen';
 import {setupExclusive} from './exclusive';
 import { SettingsStore } from "./settings";
-import { preparePreviewFile, loadPreparedFile, fileArguments, preparedFileCount,rememberPdfPassword,ownsPreparedFile,discardUnownedFiles } from "./files";
+import { preparePreviewFile, fileArguments, preparedFileCount,rememberPdfPassword,ownsPreparedFile,discardUnownedFiles } from "./files";
 import { createLocalSession, protectWindow, trusted } from "./security";
 import {
   extensions,
@@ -36,7 +37,7 @@ import {
 } from "@shared/contracts";
 
 // Honor an explicit profile location (also used by packaged integration tests).
-export function previewResourceStats(){return {paths:preparedFileCount(),pdfWindows:pdfResourceStats().clients};}
+export function previewResourceStats(){return {paths:preparedFileCount(),pdfWindows:pdfResourceStats().clients,...previewTaskStats()};}
 const profile = app.commandLine.getSwitchValue("user-data-dir");
 if (profile && path.isAbsolute(profile)) app.setPath("userData", profile);
 else if (app.getPath('userData') === path.join(app.getPath('appData'), app.getName())) {
@@ -358,7 +359,7 @@ export const ready = owner
         payloads.delete(event.sender.id);
         return value;
       });
-      ipcMain.handle('preview:load',async(event,file:PreviewFile)=>{trusted(event);return loadPreparedFile(file);});
+      setupPreviewTasks();
       ipcMain.handle('pdf:password',(event,id:string,password:string)=>{trusted(event);rememberPdfPassword(event.sender.id,id,password);});
       ipcMain.on("preview:close", (event) => {
         const win = BrowserWindow.fromWebContents(event.sender);

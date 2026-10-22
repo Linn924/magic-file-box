@@ -2,7 +2,7 @@ import {forgetModified,transferModified} from './modifiedFiles';
 import { ipcMain, webContents, type WebContents } from "electron";
 import { trusted } from "../security";
 import type { PreviewFile } from "@shared/contracts";
-import { retainPreparedFiles, releasePreparedOwner, releasePreparedReference, transferPreparedReference,discardUnownedFiles } from './';
+import { retainPreparedFiles, releasePreparedOwner, releasePreparedReference, transferPreparedReference,discardUnownedFiles,ownsPreparedFile } from './';
 const owners = new Map<string, number>();
 const pending = new Map<
   string,
@@ -21,6 +21,11 @@ export function registerFiles(sender: number, files: PreviewFile[]) {
   for (const file of files) owners.set(file.id, sender);
 }
 export function hasPendingTransfers(){return pending.size>0;}
+/** A claimed target may start loading before its mount is acknowledged by tabs:accept. */
+export function canPreviewFile(sender: number, id: string) {
+  const transfer = pending.get(id);
+  return ownsPreparedFile(sender, id) || Boolean(transfer?.target === sender && ownsPreparedFile(transfer.source, id));
+}
 export function releaseWindow(sender: number) {
   forgetModified(sender);
   releasePreparedOwner(sender);

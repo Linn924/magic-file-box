@@ -9,27 +9,31 @@ import {
   type CSSProperties,
 } from "vue";
 import * as XLSX from "xlsx";
-import ExcelJS from "exceljs";
+import type ExcelJS from "exceljs";
 import {useEditor} from './useEditor';
 import {createSafeResizeObserver} from '@/utils/safeResizeObserver';
-import { loadWorkbook } from '../core/workbook/loadWorkbook';
+import { loadWorkbookPreview } from '../core/workbook/workbookClient';
+import type { WorkbookAppearance } from '../core/workbook/previewModel';
+import { usePreviewTask, previewFrame } from '@/composables/usePreviewTask';
 import { previewError } from '@shared/previewError';
 import {visibleSheetNames} from '../core/editing/sheetState';
 import type { PreviewFile } from "@shared/files";
 import type { PreviewProps, PreviewEmit } from "@/modules/types";
 export function usePreview(props: PreviewProps, emit: PreviewEmit) {
+  const task = usePreviewTask();
+  let disposed = false;
   const pane = ref<HTMLElement>();
   const book = shallowRef<XLSX.WorkBook>();
-  let styled: ExcelJS.Workbook | undefined;
+  let styled: WorkbookAppearance | undefined;
   const warning = ref('');
   const restored = props.file.view?.excel;
   const sheetName = ref("");
   const widths = ref<Record<string, number>>({ ...restored?.widths });
-  async function install(bytes:Uint8Array,ext:string,widthState?:Record<string,number>){const loaded=await loadWorkbook(bytes,ext);for(const url of imageUrls.values())if(url.startsWith('blob:'))URL.revokeObjectURL(url);imageUrls.clear();styled=loaded.styled;warning.value=loaded.warning;book.value=loaded.book;if(!visibleSheetNames(loaded.book).includes(sheetName.value))sheetName.value=visibleSheetNames(loaded.book)[0]||'';if(widthState)widths.value={...widthState};await nextTick();}
-  const editor=useEditor(props.file,book,sheetName,install,()=>widths.value,(name,address)=>styled?.getWorksheet(name)?.getCell(address).numFmt||book.value?.Sheets[name]?.[address]?.z||logicalStyle(name,address)?.numFmt);
+  async function install(bytes:Uint8Array,ext:string,widthState?:Record<string,number>){const loaded=await loadWorkbookPreview(props.file.id,bytes,ext,task);task.signal.throwIfAborted();if(disposed)throw new DOMException('预览已关闭。','AbortError');for(const url of imageUrls.values())if(url.startsWith('blob:'))URL.revokeObjectURL(url);imageUrls.clear();styled=loaded.appearance;warning.value=loaded.warning;book.value=loaded.book;if(!visibleSheetNames(loaded.book).includes(sheetName.value))sheetName.value=visibleSheetNames(loaded.book)[0]||'';if(widthState)widths.value={...widthState};await nextTick();}
+  const editor=useEditor(props.file,book,sheetName,install,()=>widths.value,(name,address)=>styled?.sheets[name]?.cells[address]?.style.numFmt||book.value?.Sheets[name]?.[address]?.z||logicalStyle(name,address)?.numFmt);
   const rotatedHeights=shallowRef<Map<string,number>>(new Map());let observedRows=new Set<HTMLElement>();
   const measuredRows=shallowRef<Map<number,number>>(new Map());
-  function logicalStyle(name:string,address:string){const input=book.value?.Sheets[name],p=XLSX.utils.decode_cell(address);return styled?.getWorksheet(name)?.getCell(address).style||input?.[address]?.s||{...input?.['!cols']?.[p.c]?.s,...input?.['!rows']?.[p.r]?.s};}
+  function logicalStyle(name:string,address:string){const input=book.value?.Sheets[name],p=XLSX.utils.decode_cell(address);return styled?.sheets[name]?(styled.sheets[name].cells[address]?.style??{}):input?.[address]?.s||{...input?.['!cols']?.[p.c]?.s,...input?.['!rows']?.[p.r]?.s};}
   const rowPage = ref(0);
   const dragRows=ref<Record<number,number>>({});
   const colPage = ref(0);
@@ -65,7 +69,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   }
   function resizeRow(event:PointerEvent,r:number){if(!editor.editing.value||editor.saving.value)return;event.preventDefault();event.stopPropagation();const element=event.currentTarget as HTMLElement,start=event.clientY,height=rowHeight(r);element.setPointerCapture(event.pointerId);const move=(e:PointerEvent)=>{dragRows.value={[r]:Math.max(4,Math.min(409*4/3,height+(e.clientY-start)/(props.zoom/100)))};};const finish=(e:PointerEvent)=>{const size=(dragRows.value[r]??height)*.75;dragRows.value={};element.removeEventListener('pointermove',move);element.removeEventListener('pointerup',finish);element.removeEventListener('pointercancel',finish);if(e.type!=='pointercancel')void editor.layout({axis:'row',start:r,end:r,size});};element.addEventListener('pointermove',move);element.addEventListener('pointerup',finish);element.addEventListener('pointercancel',finish);}
   const sheet = computed(() => book.value?.Sheets[sheetName.value]);
-  const styledSheet = computed(() => {book.value;return styled?.getWorksheet(sheetName.value);});
+  const styledSheet = computed(() => {book.value;return styled?.sheets[sheetName.value];});
   const range = computed(() =>
     sheet.value?.["!ref"]
       ? XLSX.utils.decode_range(sheet.value["!ref"])
@@ -213,14 +217,14 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     Math.min(colCount.value, startCol.value + pageCols),
   );
   function rowHeight(r: number) {
-    const row = styledSheet.value?.getRow(r + 1);
+    const row = styledSheet.value?.rows[r + 1];
     const fallback = sheet.value?.["!rows"]?.[r];
     return row?.hidden || fallback?.hidden
       ? 0
       : dragRows.value[r]??(row?.height!==undefined||fallback?.hpt!==undefined?((row?.height??fallback?.hpt??18)*4)/3:Math.max(24,measuredRows.value.get(r)||0));
   }
   function colWidth(c: number) {
-    const col = styledSheet.value?.getColumn(c + 1);
+    const col = styledSheet.value?.columns[c + 1];
     const fallback = sheet.value?.["!cols"]?.[c];
     return col?.hidden || fallback?.hidden
       ? 0
@@ -315,7 +319,6 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       : {};
   }
   function styleAt(r: number, c: number): CSSProperties {
-    const cell = styledSheet.value?.getCell(r + 1, c + 1);
     const basic = sheet.value?.[XLSX.utils.encode_cell({ r, c })];
     const s = logicalStyle(sheetName.value,XLSX.utils.encode_cell({r,c}));
     const changed=editor.patchMap.value.get(JSON.stringify([sheetName.value,XLSX.utils.encode_cell({r,c})]));
@@ -379,7 +382,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     }
     return spans;
   });
-  function editedNumber(value:number,r:number,c:number){const format=styledSheet.value?.getCell(r+1,c+1).numFmt||sheet.value?.[XLSX.utils.encode_cell({r,c})]?.z||logicalStyle(sheetName.value,XLSX.utils.encode_cell({r,c}))?.numFmt;try{return format?XLSX.SSF.format(format,value):String(value);}catch{return String(value);}}
+  function editedNumber(value:number,r:number,c:number){const format=styledSheet.value?.cells[XLSX.utils.encode_cell({r,c})]?.style.numFmt||sheet.value?.[XLSX.utils.encode_cell({r,c})]?.z||logicalStyle(sheetName.value,XLSX.utils.encode_cell({r,c}))?.numFmt;try{return format?XLSX.SSF.format(format,value):String(value);}catch{return String(value);}}
   function displayText(address:string){const p=XLSX.utils.decode_cell(address),value=sheet.value?.[address],patch=editor.patchMap.value.get(JSON.stringify([sheetName.value,address])),formula=patch?.kind==='formula'?patch.value:!patch?value?.f:undefined;
     if(formula){const result=editor.calculator.value?.result(sheetName.value,address,false);return result?.error==='#UNSUPPORTED!'?'='+formula:result?.error||(typeof result?.value==='number'?editedNumber(result.value,p.r,p.c):typeof result?.value==='boolean'?result.value?'TRUE':'FALSE':String(result?.value??''));}
     return patch?(patch.kind==='blank'?'':patch.kind==='number'?editedNumber(patch.value,p.r,p.c):String(patch.value)):value?XLSX.utils.format_cell(value):'';
@@ -401,25 +404,19 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
             ];
           const cellAddress=XLSX.utils.encode_cell({r:sourceRow,c:sourceCol});
           const patch=editor.patchMap.value.get(JSON.stringify([sheetName.value,cellAddress]));
-          const rich = patch?undefined:styledSheet.value?.getCell(
-            sourceRow + 1,
-            sourceCol + 1,
-          ).value;
+          const rich = patch?undefined:styledSheet.value?.cells[cellAddress]?.richText;
           const formula=patch?.kind==='formula'?patch.value:!patch?value?.f:undefined;
           const calculated=formula?editor.calculator.value?.result(sheetName.value,cellAddress,false):undefined;
           const text=displayText(cellAddress);
           return [
             {
-              c,address:cellAddress,clipHeight:styledSheet.value?.getRow(r+1).height!==undefined||sheet.value?.['!rows']?.[r]?.hpt!==undefined||dragRows.value[r]!==undefined?Math.max(0,Array.from({length:merge?.rows||1},(_,i)=>rowHeight(r+i)).reduce((n,h)=>n+h,0)-8):undefined,
+              c,address:cellAddress,clipHeight:styledSheet.value?.rows[r+1]?.height!==undefined||sheet.value?.['!rows']?.[r]?.hpt!==undefined||dragRows.value[r]!==undefined?Math.max(0,Array.from({length:merge?.rows||1},(_,i)=>rowHeight(r+i)).reduce((n,h)=>n+h,0)-8):undefined,
               modified:!!patch||editor.alignmentMap.value.has(JSON.stringify([sheetName.value,cellAddress])),
               rotation:Number(logicalStyle(sheetName.value,cellAddress)?.alignment?.textRotation)||0,rotationHeight:rotatedHeights.value.get(cellAddress)??(()=>{const style=logicalStyle(sheetName.value,cellAddress),angle=Math.abs(Number(style.alignment?.textRotation)||0)*Math.PI/180,pixels=(style.font?.size||11)*4/3,width=Array.from(text as string).reduce<number>((n,c: any)=>n+(String(c).codePointAt(0)!>255?1:.55)*pixels,0);return Math.ceil(Math.sin(angle)*width+Math.cos(angle)*pixels*1.3)+4;})(),text,title:formula?'='+formula+'\n'+(calculated?.error==='#UNSUPPORTED!'?'暂不支持此公式；未使用旧缓存结果':calculated?.error==='#LIMIT!'?'计算超出范围限制':calculated?.error==='#CYCLE!'?'循环引用':text):text,
               style: styleAt(sourceRow, sourceCol),
               rowspan: merge?.rows || 1,
               colspan: merge?.cols || 1,
-              rich:
-                rich && typeof rich === "object" && "richText" in rich
-                  ? rich.richText
-                  : undefined,
+              rich,
             },
           ];
         }),
@@ -446,7 +443,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     );
   }
   const images = computed(() =>
-    (styledSheet.value?.getImages() || []).flatMap((img) => {
+    (styledSheet.value?.images || []).flatMap((img) => {
       const anchor = img.range as typeof img.range & {
         ext?: { width: number; height: number };
       };
@@ -454,7 +451,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
       const id = String(img.imageId);
       let url = imageUrls.get(id);
       if (!url) {
-        const media = styled.getImage(Number(img.imageId));
+        const media = styled.media[Number(img.imageId)];
         if (!media) return [];
         if (media.buffer)
           url = URL.createObjectURL(
@@ -500,19 +497,27 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
   );
   onMounted(async () => {
     try {
-      const loaded = await loadWorkbook(editor.baseBytes.value??props.file.bytes, editor.baseBytes.value?'xlsx':props.file.ext);
-      styled = loaded.styled;
+      const loaded = await loadWorkbookPreview(props.file.id, editor.baseBytes.value??props.file.bytes, editor.baseBytes.value?'xlsx':props.file.ext, task);
+      task.signal.throwIfAborted();
+      if (disposed) return;
+      task.report('rendering');
+      await previewFrame(task.signal);
+      if (disposed) return;
+      styled = loaded.appearance;
       warning.value = loaded.warning;
       book.value = loaded.book;
       sheetName.value = restored && visibleSheetNames(book.value).includes(restored.sheet) ? restored.sheet : visibleSheetNames(book.value)[0] || '';
       await nextTick();
+      if (disposed) return;
       colPage.value = Math.max(0, Math.min(restored?.columns ?? 0, Math.ceil(colCount.value / pageCols) - 1));
       loadedRowCount.value = Math.min(rowCount.value, Math.max(200, restored?.rows ?? 200));
       await nextTick();
+      if (disposed) return;
       initialized = true;
       onScroll();editor.initialize();
       emit("ready");
     } catch (e) {
+      if (disposed || task.signal.aborted) return;
       emit(
         "error",
         previewError(e, '表格文件'),
@@ -520,10 +525,14 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     }
   });
   onBeforeUnmount(() => {
+    disposed = true;
+    rowObserver.disconnect();
+    observedRows.clear();
     for (const url of imageUrls.values())
       if (url.startsWith("blob:")) URL.revokeObjectURL(url);
     imageUrls.clear();
     styled = undefined;
+    book.value = undefined;
   });
 
   return {

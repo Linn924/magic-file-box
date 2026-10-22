@@ -12,6 +12,11 @@ const suite:Suite=async c=>{
     const name=permitted?'encrypted-allowed.pdf':'encrypted-restricted.pdf';encryptedFixture(c.fixture(name),permitted);
     const win=await c.program.openPath(c.fixture(name));
     await c.check(win,'encrypted PDF asks for password','!!document.querySelector(".pdf-password")');
+    await c.check(win,'password stage leaves input and cancel usable',"(()=>{const input=document.querySelector('.pdf-password input'),b=input.getBoundingClientRect();return document.querySelector('.preview-body').dataset.loadPhase==='password'&&document.elementFromPoint(b.left+b.width/2,b.top+b.height/2)===input&&!!document.querySelector('.preview-cancel-load')})()");
+    await c.click(win,'.preview-cancel-load');
+    await c.check(win,'password wait can be cancelled','!!document.querySelector(".preview-cancelled")&&!document.querySelector(".pdf-password")');
+    await c.click(win,'.preview-retry');
+    await c.check(win,'password retry asks again','!!document.querySelector(".pdf-password")');
     for(const password of ['wrong','secret']){
       await c.evaluate(win,`(()=>{const input=document.querySelector('.pdf-password input');input.value='${password}';input.dispatchEvent(new Event('input',{bubbles:true}));document.querySelector('.pdf-password').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}))})()`);
       await c.check(win,password==='wrong'?'wrong password retains retry':'correct password renders actual encrypted file',password==='wrong'?"document.body.textContent.includes('密码不正确')":"!document.querySelector('.pdf-password')&&[...document.querySelectorAll('.pdf-page canvas')].some(c=>c.width>0)&&document.body.textContent.includes('Encrypted sample text')");

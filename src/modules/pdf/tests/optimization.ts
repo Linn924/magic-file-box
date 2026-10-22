@@ -72,6 +72,27 @@ await build({
     releaseDoc('locked'); retry.release();
     console.log('PASS PDF cache: single flight, accounting, leases, eviction, password replacement');
 
+    control.defer = true;
+    const oneController = new AbortController();
+    const cancelledLoad = acquireCachedPdf('cancel-shared', bytes, {}, oneController.signal);
+    const survivingLoad = acquireCachedPdf('cancel-shared', bytes);
+    await new Promise(resolve=>setImmediate(resolve));
+    const sharedTask = control.loads.at(-1);
+    const cancellation = assert.rejects(cancelledLoad, {name:'AbortError'});
+    oneController.abort(); await cancellation;
+    assert.equal(sharedTask.destroyed,0,'one cancellation must preserve another PDF reader');
+    sharedTask.resolve(); const survivingLease = await survivingLoad;
+    releaseDoc('cancel-shared'); survivingLease.release();
+    const lastController = new AbortController();
+    const lastLoad = acquireCachedPdf('cancel-last', bytes, {}, lastController.signal);
+    await new Promise(resolve=>setImmediate(resolve));
+    const lastTask = control.loads.at(-1), lastCancellation=assert.rejects(lastLoad,{name:'AbortError'});
+    lastController.abort(); await lastCancellation;
+    assert.equal(lastTask.destroyed,1,'last cancellation must destroy the pending PDF parse');
+    assert.deepEqual(docCacheStats(),{count:0,bytes:0});
+    control.defer=false;
+    console.log('PASS PDF pending-load cancellation preserves shared readers and releases the last reader');
+
     const events = [];
     let unblockBackground, unblockForeground;
     const bg = pdfWork(4, async()=>{events.push('background');await new Promise(r=>unblockBackground=r)});

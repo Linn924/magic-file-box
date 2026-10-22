@@ -7,7 +7,9 @@ import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import {exportXlsCopy} from '../core/workbook/xlsCopy';
 import type {Suite} from '../../../../tests/context';
+import {withSettledHistory} from './editingContext';
 const suite:Suite=async c=>{
+  c=withSettledHistory(c);
   const file='edit-table-stage7-v3.xlsx';
   if(!existsSync(c.fixture(file))){const b=new ExcelJS.Workbook(),s=b.addWorksheet('Data'),other=b.addWorksheet('Other'),raw=b.addWorksheet('Raw');s.addRow(['ID','Group','Number','Calc','Date','Text']);for(const [i,[id,group,n]] of [['r1','B',3],['r2','A',1],['r3','A',2],['r4','B',null],['r5','A',1]].entries()){s.addRow([id,group,n,{formula:`IF(C${i+2}="",0,C${i+2}*2)`,result:Number(n)*2},new Date('2026-01-0'+(i+1)+'T00:00:00Z'),'same']);}s.getCell('A2').font={bold:true,color:{argb:'FF2255AA'}};s.getRow(2).height=31;s.getRow(5).hidden=true;other.getCell('A1').value={formula:'Data!C2',result:3};other.getCell('A2').value={formula:'SUM(Data!C2:C6)',result:7};other.getCell('B1').value='untouched';raw.addRows([['Cat','Value','Literal'],['Keep',3],['Drop',2],['Keep',1],['',4,'=A1']]);raw.getRow(3).hidden=true;const zip=await JSZip.loadAsync(Buffer.from(await b.xlsx.writeBuffer()));const work=await zip.file('xl/workbook.xml')!.async('string');zip.file('xl/workbook.xml',work.replace('</sheets>', '</sheets><definedNames><definedName name="_xlnm._FilterDatabase" localSheetId="2" hidden="1">Raw!$A$1:$B$5</definedName></definedNames>'));writeFileSync(c.fixture(file),await zip.generateAsync({type:'nodebuffer',compression:'DEFLATE'}));}
   const source=readFileSync(c.fixture(file)),realSave=dialog.showSaveDialog,realText=clipboard.writeText,realRead=clipboard.readText,realRich=clipboard.write,realItems=clipboard.read;

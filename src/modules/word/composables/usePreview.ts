@@ -1,4 +1,5 @@
 import { fitScale } from "@/utils/fit";
+import { usePreviewTask, previewFrame } from '@/composables/usePreviewTask';
 import { previewError } from '@shared/previewError';
 import { createSafeResizeObserver } from "@/utils/safeResizeObserver";
 import { onMounted, onBeforeUnmount, ref, shallowRef, watch, nextTick } from "vue";
@@ -7,6 +8,7 @@ import { attachTableResize } from "@/utils/resizeTable";
 import type { PreviewFile } from "@shared/files";
 import type { PreviewProps, PreviewEmit } from "@/modules/types";
 export function usePreview(props: PreviewProps, emit: PreviewEmit) {
+  const task = usePreviewTask();
   const pane = ref<HTMLElement>();
   const host = ref<HTMLElement>();
   const bodyRoot = shallowRef<HTMLElement>();
@@ -90,6 +92,9 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
         const document = await parseAsync(props.file.bytes, options);
         if (destroyed) return;
         markDocxHeadings(document);
+        task.report('rendering');
+        await previewFrame(task.signal);
+        if (destroyed) return;
         await renderDocument(document, body, body, options);
       } else {
         const { parseMsDocToHtml, mountMsDoc } = await import(
@@ -101,6 +106,9 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
             externalResourcePolicy: "block",
           },
         });
+        if (destroyed) return;
+        task.report('rendering');
+        await previewFrame(task.signal);
         if (destroyed) return;
         mountMsDoc(body, rendered);
         if (rendered.warnings.length)
@@ -135,7 +143,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
         emit("ready");
       }
     } catch (e) {
-      if (!destroyed)
+      if (!destroyed && !task.signal.aborted)
         emit(
           "error",
           previewError(e, 'Word 文件'),

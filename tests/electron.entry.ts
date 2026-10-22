@@ -7,6 +7,9 @@ import immersive from "./suites/immersive";
 import nonpdfprinting from "./suites/nonpdfprinting";
 import printing from "@/modules/pdf/tests/printing";
 import core from "./suites/core";
+import loading from './suites/previewLoading';
+import excelbackground from '@/modules/excel/tests/background';
+import {installPreviewLoadDriver} from './previewLoadDriver';
 import settingslayout from './suites/settingsLayout';
 import visual from "./suites/visual";
 import bulk from "./suites/bulk";
@@ -52,11 +55,14 @@ app.on("browser-window-created", (_event, win) => {
 });
 const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
 if(requested==='all'||requested.split(',').includes('updates'))installUpdateTestDriver();
+if(requested==='all'||requested.split(',').includes('loading'))installPreviewLoadDriver();
 const program =
   require("../electron-dist/main.cjs") as typeof import("../electron/main");
 const results: string[] = [];
 const suites: Record<string, Suite> = {
   core,
+  loading,
+  excelbackground,
   settingslayout,
   updates,
   visual,

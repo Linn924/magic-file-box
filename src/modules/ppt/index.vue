@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { previewError } from '@shared/previewError';
+import { usePreviewTask, previewFrame } from '@/composables/usePreviewTask';
 import { fitScale } from "@/utils/fit";
 import { createSafeResizeObserver } from "@/utils/safeResizeObserver";
 import { onMounted, onBeforeUnmount, ref, watch, nextTick } from "vue";
@@ -9,6 +10,7 @@ import { snapshotSlide } from "./core/snapshot";
 import PageNavigation from "@/components/preview/PageNavigation.vue";
 import { useContinuousPages } from "@/composables/useContinuousPages";
 const props = defineProps<PreviewProps>();
+const task = usePreviewTask();
 const emit = defineEmits<{
   ready: [];
   error: [message: string];
@@ -152,6 +154,9 @@ onMounted(async () => {
     }
     count.value = renderer.count;
     const scale = computeScale();
+    task.report('rendering');
+    await previewFrame(task.signal);
+    if (disposed) return;
 
     // 渲染第 1 页（index 0），让用户立即看到内容
     await renderer.render(0);
@@ -184,7 +189,7 @@ onMounted(async () => {
     fit();
     emit("ready");
   } catch (e) {
-    if (!disposed) emit("error", previewError(e, '演示文稿'));
+    if (!disposed && !task.signal.aborted) emit("error", previewError(e, '演示文稿'));
   }
 });
 

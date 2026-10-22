@@ -20,7 +20,30 @@
   font-weight: 500;
   text-align: center;
   box-shadow: 0 8px 28px rgb(0 0 0 / 16%);
-  pointer-events: none;
+  pointer-events: auto;
+}
+
+.loading small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.preview-cancel-load, .preview-retry {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  line-height: 1.4;
+  padding: 6px 16px;
+  min-height: 30px;
+}
+.preview-cancelled { margin: auto; }
+.loading.loading-password {
+  top: 12px;
+  right: 12px;
+  left: auto;
+  transform: none;
+  flex-direction: row;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  gap: 10px;
+  font-size: 12px;
 }
 
 .loading-spinner {
@@ -38,6 +61,11 @@
 
 @media (prefers-reduced-motion: reduce) {
   .loading-spinner { animation: none; }
+}
+
+@media (max-height: 400px) {
+  .loading { gap: 8px; padding: 12px 20px; }
+  .loading-spinner { width: 24px; height: 24px; }
 }
 
 .error {

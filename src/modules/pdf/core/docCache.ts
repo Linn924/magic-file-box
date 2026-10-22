@@ -64,11 +64,14 @@ export async function acquireCachedPdf(
   id: string,
   bytes: Uint8Array,
   extra: { cMapUrl?: string; cMapPacked?: boolean; standardFontDataUrl?: string; wasmUrl?: string; password?: string } = {},
+  signal?: AbortSignal,
 ) {
+  signal?.throwIfAborted();
   GlobalWorkerOptions.workerSrc = workerUrl;
   admissions++;
   try { if(typeof window!=='undefined')await ensurePdfResources(); }
   finally { admissions--; }
+  if (signal?.aborted) { releaseRegistration(); signal.throwIfAborted(); }
   const password = extra.password;
   let entry = cache.get(id);
   // Unlock must not reuse a load that never received the password.
@@ -104,9 +107,11 @@ export async function acquireCachedPdf(
   held.users++;
   leases++;
   let released = false;
+  let onAbort: (() => void) | undefined;
   const release = () => {
     if (released) return;
     released = true;
+    if (onAbort) signal?.removeEventListener('abort', onAbort);
     held.users--;
     leases--;
     if (held.retired && !held.users) destroy(held);
@@ -114,14 +119,25 @@ export async function acquireCachedPdf(
     evict();
   };
   try {
-    const doc = await held.promise;
+    const doc = await new Promise<PDFDocumentProxy>((resolve, reject) => {
+      onAbort = () => {
+        release();
+        // Cancel only this caller. Shared readers keep their own loading lease.
+        if (!held.users && !held.doc) retire(id, held);
+        reject(signal!.reason);
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      held.promise.then(resolve, reject);
+      if (signal?.aborted) onAbort();
+    });
+    signal?.throwIfAborted();
     if(held.destroyed)throw new DOMException('PDF loading cancelled','AbortError');
     held.doc = doc;
     held.password=undefined;
     evict();
     return { doc, release };
   } catch (error) {
-    retire(id, held);
+    if (!signal?.aborted) retire(id, held);
     release();
     throw error;
   }

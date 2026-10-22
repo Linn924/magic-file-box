@@ -20,7 +20,10 @@ export interface DesktopBridge {
   pdfResources(): Promise<{pixels:number;bytes:number;documents:number}>;
   releasePdfResources(): void;
   onPdfResources(handler:(budget:{pixels:number;bytes:number;documents:number})=>void):()=>void;
-  loadPreview(file:PreviewFile):Promise<PreviewFile>;
+  loadPreview(file:PreviewFile,task?:string):Promise<PreviewFile>;
+  cancelPreviewLoad(task:string):Promise<void>;
+  acquirePreviewParser(id:string,task:string):Promise<boolean>;
+  releasePreviewParser(task:string):Promise<void>;
   setPdfPassword(id:string,password:string):Promise<void>;
   openExternal(url: string): Promise<void>;
   followMarkdownLink(id:string,href:string):Promise<void>;

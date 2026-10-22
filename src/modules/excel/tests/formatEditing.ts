@@ -7,7 +7,9 @@ import JSZip from 'jszip';
 import type {Suite} from '../../../../tests/context';
 import {styleFixture} from './xlsStylesFixture';
 import {readBasicWorkbook} from '../core/workbook/loadWorkbook';
+import {withSettledHistory} from './editingContext';
 const suite:Suite=async c=>{
+  c=withSettledHistory(c);
   const realSave=dialog.showSaveDialog;let dest=path.resolve('outputs/verification/edit-format.xlsx');dialog.showSaveDialog=(async()=>({canceled:false,filePath:dest})) as typeof realSave;
   const win=await c.open('edit-basic.xlsx'),cell=(a:string)=>`.spreadsheet td[data-address="${a}"]`,source=readFileSync(c.fixture('edit-basic.xlsx'));
   const errors:string[]=[];const capture=(_event:any)=>{if(_event.level==='error')errors.push(_event.message);};win.webContents.on('console-message',capture);

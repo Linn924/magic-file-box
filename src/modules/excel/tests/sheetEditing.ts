@@ -7,7 +7,9 @@ import JSZip from 'jszip';
 import * as XLSX from 'xlsx';
 import type {Suite} from '../../../../tests/context';
 import {exportXlsCopy} from '../core/workbook/xlsCopy';
+import {withSettledHistory} from './editingContext';
 const suite:Suite=async c=>{
+  c=withSettledHistory(c);
   const file='edit-sheets-v2.xlsx';
   if(!existsSync(c.fixture(file))){const b=new ExcelJS.Workbook(),s=b.addWorksheet('Data'),other=b.addWorksheet('Other'),hidden=b.addWorksheet('Hidden');hidden.state='veryHidden';s.getCell('A1').value=7;s.getCell('B1').value={formula:'Data!$A$1+1',result:8};s.getCell('A2').value={text:'site',hyperlink:'https://example.com'};s.getCell('A1').note='普通中文备注';s.getCell('A1').font={bold:true,color:{argb:'FF2255AA'}};s.getColumn(1).width=25;s.getRow(1).height=32;s.getColumn(4).hidden=true;s.getRow(6).hidden=true;s.getCell('A6').value='hidden row';s.mergeCells('A3:B3');s.getCell('A3').value='merged';s.addImage(b.addImage({buffer:readFileSync(c.fixture('image.png')) as any,extension:'png'}),'E2:F4');other.getCell('A1').value={formula:'Data!A1*2',result:14};other.getCell('A2').value='untouched';hidden.getCell('A1').value='secret';writeFileSync(c.fixture(file),Buffer.from(await b.xlsx.writeBuffer()));}
   const original=readFileSync(c.fixture(file)),realSave=dialog.showSaveDialog;let cancelled=false,dest=path.resolve('outputs/verification/sheets-copy.xlsx');dialog.showSaveDialog=(async()=>({canceled:cancelled,filePath:cancelled?undefined:dest})) as typeof realSave;

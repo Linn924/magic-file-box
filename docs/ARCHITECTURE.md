@@ -13,7 +13,7 @@ flowchart LR
   M --> F[本地文件与主动保存]
   M --> W[窗口、托盘与系统打印]
   M --> U[独立更新会话]
-  R --> K[PDF 搜索与代码语法 Worker]
+  R --> K[PDF、代码语法与表格解析 Worker]
 ```
 
 | 入口 | 实际职责 |
@@ -101,7 +101,7 @@ electron/main.ts 仍持有应用和窗口的总调度，并非所有窗口逻辑
 | pageFit、toolbar | 可选的页面适配能力与格式工具入口 |
 | closeFile(id) | 文件标签关闭时释放模块缓存；区别于闲置时卸载 DOM |
 | PreviewProps | 文件、倍率和适配模式 |
-| PreviewEmit | ready、error、update:zoom 等组件事件 |
+| PreviewEmit | ready、error、update:zoom 等组件事件；模块通过 usePreviewTask 报告加载阶段 |
 
 每个模块保留 index.ts 和 index.vue。较大模块将实现分到 components、composables、core、styles、workers、printing、tests；较小模块只设置当前需要的目录。
 
@@ -138,9 +138,19 @@ PDF 的 [PdfNav.vue](../src/modules/pdf/components/PdfNav.vue) 独立管理目�
 
 1. [electron/files/index.ts](../electron/files/index.ts) 准备元数据、文件 ID 与来源路径，主进程维护窗口和任务引用。
 2. useApplication 接收文件列表，选择活动标签；[PreviewTab](../src/components/preview/PreviewTab.vue) 在实际需要预览时请求字节，同一来源读取合并。
-3. PreviewTab 通过注册表创建格式组件，组件报告 ready/error；原文件路径不作为应用历史持久化。内容区域由 preview-body 单独承载，加载提示以转圈图标与文字卡片居中覆盖，位置随工具栏换行和沉浸模式自适应，不参与文档排版且不拦截鼠标。完成或失败后移除提示，减少动态效果偏好下停止转圈动画。
-4. 闲置标签释放预览 DOM，当前视图状态仍在 PreviewFile.view；已加载字节可留在有界内存缓存。
+3. PreviewTab 通过注册表创建格式组件，组件报告 ready/error；原文件路径不作为应用历史持久化。内容区域由 preview-body 单独承载，加载提示以转圈图标、阶段文字及取消按钮居中覆盖，位置随工具栏换行和沉浸模式自适应，不参与文档排版。首屏完成后移除提示，减少动态效果偏好下停止转圈动画。
+4. 闲置标签释放预览 DOM，当前视图状态仍在 PreviewFile.view；已加载字节可留在有界内存缓存。在途编辑事务结束后才执行闲置卸载，避免中断已开始的修改。
 5. 标签关闭触发模块 closeFile、字节缓存和主进程引用释放；最后使用者退出后清理路径、密码与未完成读取。
+
+[usePreviewLoad](../src/composables/usePreviewLoad.ts) 统一读取、排队、解析、渲染、等待密码、就绪、取消与失败状态。每次加载使用独立 token 和 AbortController；模块通过 [usePreviewTask](../src/composables/usePreviewTask.ts) 捕获当前任务，报告阶段且不能更新后续重试。缓存命中也等待模块 ready，不再把已有字节等同于已完成解析。ready 后等待两帧再结束加载；取消保留标签与重试入口，旧回调不重新挂载内容。隐藏尚在加载的标签会中止本次任务，返回时重新开始；明确取消的标签返回后仍等待主动重试。加载阶段与计时不写入视图或偏好。
+
+[previewTasks](../electron/files/previewTasks.ts) 校验窗口的来源文件引用与任务 token，提供读取取消和应用级表格解析队列（一个活动任务，最多 256 个登记任务）。读取继续复用 files/index.ts 的同文件在途任务，每个消费者独立取消；最后消费者退出才中止实际读取，取消后的重试不会复用旧读取。已声明的标签移交目标在确认前可使用受控来源引用；移交失败仍保留来源。窗口关闭、主框架重新导航/重载或渲染进程退出会清理读取与队列登记。
+
+Excel 模块的 [workbookClient](../src/modules/excel/core/workbook/workbookClient.ts) 先申请解析名额，再启动独立 [workbook.worker](../src/modules/excel/workers/workbook.worker.ts)，调用原有数据/样式解析。Worker 只接收缓存字节的独立副本，避免转移缓存或编辑源缓冲区。结果包含基础工作簿和 [previewModel](../src/modules/excel/core/workbook/previewModel.ts) 的可克隆显示数据（样式、富文本、行列尺寸、图片与锚点），界面不重建 ExcelJS 工作簿。完成、失败或取消后终止 Worker 并释放名额，编辑后的工作簿重新安装沿用同一入口；其他编辑计算与输出尚未整体后台化。旧 XLS 与 TSV 同样沿用已有解析逻辑走该通道。
+
+单元格与样式结果按每批最多 2048 项传递，界面接收后让出事件循环并确认，Worker 收到确认才发送下一批，避免一次性克隆完整工作簿阻塞界面或堆积消息。解析器内部 ZIP/共享字符串表不传回界面；显示所需值已在单元格中，导出仍从受保护的源字节重建。图片字节转移独立显示缓冲区，取消时丢弃未完成的结果并清理确认计时器。
+
+PDF 待加载文档增加独立取消订阅，最后一个使用者取消时销毁在途文档任务，其他使用者不受影响。密码等待使用侧边小提示与取消入口，避免中央卡片挡住输入。Word/PPT 等现有解析器在异步边界检查取消、卸载后释放宿主；其不支持中断的同步内部调用仍不能被强制打断，不代表所有格式已经后台化。
 
 视图状态包括倍率、适配、滚动、编码、临时列宽、工作表、PDF 阅读位置和批注。Excel 草稿及撤销快照同样保存在内存中，组件卸载不等同于丢弃草稿。
 

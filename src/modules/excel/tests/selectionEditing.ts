@@ -1,7 +1,9 @@
 import assert from 'node:assert/strict';
 import type {Suite} from '../../../../tests/context';
 import {clipboard} from 'electron';
+import {withSettledHistory} from './editingContext';
 const suite:Suite=async c=>{
+  c=withSettledHistory(c);
   const win=await c.open('edit-basic.xlsx'),realWrite=clipboard.writeText,realRich=clipboard.write;let text='';clipboard.writeText=(async(value:string)=>{text=value;}) as typeof realWrite;clipboard.write=(async items=>{text=await ((await items[0].getType('text/plain')) as any).text();}) as typeof realRich;
   const cell=(a:string)=>`.spreadsheet td[data-address="${a}"]`;
   const shift=async(a:string)=>c.evaluate(win,`document.querySelector(${JSON.stringify(cell(a))}).dispatchEvent(new MouseEvent('click',{shiftKey:true,bubbles:true}))`);
