@@ -46,7 +46,7 @@ export function setupPreviewTasks() {
   ipcMain.handle('preview:load', async (event, file: PreviewFile, token?: string) => {
     trusted(event);
     if (!file || !canPreviewFile(event.sender.id, file.id)) throw Error('文件已关闭或不属于当前窗口。');
-    if (token === undefined) return loadPreparedFile(file);
+    if (token === undefined) return loadPreparedFile(file,undefined,true);
     const id = key(event.sender.id, token);
     if (reads.has(id)) throw Error('加载任务已存在。');
     watchOwner(event.sender);

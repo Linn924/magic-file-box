@@ -48,6 +48,8 @@ for (const name of [
   "marked",
   "shiki",
   "css-tree",
+  "yauzl",
+  "saxes",
 ])
   collect(name);
 writeFileSync("dist/THIRD-PARTY-NOTICES.txt", notices.join("\n"));

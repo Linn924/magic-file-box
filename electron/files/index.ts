@@ -3,6 +3,8 @@ import path from "node:path";
 import { previewError } from '@shared/previewError';
 import { randomUUID } from "node:crypto";
 import { extensions, type PreviewFile } from "@shared/contracts";
+import { fileSourceKind } from '@shared/fileSource';
+import { imageSize } from '@/modules/image/core/dimensions';
 
 const selectedPaths = new Map<string, string>();
 type ReadTask = { promise: Promise<PreviewFile>; controller: AbortController; users: Set<symbol>; done: boolean };
@@ -33,12 +35,9 @@ export function transferPreparedReference(source:number,target:number,id:string)
   const users=references.get(id);if(users?.has(source))users.add(target);
 }
 
-/** 文本类扩展名，限制 5 MB；其余格式限制 100 MB。 */
-const TEXT_EXTS = new Set(["txt", "text", "json", "md", "log", "xml"]);
-
 /**
- * 内部公共校验：打开文件句柄，检查类型、格式与大小限制。
- * 成功时返回 { handle, stat, limit }；失败时设置 file.error 并返回 null。
+ * 打开只读句柄并检查类型、格式与按需预览路由。
+ * 成功时返回句柄与大小；失败时设置 file.error 并返回 null。
  */
 async function openAndValidate(
   filePath: string,
@@ -51,9 +50,13 @@ async function openAndValidate(
     file.size = stat.size;
     if (!stat.isFile()) throw new Error("请选择文件，暂不支持文件夹。");
     if (!extensions.includes(file.ext)) throw new Error("暂不支持此文件格式。");
-    const limit = TEXT_EXTS.has(file.ext) ? 5 : 100;
-    if (stat.size > limit * 1024 * 1024)
-      throw new Error(`文件超过 ${limit} MB，请选择较小的文件。`);
+    const kind = fileSourceKind(file.ext, stat.size);
+    file.source = kind ? { kind, size: stat.size } : undefined;
+    if(['png','jpg','jpeg','gif','webp','bmp'].includes(file.ext)){
+      const header=Buffer.alloc(Math.min(stat.size,1024*1024));await handle.read(header,0,header.length,0);
+      const dimensions=imageSize(header);
+      if(!dimensions||dimensions.width*dimensions.height>6_000_000)file.source={kind:'image',size:stat.size};
+    }
     return { handle, size: stat.size };
   } catch (e) {
     await handle?.close();
@@ -86,11 +89,16 @@ export async function preparePreviewFile(filePath: string): Promise<PreviewFile>
 }
 
 /** 按需加载：标签挂载时读取字节。 */
-export async function loadPreparedFile(file: PreviewFile, signal?: AbortSignal): Promise<PreviewFile> {
+export async function loadPreparedFile(file: PreviewFile, signal?: AbortSignal, whole = false): Promise<PreviewFile> {
   signal?.throwIfAborted();
   if (file.bytes?.byteLength || file.error) return sessionFile(file);
   const selected = selectedPaths.get(file.id);
   if (!selected) return { ...file, error: "文件已关闭，请重新选择。" };
+  // Revalidate size and routing on retry; file-backed formats never enter the byte cache.
+  const prepared = await prepareSourceMetadata(selected, file);
+  signal?.throwIfAborted();
+  if(selectedPaths.get(file.id)!==selected)return {...file,error:'文件已关闭，请重新选择。'};
+  if ((!whole && prepared.source) || prepared.error) return sessionFile(prepared);
   let pending = reads.get(file.id);
   if (!pending) {
     const controller = new AbortController();
@@ -125,6 +133,14 @@ export async function loadPreparedFile(file: PreviewFile, signal?: AbortSignal):
 }
 
 export function releasePreparedFile(id: string) { selectedPaths.delete(id);passwords.delete(id);reads.get(id)?.controller.abort(); }
+/** Caller has already checked the window's prepared reference. */
+export function selectedSourcePath(id:string) { const value=selectedPaths.get(id);if(!value)throw Error('来源文件已关闭。');return value; }
+async function prepareSourceMetadata(filePath:string,file:PreviewFile) {
+  const metadata={...file,bytes:new Uint8Array(),error:''};
+  const result=await openAndValidate(filePath,metadata);
+  await result?.handle.close();
+  return metadata;
+}
 export function preparedFileName(owner:number,id:string){return ownsPreparedFile(owner,id)?path.basename(selectedPaths.get(id)||''):'';}
 export function preparedFilePath(owner:number,id:string){if(!ownsPreparedFile(owner,id))throw Error('来源文件已关闭。');return selectedPaths.get(id)||'';}
 export async function isPreparedSourceTarget(target:string){
@@ -153,10 +169,14 @@ export async function readPreviewFile(filePath: string, signal?:AbortSignal): Pr
   const result = await openAndValidate(filePath, file);
   if (!result) return file;
   try {
+    // Full readers (legacy formats and output paths) keep an allocation budget.
+    // Large preview-capable formats use file-backed readers instead.
+    if (result.size > 128*1024*1024) {file.error='完整读取超出 128 MiB 缓冲区预算；此格式的完整解析或打印暂不支持该文件。';return file;}
     const buffer = await result.handle.readFile({signal});
     // Keep a whole owned backing buffer; pooled/sliced Buffers need one tight copy.
     file.bytes = buffer.byteOffset===0&&buffer.buffer.byteLength===buffer.byteLength
       ? new Uint8Array(buffer.buffer) : new Uint8Array(buffer);
+    file.source = undefined;
   } catch (e) {
     file.error = previewError(e, "文件");
   } finally {

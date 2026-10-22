@@ -81,7 +81,9 @@ export function usePreviewLoad(props: Props, restoreView: () => void) {
         props.file.view.pdfPassword = loaded.view.pdfPassword;
       }
       loaded.view = props.file.view;
-      cachePut(props.file.id, loaded);
+      props.file.source = loaded.source;
+      props.file.size = loaded.size;
+      if (!loaded.source) cachePut(props.file.id, loaded);
       phase.value = 'parsing';
       // Paint the stage before mounting modules that perform setup work synchronously.
       await nextTick();

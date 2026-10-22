@@ -430,7 +430,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
         standardFontDataUrl: base + "standard_fonts/",
         wasmUrl: base + "wasm/",
         password,
-      }, previewTask.signal);
+      }, previewTask.signal,props.file.source,error=>{if(!disposed&&!previewTask.signal.aborted)emit('error',error.message);});
       if(scroll.value)scroll.value.dataset.pdfStage='document';
       if (disposed||attempt!==bootstrapRevision) { lease.release(); return; }
       releaseLease?.();

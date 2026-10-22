@@ -24,6 +24,10 @@ export interface DesktopBridge {
   cancelPreviewLoad(task:string):Promise<void>;
   acquirePreviewParser(id:string,task:string):Promise<boolean>;
   releasePreviewParser(task:string):Promise<void>;
+  openFileSource(id:string,token:string,encoding?:string):Promise<import('./fileSource').SourceInfo>;
+  readFileSource(token:string,request:import('./fileSource').SourceRequest):Promise<import('./fileSource').SourcePage>;
+  readFileRange(token:string,offset:number,length:number):Promise<Uint8Array>;
+  closeFileSource(token:string):Promise<void>;
   setPdfPassword(id:string,password:string):Promise<void>;
   openExternal(url: string): Promise<void>;
   followMarkdownLink(id:string,href:string):Promise<void>;

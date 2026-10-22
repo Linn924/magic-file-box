@@ -22,5 +22,6 @@ export default {
     ...codeExtensions,
   ],
   component: defineAsyncComponent(() => import("./index.vue")),
+  sourceComponent: defineAsyncComponent(() => import('./components/LargeTextPreview.vue')),
   closeFile:releaseSyntax,
 } satisfies PreviewModule;

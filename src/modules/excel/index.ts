@@ -5,4 +5,5 @@ export default {
   id: "excel",
   extensions: ["xlsx", "xls", "csv", "tsv"],
   component: defineAsyncComponent(() => import("./index.vue")),
+  sourceComponent: defineAsyncComponent(() => import('./components/LargeWorkbookPreview.vue')),
 } satisfies PreviewModule;

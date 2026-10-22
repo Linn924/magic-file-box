@@ -6,4 +6,5 @@ export default {
   id: "ppt",
   extensions: ["pptx", "ppt"],
   component: defineAsyncComponent(() => import("./index.vue")),
+  sourceComponent: defineAsyncComponent(() => import('./components/LargePresentationPreview.vue')),
 } satisfies PreviewModule;

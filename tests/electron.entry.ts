@@ -9,6 +9,8 @@ import printing from "@/modules/pdf/tests/printing";
 import core from "./suites/core";
 import loading from './suites/previewLoading';
 import excelbackground from '@/modules/excel/tests/background';
+import sources from './suites/fileSources';
+import sourcelifecycle from './suites/sourceLifecycle';
 import {installPreviewLoadDriver} from './previewLoadDriver';
 import settingslayout from './suites/settingsLayout';
 import visual from "./suites/visual";
@@ -63,6 +65,8 @@ const suites: Record<string, Suite> = {
   core,
   loading,
   excelbackground,
+  sources,
+  sourcelifecycle,
   settingslayout,
   updates,
   visual,

@@ -126,6 +126,7 @@ await build({
     plugin.onLoad({ filter: /.*/, namespace: "fake-pdf" }, args => ({ loader: "js", contents:
       args.path === "worker" ? 'export default "mock-worker";' : `
         export const GlobalWorkerOptions = {};
+        export class PDFDataRangeTransport {}
         export const control = {defer:false,loads:[],workerStarts:0,workerStops:0};
         export class PDFWorker { constructor(){control.workerStarts++} destroy(){control.workerStops++} }
         export function getDocument(options) {

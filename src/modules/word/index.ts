@@ -9,4 +9,5 @@ export default {
     () => import("@/components/printing/FilePrintButton.vue"),
   ),
   component: defineAsyncComponent(() => import("./index.vue")),
+  sourceComponent: defineAsyncComponent(() => import('./components/LargeWordPreview.vue')),
 } satisfies PreviewModule;

@@ -98,6 +98,7 @@ electron/main.ts 仍持有应用和窗口的总调度，并非所有窗口逻辑
 | 字段或接口 | 用途 |
 | --- | --- |
 | id、extensions、component | 模块标识、扩展名及预览组件 |
+| sourceComponent | 文件采用按需读取时的可选模块入口；PDF 复用既有组件与导航 |
 | pageFit、toolbar | 可选的页面适配能力与格式工具入口 |
 | closeFile(id) | 文件标签关闭时释放模块缓存；区别于闲置时卸载 DOM |
 | PreviewProps | 文件、倍率和适配模式 |
@@ -165,6 +166,20 @@ Excel 副本通过 [excelCopy.ts](../electron/files/excelCopy.ts)，批注 PNG �
 ### 资源管理
 
 资源预算分布在文件字节缓存、PDF 文档/画布/文字缓存、语法 Worker 和 Excel 草稿中。它们不是整个应用进程内存的硬上限，活动任务和解码后的资源可能存在额外占用。
+
+### 文件范围与记录预览
+
+[shared/fileSource.ts](../shared/fileSource.ts) 定义来源种类、记录页契约和路由阈值。files/index.ts 在元数据与实际加载阶段重查大小、图片头，超过对应阈值返回 `PreviewFile.source`，不读取完整字节。支持按需的格式取消原先 5/100 MiB 准入门槛；完整缓冲区读取仍有 128 MiB 分配预算，打印的字节入口与源文件预览入口明确区分。source 元数据和逻辑位置只存在内存中，不进入设置。
+
+[electron/files/sources.ts](../electron/files/sources.ts) 持有只读文件句柄，校验窗口所有权、在途移交与随机会话 token。读前/读后校验文件大小、时间戳、设备与 inode；记录请求即使命中内部读取缓冲也重新验证来源。range 接口单次最多 1 MiB，全应用最多 8 个实际读取，等待队列最多 256；记录扫描全局依次执行，最多 128 个来源会话且每窗最多 16 个。记录解析每次只消费小块数据并在异步 I/O 处让出主进程事件循环。关闭、取消、重载或渲染进程退出释放句柄、流与会话。
+
+格式算法保留在所属模块：文本 `core/fileRecords.ts` 解码 UTF-8/UTF-16/GB18030，识别 CSV 引号与跨行记录，超长文本按约 32 KiB 分段，维护最多 32768 个稀疏定位点；Excel `core/workbook/fileSource.ts` 逐工作表读取 XML，只保留当前列组和所需共享字符串；Word `core/fileSource.ts` 提取正文段落与继承标题级别；PPT `core/fileSource.ts` 按演示文稿关系顺序选择幻灯片。跨格式 XML 与关系工具在 shared，段落抽取在 src/utils，公共 UI 位于 RecordPreview/useSourceRecords；App 不包含格式解析分支。
+
+[sourceArchive.ts](../electron/files/sourceArchive.ts) 通过 yauzl 的随机访问接口读取 ZIP 目录与选中条目，避免整个压缩包或无关附件进入内存。完成读取的条目校验实际长度与 CRC；未完整扫描的条目不宣称已完成完整性校验。每次记录请求累计解压 256 MiB，PPTX 单条目 32 MiB；目录最多 20000 项（PPTX 4000），名称 4 MiB；元数据 4 MiB、内嵌图片 16 MiB。XML 拒绝 DTD，深度最多 256、单文字/标签最多 1 MiB；单元格/共享字符串、单行与缓存也有实际拒绝和释放预算。按需模式省略的样式、布局、编辑与输出能力在模块界面说明。
+
+PDF 的 [fileRange.ts](../src/modules/pdf/core/fileRange.ts) 适配 PDFDataRangeTransport，关闭自动预取与流式全量下载，单对象最多 16 MiB、分批读取最多 1 MiB；唯一读取范围按 64 KiB 块计费，服从 128 MiB 与动态跨窗口字节预算的较小值。范围来源跟随文档缓存租约释放，读取失败进入正常错误/重试状态。原有页面/文字/画布预算继续生效；范围字节计费不是 PDF.js 全部内部对象的内存上限。
+
+图片头探测在 image/core/dimensions.ts；大图经受控 `preview://local/__source/` URL 读取，协议请求还核验发起窗口与来源引用。源内容不映射任意磁盘路径、不缓存落盘；Office 图片必须先出现在当前记录页的资源列表中。SourceAsset 靠近视口时解码，离开视口释放画布；大图缩小到 600 万、内嵌图到 100 万像素，窗口总画布 2400 万，解码前拒绝超过 6400 万像素或无法识别尺寸的图片。解码与表格解析共用主进程重任务名额。浏览器原始解码面仍可能高于缩小画布占用，尚非分块图像解码器。
 
 代表性实现入口包括 [fileContentCache](../src/services/fileContentCache.ts)、[PDF canvasPool](../src/modules/pdf/core/canvasPool.ts)、[PDF workQueue](../src/modules/pdf/core/workQueue.ts)、[pdfResources](../electron/files/pdfResources.ts)、[syntaxClient](../src/modules/text/core/syntaxClient.ts) 与 [useEditor](../src/modules/excel/composables/useEditor.ts)。
 

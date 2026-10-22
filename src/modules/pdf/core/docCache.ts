@@ -2,6 +2,8 @@ import { getDocument, GlobalWorkerOptions, PDFWorker, type PDFDocumentLoadingTas
 import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
 import { watch } from 'vue';
 import { ensurePdfResources, releasePdfResources, pdfResources } from './resources';
+import {createPdfFileRange} from './fileRange';
+import type {FileSource} from '@shared/fileSource';
 type Entry = {
   task: PDFDocumentLoadingTask;
   promise: Promise<PDFDocumentProxy>;
@@ -14,6 +16,8 @@ type Entry = {
   password?:string;
   destroyed?: boolean;
   idle?: ReturnType<typeof setTimeout>;
+  rangeClose?:()=>void;
+  failures:Set<(error:Error)=>void>;
 };
 const cache = new Map<string, Entry>();
 const BUDGET_BYTES = 384 * 1024 * 1024;
@@ -33,6 +37,7 @@ function discharge(bytes: number) {
 }
 function destroy(entry: Entry) {
   if(entry.destroyed)return;entry.destroyed=true;clearTimeout(entry.idle);
+  entry.rangeClose?.();
   void entry.task.destroy().catch(() => {});
 }
 function evict() {
@@ -65,6 +70,8 @@ export async function acquireCachedPdf(
   bytes: Uint8Array,
   extra: { cMapUrl?: string; cMapPacked?: boolean; standardFontDataUrl?: string; wasmUrl?: string; password?: string } = {},
   signal?: AbortSignal,
+  source?: FileSource,
+  onRangeError?: (error:Error)=>void,
 ) {
   signal?.throwIfAborted();
   GlobalWorkerOptions.workerSrc = workerUrl;
@@ -86,24 +93,31 @@ export async function acquireCachedPdf(
     cache.set(id, entry);
   } else {
     let task:PDFDocumentLoadingTask;
+    let ranged:ReturnType<typeof createPdfFileRange>|undefined;
+    let created:Entry|undefined;
     try {
       if(typeof window!=='undefined'&&!sharedWorker)sharedWorker=new PDFWorker();
-      task = getDocument({ data: bytes.slice(), ...extra, worker:sharedWorker, useSystemFonts: true });
+      if(source?.kind==='pdf')ranged=createPdfFileRange(id,source.size,error=>{if(created){for(const handler of [...created.failures])handler(error);retire(id,created);destroy(created);}});
+      task = getDocument({ ...(ranged?{range:ranged.range,rangeChunkSize:65536,disableAutoFetch:true,disableStream:true}:{data:bytes.slice()}), ...extra, worker:sharedWorker, useSystemFonts: true });
     }
-    catch(error){releaseRegistration();throw error;}
+    catch(error){ranged?.close();releaseRegistration();throw error;}
     entry = {
       task,
-      promise: task.promise,
-      bytes: bytes.byteLength,
+      promise: ranged?Promise.race([task.promise,ranged.failure]):task.promise,
+      bytes: source?Math.min(source.size,128*1024*1024):bytes.byteLength,
       users: 0,
       retired: false,
       withPassword: Boolean(password),
       password,
+      rangeClose:ranged?.close,
+      failures:new Set(),
     };
+    created=entry;
     cache.set(id, entry);
     charge(entry.bytes);
   }
   const held = entry;
+  if(onRangeError)held.failures.add(onRangeError);
   held.users++;
   leases++;
   let released = false;
@@ -111,6 +125,7 @@ export async function acquireCachedPdf(
   const release = () => {
     if (released) return;
     released = true;
+    if(onRangeError)held.failures.delete(onRangeError);
     if (onAbort) signal?.removeEventListener('abort', onAbort);
     held.users--;
     leases--;

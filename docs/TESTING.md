@@ -54,6 +54,16 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 
 ## 套件内容与成功标准
 
+### sources / sourcelifecycle：大文件按需读取
+
+`sources` 运行文本记录与 Office/ZIP 单测，再通过真实 Electron 验证文本、CSV、JSON、XLSX、DOCX、PPTX、PDF 和图片入口。样例由 tests/sourceFixtures.ts 生成在 work/large-source-fixtures：约 300 MiB 的文本/CSV/JSON，含大型未选择嵌入数据的 Office ZIP 和 PDF，以及 9000×7000、240 MiB 的真实 BMP 像素数据。Office/PDF 样例证明未选择条目/范围不整份读取，不能当作所有复杂正文的性能证据。
+
+记录首屏耗时、主进程实际范围读取量以及应用进程 working set 之和（50 ms 采样），结果存 outputs/verification/source-measurements.json；未清空文件系统缓存，只进行合成样例测量，工作集之和可能重复统计共享页。断言非图片首屏读取少于 16 MiB、最大单次范围 1 MiB、同时实际读取不超过 8、记录 DOM 最多 100 行，另核对实际 CSV 字段、PDF 画布、图片像素及所有源文件 SHA256。
+
+`sourcelifecycle` 复用或生成大文本和最小样例，检查闲置卸载后恢复、跨窗口移交的逻辑位置、跨显示分段搜索高亮、内嵌图片实际绘制、大图片排队取消/重试和旋转比例、外部修改后拒绝读取、跨窗口 token/图片 URL 隔离、关闭后 URL 撤销、非法范围与超像素拒绝、重载后的会话和句柄释放。此专项结束必须确认 sourceSessions/sourceHandles/sourceReads 为零。
+
+相关回归：core、loading、word、ppt、pdf、text、image、immersive、excel、excelbackground；共享读取/输出链路补 printing、nonpdfprinting、pdfchain。编辑逻辑未变时不机械扩大到所有编辑专项。本次验证不包含真实安装、实体打印或所有 Office 复杂排版。
+
 ### 测试文件归属与精简
 
 - 公共执行器、窗口/设置/更新测试和跨格式工具留在 tests/；格式解析、编辑和兼容性断言留在对应 src/modules/<type>/tests/。

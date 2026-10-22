@@ -7,19 +7,20 @@ import {
 } from "electron";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-export async function createLocalSession(assetRoot: string): Promise<Session> {
+export async function createLocalSession(assetRoot: string,source?:{allows(owner:number,url:string):boolean;fetch(request:Request):Promise<Response|undefined>}): Promise<Session> {
   const local = session.fromPartition("file-preview-memory", { cache: false });
   local.setPermissionRequestHandler((_wc, _permission, reply) => reply(false));
   local.setPermissionCheckHandler(() => false);
   local.on("will-download", (event) => event.preventDefault());
   local.webRequest.onBeforeRequest({ urls: ["<all_urls>"] }, (details, reply) =>
     reply({
-      cancel: !["preview://local/", "blob:", "data:"].some((prefix) =>
+      cancel: details.url.startsWith('preview://local/__source/') ? !source?.allows(details.webContentsId??-1,details.url) : !["preview://local/", "blob:", "data:"].some((prefix) =>
         details.url.startsWith(prefix),
       ),
     }),
   );
   await local.protocol.handle("preview", (request) => {
+    if(new URL(request.url).pathname.startsWith('/__source/'))return source?source.fetch(request).then(response=>response??new Response(null,{status:403})):new Response(null,{status:403});
     try {
       const url = new URL(request.url);
       const asset = path.resolve(

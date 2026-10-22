@@ -82,7 +82,7 @@ export function setupPrinting(local: Session) {
     const owner = event.sender;
     const run = queue.then(async () => {
     if(owner.isDestroyed())throw Error('预览窗口已关闭。');
-    const file = value?.file && await loadPreparedFile(value.file);
+    const file = value?.file && await loadPreparedFile(value.file,undefined,true);
     if (
       !file ||
       !printable.has(file.ext) ||

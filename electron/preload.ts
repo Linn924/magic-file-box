@@ -33,6 +33,10 @@ const bridge: DesktopBridge = {
   cancelPreviewLoad: task => ipcRenderer.invoke('preview:cancel-load', task),
   acquirePreviewParser: (id, task) => ipcRenderer.invoke('preview:acquire-parser', id, task),
   releasePreviewParser: task => ipcRenderer.invoke('preview:release-parser', task),
+  openFileSource: (id,token,encoding) => ipcRenderer.invoke('source:open',id,token,encoding),
+  readFileSource: (token,request) => ipcRenderer.invoke('source:page',token,request),
+  readFileRange: (token,offset,length) => ipcRenderer.invoke('source:range',token,offset,length),
+  closeFileSource: token => ipcRenderer.invoke('source:close',token),
   setPdfPassword:(id,password)=>ipcRenderer.invoke('pdf:password',id,password),
   openExternal: async (url: string) => {
     if (!/^https?:\/\//i.test(url)) throw Error("仅允许打开 http(s) 链接。");

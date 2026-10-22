@@ -4,6 +4,7 @@ export interface PreviewModule {
   id: string;
   extensions: string[];
   component: Component;
+  sourceComponent?: Component;
   pageFit?: boolean;
   toolbar?: Component;
   /** Release module caches when a file tab closes, not on idle DOM unload. */

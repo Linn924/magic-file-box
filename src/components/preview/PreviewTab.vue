@@ -122,10 +122,10 @@ async function loaded() {
     </div>
     <!-- Plan B: action strip -->
     <div class="filebar actbar" role="toolbar" aria-label="文件预览工具">
-      <span v-if="!error" class="preview-tool-group" data-preview-group="view"><ZoomControl v-model="zoom" /><FitControl v-if="module?.pageFit" v-model="fitMode" @update:model-value="zoom = 100" /></span>
+      <span v-if="!error" class="preview-tool-group" data-preview-group="view"><ZoomControl v-model="zoom" /><FitControl v-if="module?.pageFit && (!file.source || ['pdf','image'].includes(file.source.kind))" v-model="fitMode" @update:model-value="zoom = 100" /></span>
       <span class="module-tools" :data-tools-for="file.id"></span>
-      <span v-if="module?.toolbar && !error" class="preview-tool-group" data-preview-group="output"><component
-        v-if="module?.toolbar && !error"
+      <span v-if="module?.toolbar && !error && !file.source" class="preview-tool-group" data-preview-group="output"><component
+        v-if="module?.toolbar && !error && !file.source"
         :is="module.toolbar"
         :file="file"
       /></span>
@@ -152,7 +152,7 @@ async function loaded() {
       <component
         v-if="preview"
         :key="preview.key"
-        :is="getPreviewModule(file.ext)?.component"
+        :is="preview.file.source && module?.sourceComponent ? module.sourceComponent : module?.component"
         :file="preview.file"
         :zoom="zoom"
         :fit-mode="fitMode"

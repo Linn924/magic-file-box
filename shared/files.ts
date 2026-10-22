@@ -5,11 +5,14 @@ export interface PreviewFile {
   ext: string;
   bytes: Uint8Array;
   error: string;
+  source?: import('./fileSource').FileSource;
   view?: {
     zoom: number;
     scroll: Array<{ top: number; left: number }>;
     fit?: "original" | "width" | "page";
     encoding?: string;
+    /** Session-only position in a file-backed preview. */
+    source?: { start: number; column: number; sheet?: string; encoding?: string };
     /** PDF temporary rotation in degrees; does not modify the source file. */
     rotate?: 0 | 90 | 180 | 270;
     /** Session-only unlock state; never included in application settings. */
