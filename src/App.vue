@@ -5,6 +5,7 @@ import {HomeView, TabStrip} from '@/components/app';
 import PreviewTab from '@/components/preview/PreviewTab.vue';
 import SettingsPanel from '@/components/settings';
 import UpdateCenter from '@/components/updates';
+import NotificationStack from '@/components/ui/NotificationStack.vue';
 const {effect} = useExclusive();
 const {isPreview, immersive, files, active, updateLocked, settings, showSettings, error, dragging, tabStrip,
   select, openFiles, enter, leave, drop, startDrag, endDrag, dropTab, closeTab, selectTab, onTabsWheel, save} = useApplication();
@@ -45,5 +46,8 @@ const {isPreview, immersive, files, active, updateLocked, settings, showSettings
       @change="save"
     />
   </main>
-  <UpdateCenter notice :suppressed="showSettings||immersive"/>
+  <NotificationStack :suppressed="showSettings||immersive||updateLocked">
+    <div id="preview-notice-target" class="preview-notice-target"></div>
+    <UpdateCenter notice :suppressed="showSettings||immersive||updateLocked"/>
+  </NotificationStack>
 </template>

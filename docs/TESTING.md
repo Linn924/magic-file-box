@@ -56,6 +56,14 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 
 ## 套件内容与成功标准
 
+### notices：右下角预览提示
+
+`tests/suites/previewNotices.ts` 运行独立通知专项。使用实际大文本/CSV/XLSX/DOCX/PPTX/图片/SVG、无效 JSON、可提取数据但实际样式解析失败的 XLSX，以及禁止打印的加密 PDF，核对说明只在当前文件右下角出现、文件名与正文一致，原顶部说明移除。关闭按钮支持键盘焦点，关闭不改变阅读区域尺寸或滚动位置。
+
+验证不同标签隔离、手动关闭在压力卸载/重挂载和窗口移交后保留、关闭重开恢复提示；重复搜索命中仍计完整 700 处，新提示不被旧关闭状态吞掉，清空查询移除已解决说明。明暗主题、720 px 窗口/125% 缩放截图检查关闭按钮命中；设置/原生全屏往返隐藏并恢复，预览与更新卡片共存不重叠、关闭互不影响。保留密码输入、打印权限、文件错误重试行为，并核对来源会话/句柄及原始样例 SHA256。
+
+本专项安装测试更新驱动，更新状态通过真实接口和通知事件交付，绝不下载或安装更新。通知容器/更新样式变更补 updates；文本动态说明和 Word 警告接入补 texttools、word。提示位置改变不重复执行无关编辑、打印、性能或全量套件。运行资源变化先重建；仅补测试断言时可 skip-build。
+
 ### sources / sourcelifecycle：大文件按需读取
 
 `sources` 运行文本记录与 Office/ZIP 单测，再通过真实 Electron 验证文本、CSV、JSON、XLSX、DOCX、PPTX、PDF 和图片入口。样例由 tests/sourceFixtures.ts 生成在 work/large-source-fixtures：约 300 MiB 的文本/CSV/JSON，含大型未选择嵌入数据的 Office ZIP 和 PDF，以及 9000×7000、240 MiB 的真实 BMP 像素数据。Office/PDF 样例证明未选择条目/范围不整份读取，不能当作所有复杂正文的性能证据。

@@ -10,6 +10,7 @@ const index = args.indexOf("--suite");
 const selected = (index < 0 ? "all" : args[index + 1] || "").split(",");
 const names = [
   "core",
+  "notices",
   "exitresources",
   "loading",
   "tablifecycle",

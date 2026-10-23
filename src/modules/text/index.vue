@@ -15,6 +15,7 @@ import ToolButton from '@/components/ui/ToolButton.vue';
 import PreviewPanel from '@/components/preview/PreviewPanel.vue';
 import MarkdownView from './components/MarkdownView.vue';
 import MarkdownOutline from './components/MarkdownOutline.vue';
+import {usePreviewNotice} from '@/composables/usePreviewNotice';
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];
@@ -25,6 +26,7 @@ const { pane, encoding, raw, pretty, invalidJson } = usePreview(
   props,
   emit,
 );
+usePreviewNotice('json-format',()=>invalidJson.value?'JSON 格式不完整，按原始文本显示。':'');
 const linkError=ref('');
 const mdReader=ref<InstanceType<typeof MarkdownView>>();
 const sourceMode=ref(props.file.view?.markdown?.source??false),showOutline=ref(props.file.view?.markdown?.outline??false);
@@ -135,6 +137,7 @@ const virtualLines = computed(() => {
 
 const sourceHits = shallowRef<SourceSearchIndex>({count:0,lines:[]}),searchedQuery=ref(''),delayedQuery=ref(''),searching=ref(false);
 const partialHighlights=computed(()=>sourceHits.value.lines.some(line=>line.count>512));
+usePreviewNotice('search-highlights',()=>!showHtml.value&&partialHighlights.value?'重复匹配较多的行仅显示部分高亮；匹配计数和上一处、下一处定位仍包含全部结果。':'');
 const selectedHit = ref(-1);
 const currentHit = shallowRef<{line:number;start:number;end:number}>();
 const matchCount = computed(() => showHtml.value ? renderedHits.value.count : sourceHits.value.count);
@@ -249,10 +252,6 @@ watch(syntax.data,()=>void nextTick().then(updateVirtual));
         <div class="query-results"><span class="text-search-count" aria-live="polite">{{searching?'搜索中…':query.trim()?(matchCount?(matchIndex+1)+' / '+matchCount+' 处匹配':'0 处匹配'):'输入内容开始查找'}}</span><ToolButton class="text-find-previous" :class="{'md-find-previous':showHtml}" icon="up" title="上一处匹配（Shift+Enter）" :disabled="!matchCount" @click="findNext(-1)"/><ToolButton class="text-find-next" :class="{'md-find-next':showHtml}" icon="down" title="下一处匹配（Enter）" :disabled="!matchCount" @click="findNext(1)"/></div>
       </div>
     </PreviewPanel>
-    <div v-if="invalidJson" class="notice">
-      JSON 格式不完整，按原始文本显示。
-    </div>
-    <p v-if="!showHtml&&partialHighlights" class="notice">重复匹配较多的行仅显示部分高亮；匹配计数和上一处、下一处定位仍包含全部结果。</p>
     <p v-if="linkError" class="notice" role="alert">{{linkError}}</p>
     <div class="text-body">
     <MarkdownOutline v-if="showHtml&&showOutline" :headings="headings" :active="activeHeading" @jump="jumpHeading" />

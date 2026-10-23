@@ -27,6 +27,8 @@ export interface PreviewFile {
     excelDraft?: import("./excelEditing").ExcelDraft;
     markdownAnchor?:string;
     markdown?:{source:boolean;outline:boolean};
+    /** Dismissed preview messages, scoped to this in-memory file session. */
+    dismissedPreviewNotices?:string[];
     excel?: {
       sheet: string;
       columns: number;

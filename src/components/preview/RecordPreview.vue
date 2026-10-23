@@ -3,7 +3,9 @@ import {ref,computed,nextTick,watch} from 'vue';
 import type {PreviewProps} from '@/modules/types';
 import {useSourceRecords} from '@/composables/useSourceRecords';
 import SourceAsset from './SourceAsset.vue';
+import {usePreviewNotice} from '@/composables/usePreviewNotice';
 const props=withDefaults(defineProps<PreviewProps&{layout:'text'|'table'|'document';notice:string;search?:boolean}>(),{search:true});
+usePreviewNotice('source-mode',()=>props.notice);
 const emit=defineEmits<{ready:[];error:[message:string]}>();
 const state=useSourceRecords(props.file,(event,message)=>event==='ready'?emit('ready'):emit('error',message!));
 const {info,page,busy,ready,elapsed,error,query,queryNotice,start,column,sheet,encoding}=state;
@@ -38,7 +40,6 @@ async function load(){await state.load({start:Math.max(0,Math.floor(Number(jump.
 </script>
 <template>
   <section class="source-preview">
-    <p class="notice">{{notice}}</p>
     <div class="source-controls">
       <label v-if="info?.sheets?.length">分组<select v-model="sheet" :disabled="busy" @change="state.changeSheet"><option v-for="item in info.sheets" :key="item.id" :value="item.id">{{item.name}}</option></select></label>
       <label v-if="info?.encoding">编码<select v-model="encoding" :disabled="busy" @change="state.changeEncoding"><option value="utf-8">UTF-8</option><option value="gb18030">GB18030 / GBK</option><option value="utf-16le">UTF-16 LE</option><option value="utf-16be">UTF-16 BE</option></select></label>

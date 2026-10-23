@@ -13,6 +13,7 @@ import FindPanel from './components/FindPanel.vue';
 import FormulaAssist from './components/FormulaAssist.vue';
 import SheetTools from './components/SheetTools.vue';
 import SortFilterTools from './components/SortFilterTools.vue';
+import {usePreviewNotice} from '@/composables/usePreviewNotice';
 import {visibleSheetNames} from './core/editing/sheetState';
 import {useFind} from './composables/useFind';
 import {useFormulaAssist} from './composables/useFormulaAssist';
@@ -54,6 +55,7 @@ const {
   resizeColumn,resizeRow,autoSize,
   XLSX,
 } = usePreview(props, emit);
+usePreviewNotice('excel-layout',warning);
 const cellInput=ref<HTMLTextAreaElement>();
 const advanced=ref<InstanceType<typeof AdvancedTools>>();
 let restoreSaveFocus=false;
@@ -142,7 +144,6 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
     <FormulaAssist :assist="assist"/>
     <p v-if="editor.error.value" class="excel-edit-error" role="alert">{{editor.error.value}}</p>
     <span v-if="editor.status.value" class="excel-edit-status sr-only" role="status">{{editor.status.value}}</span>
-    <div v-if="warning" class="notice" role="status">{{ warning }}</div>
     <XlsSaveReview v-if="editor.saveWarnings.value" :warnings="editor.saveWarnings.value" :format="editor.format.value" @answer="answerCopy" />
     <div v-show="!editor.editing.value" class="sheet-tools" role="toolbar" aria-label="表格定位与冻结">
       <label class="cell-locate"

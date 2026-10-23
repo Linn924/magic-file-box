@@ -250,6 +250,10 @@ UpdateCenter 通过 [releaseNotes.ts](../src/components/updates/releaseNotes.ts)
 
 PreviewPanel 将浮窗挂到所属标签的 floating-tools 层，位置与查询保留在会话中。TabStrip 测量固有标签宽度，分别处理未溢出和有横向滚动条的布局；沉浸与演示隐藏整条标签区域。
 
+[usePreviewNotice](../src/composables/usePreviewNotice.ts) 在 PreviewTab 提供按文件隔离的提示登记：格式模块只报告具名文本，模块卸载按所有者撤销，重复文字合并。当前且已就绪的文件通过 Teleport 将 [PreviewNotices](../src/components/preview/PreviewNotices.vue) 放到 App 的右下角 [NotificationStack](../src/components/ui/NotificationStack.vue)，不参与工具栏和正文排版。Word/Excel 版式警告、RecordPreview 大文件模式、缩小图片说明、JSON 降级/部分高亮和 PDF 打印限制使用该入口；操作错误、密码、查询反馈和 XLS 另存风险确认保留原位置。
+
+手动关闭按提示键与文字记录在 PreviewFile.view.dismissedPreviewNotices 中，最多 64 项，只在内存会话保留；切换、压力淘汰与移交沿用，重新打开文件产生新会话。不同新提示可再次显示，条件消失后移除对应信息。关闭按钮获得过焦点时返回当前 preview-body，preventScroll 保持阅读位置。预览与更新通知共享排列容器，窄窗口可滚动，避免两个独立 fixed 卡片重叠；设置、沉浸、重启准备及 PDF 演示期间隐藏，不写偏好或路径历史。
+
 PreviewTab 进入沉浸全屏时保存阅读状态，保持当前显示模式和倍率；退出时恢复进入前的模式、倍率及滚动位置。PDF 的自动单双页继续按可用宽度和页面尺寸判断，演示模式仍由 PDF 模块独立强制单页整页适配。
 
 ## 构建、产物与验证入口

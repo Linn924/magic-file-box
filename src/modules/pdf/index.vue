@@ -14,6 +14,7 @@ import PdfNotes from './components/PdfNotes.vue';
 import { pageTextContent, mappedPdfText } from './core/textCache';
 import { Util } from 'pdfjs-dist';
 import {resolvePdfDestination} from './core/destination';
+import {usePreviewNotice} from '@/composables/usePreviewNotice';
 const props = defineProps<PreviewProps>();
 const presentation=ref(false);
 const navOpen = ref(false);
@@ -49,6 +50,7 @@ const {
   setRotate,
   allowPrint,
 } = usePreview(props, emit,(allowed,password)=>publishPrintPermission?.(allowed,password),presentation,navOpen);
+usePreviewNotice('pdf-print-permission',()=>allowPrint.value?'':'此文档不允许打印');
 const search = usePdfSearch(pdf);
 const publishPrintPermission=inject<(allowed:boolean,password?:string)=>void>('pdf:set-print-permission');
 watch(allowPrint,value=>publishPrintPermission?.(value),{immediate:true});
@@ -511,8 +513,5 @@ onBeforeUnmount(() => {
       label="PDF"
       @jump="jump"
     />
-    <p v-if="!allowPrint" class="pdf-perm-note" role="status">
-      此文档不允许打印
-    </p>
   </section>
 </template>

@@ -6,6 +6,7 @@ import {useDocxNavigation} from './composables/useDocxNavigation';
 import WordOutline from './components/WordOutline.vue';
 import ToolButton from '@/components/ui/ToolButton.vue';
 import PreviewPanel from '@/components/preview/PreviewPanel.vue';
+import {usePreviewNotice} from '@/composables/usePreviewNotice';
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];
@@ -13,6 +14,7 @@ const emit = defineEmits<{
   "update:zoom": [value: number];
 }>();
 const { pane, host, bodyRoot, scroll, warning, page, pageCount, jump, fit } = usePreview(props, emit);
+usePreviewNotice('word-layout',warning);
 const {available, showSearch, query, searchInput, showOutline, headings, activeHeading, count, index, searching, findNext, searchKey, jumpHeading, toggleOutline} = useDocxNavigation(props, pane, bodyRoot, scroll, fit);
 </script>
 <template>
@@ -29,7 +31,6 @@ const {available, showSearch, query, searchInput, showOutline, headings, activeH
         <div class="query-results"><span class="word-search-count" aria-live="polite">{{searching?'查找中…':query.trim()?(count?(index+1)+' / '+count+' 处匹配':'0 处匹配'):'输入内容开始查找'}}</span><ToolButton class="word-find-previous" icon="up" title="上一处匹配（Shift+Enter）" :disabled="!count||searching" @click="findNext(-1)"/><ToolButton class="word-find-next" icon="down" title="下一处匹配（Enter）" :disabled="!count||searching" @click="findNext(1)"/></div>
       </div>
     </PreviewPanel>
-    <div v-if="warning" class="notice">{{ warning }}</div>
     <div class="word-body">
       <WordOutline v-if="file.ext==='docx'&&showOutline" :headings="headings" :active="activeHeading" @jump="jumpHeading"/>
       <div ref="scroll" class="document-scroll"><div ref="host" class="word-host"></div></div>

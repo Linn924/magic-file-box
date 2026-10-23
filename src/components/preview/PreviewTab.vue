@@ -9,6 +9,8 @@ import ToolButton from '@/components/ui/ToolButton.vue';
 import {fileSize} from '@/utils/formatters';
 import type {PreviewFile} from '@shared/files';
 import { usePreviewLoad } from '@/composables/usePreviewLoad';
+import {usePreviewNoticeHost} from '@/composables/usePreviewNotice';
+import PreviewNotices from './PreviewNotices.vue';
 const props = defineProps<{
   file: PreviewFile;
   initialZoom: number;
@@ -16,6 +18,12 @@ const props = defineProps<{
   /** Whether this tab is the active tab (for memory cache). */
   active?: boolean;
 }>();
+const {messages:notices,dismiss:dismissNotices}=usePreviewNoticeHost(props.file);
+function dismissNotice(){
+  const restore=document.activeElement?.closest('.preview-notice');
+  dismissNotices();
+  if(restore)void nextTick(()=>document.querySelector<HTMLElement>(`[data-file-id="${props.file.id}"] .preview-body`)?.focus({preventScroll:true}));
+}
 const printAllowed=ref(props.file.view?.pdfPrintAllowed!==false);
 provide('pdfAllowPrint',printAllowed);
 provide('pdf:set-print-permission',(allowed:boolean,password?:string)=>{
@@ -129,7 +137,8 @@ async function loaded() {
       <ToolButton class="immersive-toggle" icon="fullscreen" :title="immersive ? '退出全屏（Esc）' : '沉浸阅读（F11）'" :pressed="immersive" @click="toggleFullscreen" />
     </div>
     <div class="floating-tools"></div>
-    <div class="preview-body" :aria-busy="busy && phase !== 'password'" :data-load-phase="phase">
+    <Teleport to="#preview-notice-target" defer><PreviewNotices v-if="active && phase==='ready' && !error && notices.length" :file-name="file.name" :messages="notices" @dismiss="dismissNotice"/></Teleport>
+    <div class="preview-body" tabindex="-1" :aria-busy="busy && phase !== 'password'" :data-load-phase="phase">
       <div v-if="error" class="error" role="alert">
         <strong>暂时无法预览</strong>
         <p>{{ error }}</p>
