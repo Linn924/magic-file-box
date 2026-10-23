@@ -23,6 +23,7 @@ export interface PreviewFile {
     /** Session-only physical page and row progress; survives automatic regrouping. */
     pdfReading?: {page:number;fraction:number};
     image?: {rotate:0|90|180|270;originalPixels:boolean};
+    text?: {folded:number[]};
     excelDraft?: import("./excelEditing").ExcelDraft;
     markdownAnchor?:string;
     markdown?:{source:boolean;outline:boolean};

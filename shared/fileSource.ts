@@ -13,7 +13,7 @@ export function fileSourceKind(ext: string, size: number): FileSourceKind | unde
   if (['png','jpg','jpeg','webp','gif','bmp'].includes(ext) && size > 8*1024*1024) return 'image';
 }
 export type SourceRow = { index: number; cells: string[]; line?: number; continued?: boolean; level?: number; assets?:string[]; assetWarning?:string };
-export type SourceInfo = FileSource & { encoding?: string; sheets?: Array<{id: string; name: string}>; width?: number; height?: number; url?: string };
+export type SourceInfo = FileSource & { encoding?: string; sheets?: Array<{id: string; name: string}>; width?: number; height?: number; url?: string; /** At most 1 MiB, returned only to the image's owner; never persisted. */ imageHeader?:Uint8Array };
 export type SourceRequest = { start: number; count?: number; column?: number; sheet?: string; query?: string };
 export type SourcePage = { start: number; rows: SourceRow[]; more: boolean; scanned: number; total?: number; columns: number; match?: number };
 /** Parser-facing I/O capability. No user paths leave the main process. */

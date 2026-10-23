@@ -13,8 +13,10 @@ import {exportAnnotatedPage} from './core/exportNotes';
 import PdfNotes from './components/PdfNotes.vue';
 import { pageTextContent, mappedPdfText } from './core/textCache';
 import { Util } from 'pdfjs-dist';
+import {resolvePdfDestination} from './core/destination';
 const props = defineProps<PreviewProps>();
 const presentation=ref(false);
+const navOpen = ref(false);
 let priorFullscreen=false;
 let fullscreenCleanup:(()=>void)|undefined;
 let readingRestore:ReturnType<typeof setTimeout>|undefined;
@@ -32,6 +34,7 @@ const {
   current,
   sync,
   jump,
+  jumpDestination,readingPosition,cancelDestination,
   dimensions,
   visiblePages,visibleRows,pageLayout,rowDimensions,focusPage,releasePageFocus,
   padTop,
@@ -45,13 +48,12 @@ const {
   textGeometry,
   setRotate,
   allowPrint,
-} = usePreview(props, emit,(allowed,password)=>publishPrintPermission?.(allowed,password),presentation);
+} = usePreview(props, emit,(allowed,password)=>publishPrintPermission?.(allowed,password),presentation,navOpen);
 const search = usePdfSearch(pdf);
 const publishPrintPermission=inject<(allowed:boolean,password?:string)=>void>('pdf:set-print-permission');
 watch(allowPrint,value=>publishPrintPermission?.(value),{immediate:true});
 const searchOpen = ref(false);
 watch(searchOpen, open => { if (!open) search.clear(); });
-const navOpen = ref(false);
 const passwordInput = ref("");
 const {panning}=usePan(scroll,computed(()=>!presentation.value));
 const annotations=useAnnotations(props.file);
@@ -183,21 +185,6 @@ function highlightActiveHit() {
   });
 }
 
-function resolveDestPage(dest: unknown): number | null {
-  const doc = pdf.value;
-  if (!doc) return null;
-  try {
-    const refObj = Array.isArray(dest) ? dest[0] : dest;
-    if (typeof refObj === "number") return refObj + 1;
-    if (refObj != null) {
-      // sync path via getPageIndex is async; handled by caller
-    }
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
 async function buildTextLayer(pageEl: HTMLElement, index: number) {
   const doc = pdf.value;
   if (!doc) return;
@@ -309,15 +296,8 @@ async function buildTextLayer(pageEl: HTMLElement, index: number) {
           a.addEventListener("click", (e) => {
             e.preventDefault();
             void (async () => {
-              let target: number | null = resolveDestPage(dest);
-              if (target == null) {
-                const refObj = Array.isArray(dest) ? dest[0] : dest;
-                if (refObj != null && typeof refObj !== "number") {
-                  target =
-                    (await doc.getPageIndex(refObj as never)) + 1;
-                }
-              }
-              if (target) jump(target);
+              const target=await resolvePdfDestination(doc,dest);
+              if(!textDisposed&&pdf.value===doc&&target)void jumpDestination(target);
             })();
           });
         } else {
@@ -378,6 +358,7 @@ async function togglePresentation(value=!presentation.value,restore=true){
 function onKeydown(event:KeyboardEvent){
   if(!activePdf()||editable(event.target)||event.altKey||event.metaKey)return;
   cancelReadingRestore();
+  if(event.target instanceof HTMLElement&&event.target.closest('.pdf-scroll')&&['ArrowDown','ArrowUp','ArrowLeft','ArrowRight',' '].includes(event.key))cancelDestination();
   if(event.ctrlKey&&event.shiftKey&&event.key.toLowerCase()==='p'){event.preventDefault();event.stopImmediatePropagation();void togglePresentation();return;}
   if(presentation.value){
     if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();void togglePresentation(false);}
@@ -398,7 +379,7 @@ function onKeydown(event:KeyboardEvent){
 function onWheel(event:WheelEvent){
   annotations.pending.value=null;
   cancelReadingRestore();
-  if(!event.ctrlKey&&event.deltaY!==0)releasePageFocus();
+  if(!event.ctrlKey&&(event.deltaY!==0||event.deltaX!==0))releasePageFocus();
   if(presentation.value){event.preventDefault();return;}
   if(!event.ctrlKey||event.deltaY===0)return;
   event.preventDefault();emit('update:zoom',Math.max(25,Math.min(400,props.zoom+(event.deltaY<0?10:-10))));
@@ -483,7 +464,9 @@ onBeforeUnmount(() => {
         v-if="navOpen && pdf && !presentation"
         :pdf="pdf"
         :current="current"
+        :position="readingPosition"
         @jump="jump"
+        @destination="jumpDestination"
       />
       <PdfNotes v-if="notesOpen && !presentation" :notes="annotations.notes.value" :can-export="!!pdf && !!annotations.onPage(current).length" :exporting="exporting" :export-status="exportStatus" @export="exportNotes" @jump="jump" @remove="annotations.remove"/>
       <div
@@ -493,6 +476,7 @@ onBeforeUnmount(() => {
         :class="{'is-panning':panning}"
         tabindex="0"
         @scroll.passive="readingScroll"
+        @pointerdown="cancelDestination"
         @wheel="onWheel"
         @click="presentationClick"
         @contextmenu="presentationBack"

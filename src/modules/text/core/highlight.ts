@@ -3,6 +3,15 @@ import type {SyntaxData,SyntaxPart} from './syntaxTypes';
 import {textMatches} from '@/utils/renderedSearch';
 export {textMatches} from '@/utils/renderedSearch';
 const escapeHtml=(text:string)=>text.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\r/g,'&#13;');
+/** Keep markup bounded for repetitive long lines; the selected hit is always included. Counts remain complete. */
+function visibleMatches(line:string,query:string,currentStart:number){
+  if(!query.trim())return [];
+  const pattern=new RegExp(query.trim().replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),out:Array<{start:number;end:number}>=[];
+  let match:RegExpExecArray|null;
+  while(out.length<512&&(match=pattern.exec(line)))out.push({start:match.index,end:match.index+match[0].length});
+  if(currentStart>=0&&!out.some(hit=>hit.start===currentStart)){pattern.lastIndex=currentStart;match=pattern.exec(line);if(match?.index===currentStart)out.push({start:match.index,end:match.index+match[0].length});}
+  return out.sort((a,b)=>a.start-b.start);
+}
 const quoted=String.raw`"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'|\x60(?:\\.|[^\x60\\])*\x60`;
 function tokens(line:string,ext:string):Token[] {
   let pattern:RegExp|undefined;
@@ -28,7 +37,7 @@ function tokens(line:string,ext:string):Token[] {
 }
 /** Tokenize source once, then merge source ranges; never replace generated markup. */
 export function renderTextLine(line:string,ext:string,query='',currentStart=-1) {
-  const parts=tokens(line,ext),matches=textMatches(line,query),html:string[]=[];
+  const parts=tokens(line,ext),matches=visibleMatches(line,query,currentStart),html:string[]=[];
   let pos=0,token=0,hit=0;
   while(pos<line.length){
     while(parts[token].end<=pos)token++;
@@ -44,7 +53,7 @@ export function renderTextLine(line:string,ext:string,query='',currentStart=-1) 
 }
 /** Merge token and search ranges over original characters; author HTML stays escaped. */
 export function renderSyntaxLine(line:string,parts:SyntaxPart[]|undefined,styles:SyntaxData['styles'],query='',currentStart=-1){
-  if(!parts?.length)return renderTextLine(line,'',query,currentStart);const matches=textMatches(line,query),html:string[]=[];let at=0,token=0,hit=0;
+  if(!parts?.length)return renderTextLine(line,'',query,currentStart);const matches=visibleMatches(line,query,currentStart),html:string[]=[];let at=0,token=0,hit=0;
   while(at<line.length){while(token<parts.length&&parts[token][1]<=at)token++;while(hit<matches.length&&matches[hit].end<=at)hit++;const part=parts[token],style=part&&part[0]<=at?styles[part[2]]:undefined,match=matches[hit],active=!!match&&match.start<=at;
     const end=Math.min(line.length,part?(style?part[1]:part[0]):line.length,match?(active?match.end:match.start):line.length);if(end<=at)return renderTextLine(line,'',query,currentStart);
     let text=escapeHtml(line.slice(at,end));if(active)text='<mark class="text-hit'+(match.start===currentStart?' text-current-hit':'')+'" data-hit-start="'+match.start+'">'+text+'</mark>';

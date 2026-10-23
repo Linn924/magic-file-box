@@ -27,6 +27,9 @@ const names = [
   "pdf",
   "pdfthumbs",
   "pdfoutline",
+  "pdfdest",
+  "texttools",
+  "imagetools",
   "text",
   "textsearch",
   "syntax",
@@ -61,8 +64,10 @@ if (!args.includes("--skip-build"))
     ["run", "build"],
     process.platform === "win32",
   );
-if (selected.some(name => name !== 'pdfoutline'))
+if (selected.some(name => !['pdfoutline','pdfdest','texttools','imagetools'].includes(name)))
   run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);
+if(selected.includes('texttools')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/text/tests/readingToolsUnit.ts']);
+if(selected.includes('imagetools')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/image/tests/toolsUnit.ts']);
 if(selected.includes('sources')||selected.includes('all')){
   run(process.execPath,['--import','tsx','src/modules/text/tests/fileRecordsUnit.ts']);
   run(process.execPath,['--import','tsx','tests/sourceArchiveUnit.ts']);

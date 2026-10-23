@@ -2,6 +2,7 @@
 import type { PreviewProps } from "@/modules/types";
 import { usePreview } from "./composables/usePreview";
 import ToolButton from '@/components/ui/ToolButton.vue';
+import ImageTools from './components/ImageTools.vue';
 const props = defineProps<PreviewProps>();
 const emit = defineEmits<{
   ready: [];
@@ -13,6 +14,7 @@ const {
   url,
   style,frameStyle,
   dimensions,
+  natural,
   loaded,
   rotate,
   cycleRotate,
@@ -37,6 +39,7 @@ const {
         /></span>
       </span>
     </Teleport>
+    <ImageTools :file="file" :rotation="rotate" target=".image img" :size="natural"/>
     <div class="image">
       <div class="image-frame" :style="frameStyle">
       <img

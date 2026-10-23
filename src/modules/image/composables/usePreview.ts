@@ -127,6 +127,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit) {
     url,
     style,frameStyle,
     dimensions,
+    natural,
     loaded,
     rotate,
     cycleRotate,

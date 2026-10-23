@@ -52,6 +52,7 @@ const paths:Record<string,string>={
   jump:'M2 8h10M8 4l4 4-4 4M14 3v10',
   more:'M3 8h.1M8 8h.1M13 8h.1',
   expand:'M4 6l4 4 4-4',
+  pipette:'m3 10 6-6 3 3-6 6H3v-3ZM8 3l5 5M10 2l4 4M3 13l-1 1',
 };
 </script>
 <template><svg class="tool-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" :stroke-width="name==='more'?3:1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect v-if="name==='row'" x="2" y="6" width="12" height="4" fill="currentColor" stroke="none" opacity=".25" /><rect v-if="name==='column'" x="6" y="3" width="4" height="10" fill="currentColor" stroke="none" opacity=".25" /><path :d="paths[name]||paths.more" /></svg></template>

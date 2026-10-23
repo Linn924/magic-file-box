@@ -10,13 +10,15 @@ import {
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import { pdfWork } from "../core/workQueue";
 import { pageSize } from '../core/metadata';
+import {destinationPoint,type PdfDestination,type PdfReadingPosition} from '../core/destination';
 import { allocatePdfCanvas, releasePdfCanvas, availablePdfPixels } from '../core/canvasPool';
 
 const props = defineProps<{
   pdf: PDFDocumentProxy | undefined;
   current: number;
+  position?:PdfReadingPosition;
 }>();
-const emit = defineEmits<{ jump: [page: number] }>();
+const emit = defineEmits<{ jump: [page: number];destination:[target:PdfDestination] }>();
 const tab = ref<"outline" | "thumbs">("outline");
 
 interface OutlineNode {
@@ -26,9 +28,11 @@ interface OutlineNode {
   key: string;
   parentKey: string | null;
   hasChildren: boolean;
+  destination?:PdfDestination;
 }
 const outline = ref<OutlineNode[]>([]);
 const outlineQuery=ref('');
+const pickedKey=ref<string>();
 const collapsed = ref(new Set<string>());
 const outlineHost=ref<HTMLElement>();
 const thumbHost = ref<HTMLElement>();
@@ -56,6 +60,7 @@ const sized=new Set<number>();
 
 async function loadOutline() {
   outline.value = [];
+  pickedKey.value=undefined;
   collapsed.value = new Set();
   if (!props.pdf) return;
   try {
@@ -76,6 +81,7 @@ async function loadOutline() {
         const item = list[i];
         const key = `${path}.${i}`;
         let page = 0;
+        let destination:PdfDestination|undefined;
         try {
           const dest =
             typeof item.dest === "string" ? await destOf(item.dest) : item.dest;
@@ -85,6 +91,7 @@ async function loadOutline() {
               typeof refObj === "number"
                 ? refObj + 1
                 : (await props.pdf!.getPageIndex(refObj as never)) + 1;
+            if(page>=1&&page<=doc.numPages)destination={page,dest,key};
           }
         } catch {
           page = 0;
@@ -97,6 +104,7 @@ async function loadOutline() {
           key,
           parentKey,
           hasChildren,
+          destination,
         });
         if (hasChildren && depth >= 2) collapsed.value.add(key);
         if (item.items?.length) await walk(item.items, depth + 1, key, key);
@@ -140,12 +148,19 @@ const visibleOutline = computed(() => {
 });
 
 const currentOutlineKey = computed(() => {
-  let hit: string | null = null;
-  for (const item of outline.value) {
-    if (item.page && item.page <= props.current) hit = item.key;
-  }
-  return hit;
+  const same=outline.value.filter(item=>item.page===props.current),position=props.position;
+  if(position?.destinationKey&&same.some(item=>item.key===position.destinationKey))return position.destinationKey;
+  const previous=outline.value.filter(item=>item.page>0&&item.page<props.current).at(-1);
+  if(!position||position.page!==props.current)return same[0]?.key??previous?.key??null;
+  const axis=position.viewport.rotation%180?0:1,at=axis===0?position.x:position.y;
+  const coordinate=(item:OutlineNode)=>item.destination?destinationPoint(item.destination.dest,position.viewport)[axis]:0;
+  let hit:OutlineNode|undefined,best=-Infinity;
+  for(const item of same){const value=coordinate(item);if(value<=at+1&&value>=best){hit=item;best=value;}}
+  const picked=same.find(item=>item.key===pickedKey.value);
+  if(picked&&hit&&Math.abs(coordinate(picked)-best)<1)return picked.key;
+  return hit?.key??previous?.key??same[0]?.key??null;
 });
+function activateOutline(item:OutlineNode){if(!item.page)return;pickedKey.value=item.key;if(item.destination)emit('destination',item.destination);else emit('jump',item.page);}
 watch(currentOutlineKey,async key=>{
  if(!key)return;
  const byKey=new Map(outline.value.map(item=>[item.key,item]));
@@ -507,7 +522,7 @@ const hasOutline = computed(() => outline.value.length > 0);
             :title="item.title"
             :disabled="!item.page"
             :class="{ current: item.key === currentOutlineKey }"
-            @click="item.page && emit('jump', item.page)"
+            @click="activateOutline(item)"
           >
             <span class="outline-title">{{ item.title }}</span>
             <small v-if="item.page" class="outline-page" :aria-label="'第 '+item.page+' 页'">{{ item.page }}</small>

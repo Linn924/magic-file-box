@@ -67,15 +67,17 @@ export function setupFileSources(){
       source.reader=reader;
       const signal=source.controller.signal;
       let info:SourceInfo={kind,size:reader.size};
+      let imageHeader:Uint8Array|undefined;
       if(kind==='text'||kind==='csv')source.provider=await openTextRecords(reader,signal,encoding);
       else if(kind==='xlsx'||kind==='docx'||kind==='pptx'){
         const archive=await openSourceArchive(reader,signal);source.archive=archive;
         source.provider=kind==='xlsx'?await openWorkbookSource(archive,reader.size,signal):kind==='docx'?await openWordSource(archive,reader.size,signal):await openPresentationSource(archive,reader.size,signal);
       }else if(kind==='image'){
-        const size=validateImageSize(imageSize(await reader.read(0,Math.min(reader.size,1024*1024),signal)));
+        imageHeader=await reader.read(0,Math.min(reader.size,1024*1024),signal);
+        const size=validateImageSize(imageSize(imageHeader));
         info={...info,...size,url:'preview://local/__source/'+token+'/raw'};
       }
-      signal.throwIfAborted();source.info=source.provider?.info??info;return source.info;
+      signal.throwIfAborted();source.info=source.provider?.info??info;return imageHeader?{...source.info,imageHeader}:source.info;
     }catch(error){await close(source);throw error;}
   });
   ipcMain.handle('source:range',async(event,token:string,offset:number,length:number)=>{

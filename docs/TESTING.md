@@ -161,6 +161,10 @@ PDF 滚轮测试固定 1000×700，避免短样例在大屏无溢出。80 页混
 
 ### text / image
 
+新增 `pdfdest`、`texttools`、`imagetools` 为独立专项，单独选择这些套件（含 pdfoutline）时不执行无关基础单测。`npm test -- --suite pdfdest,texttools,imagetools` 先编译当前源码，再分别验证：同页 XYZ/FitH/命名目录定位、正文滚动章节选中、缩放/双页/旋转；虚拟文本跳行、折叠与隐藏结果搜索、查询取消和非法行号；常见 EXIF、旋转后真实像素取样、大图预览像素标识及来源会话释放。文本与图片单测分别位于模块 readingToolsUnit.ts、toolsUnit.ts，覆盖真实语法字符串/正则屏蔽、缩进、协作取消，以及恶意 EXIF 偏移和旋转坐标。保留所有源样例字节与原有 SHA256 门禁。
+
+相关回归按实际影响选择 pdfoutline、pdfspread、text、textsearch、syntax、appearance、image；不扩展到打印、Office 编辑或全量套件。首次生成的合成 EXIF 不含真实个人信息，取色不改剪贴板；截图仅验证本地样例，不代表所有相机私有标签或浏览器色彩管理的一致性。
+
 各模块 `tests/e2e.ts`。文本检查原文安全显示、JSON 格式化/无效 JSON 回退、Markdown 渲染；图片检查 PNG/SVG/JPEG/WebP/GIF/BMP 的实际解码。缺失的小型位图样例由图片测试自动生成。均检查滚轮不改变倍率或图片显示尺寸。黑夜模式检查图片背景没有亮色棋盘格，使用 #252a32 深灰，并保存截图。扩展某种编码或图片格式时，应在对应套件加入真实样例和断言。
 
 `src/modules/text/tests/sourceSearch.ts` 可单独运行 textsearch，已纳入 text，all 不重复执行。覆盖 JSON 远处首项定位、同一行多处匹配计数、上一处/下一处及 Enter/Shift+Enter 循环、未命中/关闭清理、原字符与源文件保持、明暗主题，以及 5000 项 JSON 的虚拟窗口、175% 缩放长换行行和新查询取消旧导航；同路径补纯文本、代码、无效 JSON 与 Markdown 源码。源码搜索修复运行 text、syntax，保留 Markdown 排版搜索回归。syntaxUnit 同时检查字面匹配计数、选中偏移与跨语法标记的命中片段。

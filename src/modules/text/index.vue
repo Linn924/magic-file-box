@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import { computed, ref, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
+import { computed, ref, shallowRef, watch, nextTick, onMounted, onBeforeUnmount } from "vue";
 import type { PreviewProps } from "@/modules/types";
 import { usePreview } from "./composables/usePreview";
 import { createSafeResizeObserver } from "@/utils/safeResizeObserver";
 import textModule from "./";
 import {renderTextLine,renderSyntaxLine} from './core/highlight';
-import {indexSourceMatches,sourceMatchAt} from './core/sourceSearch';
+import {indexSourceMatchesAsync,sourceMatchAtAsync,type SourceSearchIndex} from './core/sourceSearch';
+import {codeFolds} from './core/folding';
 import {useSyntax} from './composables/useSyntax';
 import {languageNames} from './core/languages';
 import {useCodeAppearance} from './composables/useCodeAppearance';
@@ -36,13 +37,29 @@ const query = ref("");
 const showLines = ref(true);
 const showSearch = ref(false);
 const searchInput = ref<HTMLInputElement>();
+const showGo=ref(false),goInput=ref<HTMLInputElement>(),goLine=ref('1'),goError=ref(''),jumpedLine=ref(-1);
+watch(showGo,async value=>{if(value){goError.value='';await nextTick();goInput.value?.focus();goInput.value?.select();}});
 watch(showSearch, async value => { if (value) { await nextTick(); searchInput.value?.focus({preventScroll:true}); } else query.value=''; });
-function findKey(event:KeyboardEvent){if((event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='f'&&pane.value?.clientWidth){event.preventDefault();showSearch.value=true;void nextTick(()=>searchInput.value?.focus({preventScroll:true}));}}
+function findKey(event:KeyboardEvent){if((event.ctrlKey||event.metaKey)&&pane.value?.clientWidth){if(event.key.toLowerCase()==='f'){event.preventDefault();showSearch.value=true;void nextTick(()=>searchInput.value?.focus({preventScroll:true}));}else if(event.key.toLowerCase()==='g'&&!showHtml.value){event.preventDefault();showGo.value=true;}}}
 const lines = computed(() => (pretty.value || "").split("\n"));
 const showHtml = computed(() => props.file.ext === 'md' && !sourceMode.value);
 const syntaxText=computed(()=>props.file.ext==='md'&&!sourceMode.value?'':pretty.value);
 function sourcePosition(force=false){const root=textScroll.value;if(!root?.clientHeight)return ()=>{};const top=root.getBoundingClientRect().top,node=Array.from(root.querySelectorAll<HTMLElement>('.text-line')).find(n=>n.getBoundingClientRect().bottom>top),before=root.scrollTop,offset=node?node.getBoundingClientRect().top-top:0;return ()=>{if((force||root.scrollTop===before)&&node?.isConnected)root.scrollTop+=node.getBoundingClientRect().top-root.getBoundingClientRect().top-offset;};}
 const syntax=useSyntax(props.file.id,syntaxText,props.file.ext,sourcePosition);
+const folds=computed(()=>codeFolds(lines.value,syntax.data.value,syntax.lang));
+const folded=ref(new Set(props.file.view?.text?.folded??[]));
+const foldByLine=computed(()=>new Map(folds.value.map(range=>[range.start,range])));
+const visibleLineNumbers=computed(()=>{
+  const result:number[]=[];let through=-1;
+  for(let i=0;i<lines.value.length;i++){if(i<=through)continue;result.push(i);const range=foldByLine.value.get(i);if(range&&folded.value.has(i))through=range.end;}
+  return result;
+});
+const visiblePositions=computed(()=>folds.value.some(range=>folded.value.has(range.start))?new Map(visibleLineNumbers.value.map((line,i)=>[line,i])):undefined);
+function linePosition(line:number){return visiblePositions.value?visiblePositions.value.get(line):line>=0&&line<lines.value.length?line:undefined;}
+watch(folded,value=>{props.file.view??={zoom:props.zoom,scroll:[]};props.file.view.text={folded:[...value]};},{flush:'sync'});
+function toggleFold(line:number){const next=new Set(folded.value);if(next.has(line))next.delete(line);else next.add(line);folded.value=next;}
+function openLine(line:number){const next=new Set(folded.value);for(const range of folds.value)if(range.start<line&&range.end>=line)next.delete(range.start);if(next.size!==folded.value.size)folded.value=next;}
+watch(encoding,()=>{folded.value=new Set();jumpedLine.value=-1;});
 useCodeAppearance(()=>{if(showHtml.value)return mdReader.value?.captureReading()??(()=>{});const restore=sourcePosition(true);return ()=>{updateVirtual();void nextTick(restore);};});
 
 /** 超过此行数才启用虚拟滚动，小文件直接全量渲染 */
@@ -50,7 +67,7 @@ const VIRTUAL_THRESHOLD = 3000;
 /** 视口外额外保留的行数（上下各一份） */
 const OVERSCAN = 5;
 
-const useVirtual = computed(() => lines.value.length > VIRTUAL_THRESHOLD);
+const useVirtual = computed(() => visibleLineNumbers.value.length > VIRTUAL_THRESHOLD);
 
 // ------- 虚拟滚动状态 -------
 const textScroll = ref<HTMLElement>();
@@ -60,12 +77,12 @@ const padTop = ref(0);
 const padBottom = ref(0);
 
 const estimatedHeight=()=>Math.floor((14*props.zoom/100)*1.65*64)/64;
-let heights=new LineHeights(lines.value.length,estimatedHeight());
+let heights=new LineHeights(visibleLineNumbers.value.length,estimatedHeight());
 let virtualRevision=0,virtualDisposed=false;
 function contentPadding(root:HTMLElement){return parseFloat(getComputedStyle(root).paddingTop||'0')+parseFloat(getComputedStyle(root.querySelector('.text-code')||root).paddingTop||'0');}
 function windowAt(top:number){
   const root=textScroll.value;if(!root)return;
-  const y=Math.max(0,top-contentPadding(root)),total=lines.value.length;
+  const y=Math.max(0,top-contentPadding(root)),total=visibleLineNumbers.value.length;
   const start=Math.max(0,heights.at(y)-OVERSCAN),end=Math.min(total,heights.at(y+root.clientHeight)+1+OVERSCAN);
   vStart.value=start;vEnd.value=Math.max(start+1,end);
   padTop.value=heights.prefix(start);padBottom.value=Math.max(0,heights.prefix(total)-heights.prefix(vEnd.value));
@@ -76,22 +93,26 @@ function updateVirtual(){
   const revision=++virtualRevision,model=heights,before=root.scrollTop;
   const boundary=root.getBoundingClientRect();
   const visible=Array.from(root.querySelectorAll<HTMLElement>('.text-line')).find(line=>{const r=line.getBoundingClientRect();return r.bottom>boundary.top&&r.top<boundary.bottom;});
-  const anchor=visible?Number(visible.dataset.line)-1:model.at(Math.max(0,before-contentPadding(root))),offset=model.prefix(anchor);
+  const anchor=visible?(linePosition(Number(visible.dataset.line)-1)??0):model.at(Math.max(0,before-contentPadding(root))),offset=model.prefix(anchor);
   let changed=false;
-  for(const line of root.querySelectorAll<HTMLElement>('.text-line'))changed=model.set(Number(line.dataset.line)-1,line.getBoundingClientRect().height)||changed;
+  for(const line of root.querySelectorAll<HTMLElement>('.text-line'))changed=model.set(linePosition(Number(line.dataset.line)-1)??-1,line.getBoundingClientRect().height)||changed;
   const target=before+model.prefix(anchor)-offset;windowAt(target);
   if(changed)void nextTick().then(()=>{if(!virtualDisposed&&revision===virtualRevision&&heights===model)root.scrollTop=target;});
 }
 watch([vStart,vEnd],()=>{void nextTick().then(updateVirtual);},{flush:'post'});
 watch(useVirtual,async on=>{
   if(!on){vStart.value=0;vEnd.value=0;padTop.value=0;padBottom.value=0;}
-  else {heights=new LineHeights(lines.value.length,estimatedHeight());await nextTick();updateVirtual();}
+  else {heights=new LineHeights(visibleLineNumbers.value.length,estimatedHeight());await nextTick();updateVirtual();}
 });
-watch(lines,async()=>{
-  heights=new LineHeights(lines.value.length,estimatedHeight());
-  if(!useVirtual.value)return;
-  if(textScroll.value)textScroll.value.scrollTop=0;vStart.value=0;
-  await nextTick();updateVirtual();
+watch(visibleLineNumbers,async numbers=>{
+  const root=textScroll.value,edge=root?.getBoundingClientRect().top??0,node=root&&[...root.querySelectorAll<HTMLElement>('.text-line')].find(el=>el.getBoundingClientRect().bottom>edge);
+  const rawLine=node?Number(node.dataset.line)-1:0,next=numbers.findIndex(line=>line>rawLine),position=next<0?numbers.length-1:Math.max(0,next-1),revision=++virtualRevision;
+  heights=new LineHeights(numbers.length,estimatedHeight());
+  const target=contentPadding(root??document.documentElement)+heights.prefix(position);
+  if(useVirtual.value)windowAt(target);
+  await nextTick();if(revision!==virtualRevision||virtualDisposed)return;
+  if(root){if(useVirtual.value)root.scrollTop=target;else if(node){const replacement=root.querySelector<HTMLElement>(`.text-line[data-line="${numbers[position]+1}"]`);if(replacement)root.scrollTop+=replacement.getBoundingClientRect().top-edge;}}
+  updateVirtual();
 });
 watch(()=>props.zoom,async(value,old)=>{
   if(!useVirtual.value)return;
@@ -108,16 +129,46 @@ onBeforeUnmount(()=>{window.removeEventListener('keydown',findKey);virtualDispos
 
 /** 当前视口内实际渲染的行（小文件为全部，大文件为虚拟窗口） */
 const virtualLines = computed(() => {
-  if (!useVirtual.value) return lines.value;
-  return lines.value.slice(vStart.value, vEnd.value);
+  const numbers=useVirtual.value?visibleLineNumbers.value.slice(vStart.value,vEnd.value):visibleLineNumbers.value;
+  return numbers.map(line=>({text:lines.value[line],line}));
 });
 
-const sourceHits = computed(() => indexSourceMatches(showHtml.value ? [] : lines.value, query.value));
+const sourceHits = shallowRef<SourceSearchIndex>({count:0,lines:[]}),searchedQuery=ref(''),delayedQuery=ref(''),searching=ref(false);
+const partialHighlights=computed(()=>sourceHits.value.lines.some(line=>line.count>512));
 const selectedHit = ref(-1);
-const currentHit = computed(() => sourceMatchAt(sourceHits.value, lines.value, query.value, selectedHit.value));
+const currentHit = shallowRef<{line:number;start:number;end:number}>();
 const matchCount = computed(() => showHtml.value ? renderedHits.value.count : sourceHits.value.count);
 const matchIndex = computed(() => showHtml.value ? renderedHits.value.index : selectedHit.value);
 let searchRevision = 0;
+let navigationIntent=0,hitIntent=0;
+watch([lines,query,showHtml],async(_value,_previous,cleanup)=>{
+  const controller=new AbortController(),value=query.value,documentLines=lines.value,intent=++navigationIntent;
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  cleanup(()=>{controller.abort();clearTimeout(timer);});
+  sourceHits.value={count:0,lines:[]};currentHit.value=undefined;selectedHit.value=-1;searchedQuery.value='';renderedHits.value={count:0,index:-1};searchRevision++;
+  searching.value=!!value.trim();
+  await new Promise<void>(resolve=>{timer=setTimeout(resolve,120);controller.signal.addEventListener('abort',()=>resolve(),{once:true});});
+  if(controller.signal.aborted)return;delayedQuery.value=value;
+  try{if(!showHtml.value){const index=await indexSourceMatchesAsync(documentLines,value,controller.signal);if(controller.signal.aborted)return;searchedQuery.value=value;sourceHits.value=index;hitIntent=intent;selectedHit.value=index.count?0:-1;}}
+  catch(error){if(!controller.signal.aborted)linkError.value='搜索未完成，请缩短查询后重试。';}
+  finally{if(!controller.signal.aborted)searching.value=false;}
+},{immediate:true,flush:'sync'});
+watch([sourceHits,selectedHit],async(_value,_previous,cleanup)=>{
+  const controller=new AbortController(),intent=hitIntent;cleanup(()=>controller.abort());
+  try{const hit=await sourceMatchAtAsync(sourceHits.value,lines.value,searchedQuery.value,selectedHit.value,controller.signal);if(controller.signal.aborted)return;currentHit.value=hit;if(intent===navigationIntent)void revealSourceHit();}catch{/* superseded selection */}
+});
+
+async function mountLine(line:number){
+  openLine(line);await nextTick();await nextTick();virtualRevision++;
+  const root=textScroll.value;if(!root)return;
+  if(useVirtual.value){const position=linePosition(line);if(position===undefined)return;const target=contentPadding(root)+heights.prefix(position);windowAt(target);root.scrollTop=target;await nextTick();updateVirtual();await nextTick();}
+  return root.querySelector<HTMLElement>(`.text-line[data-line="${line+1}"]`);
+}
+async function goToLine(){
+  const value=Number(goLine.value);if(!Number.isInteger(value)||value<1||value>lines.value.length){goError.value=`请输入 1–${lines.value.length} 的行号`;return;}
+  navigationIntent++;searchRevision++;const node=await mountLine(value-1),root=textScroll.value;
+  if(node&&root){jumpedLine.value=value-1;root.scrollTop+=node.getBoundingClientRect().top-root.getBoundingClientRect().top-12;updateVirtual();showGo.value=false;root.focus({preventScroll:true});}
+}
 
 async function revealSourceHit() {
   const revision = ++searchRevision, hit = currentHit.value, root = textScroll.value;
@@ -126,9 +177,10 @@ async function revealSourceHit() {
   await nextTick();
   const valid = () => revision === searchRevision && !virtualDisposed && !showHtml.value && !!root?.clientHeight && !!root.clientWidth;
   if (!hit || !root || !valid()) return;
+  await mountLine(hit.line);if(!valid())return;
   const selector = `.text-line[data-line="${hit.line + 1}"] .text-current-hit`;
   if (useVirtual.value && !root.querySelector(selector)) {
-    const target = contentPadding(root) + heights.prefix(hit.line);
+    const target = contentPadding(root) + heights.prefix(linePosition(hit.line)??0);
     windowAt(target);
     root.scrollTop = target;
     await nextTick();
@@ -146,16 +198,10 @@ async function revealSourceHit() {
   if (valid()) updateVirtual();
 }
 
-watch(sourceHits, index => {
-  selectedHit.value = index.count ? 0 : -1;
-  void revealSourceHit();
-}, {flush: 'post'});
-
 function findNext(direction: number) {
   if (showHtml.value) { mdReader.value?.findNext(direction); return; }
   if (!sourceHits.value.count) return;
-  selectedHit.value = (selectedHit.value + direction + sourceHits.value.count) % sourceHits.value.count;
-  void revealSourceHit();
+  hitIntent=++navigationIntent;selectedHit.value = (selectedHit.value + direction + sourceHits.value.count) % sourceHits.value.count;
 }
 function searchKey(event: KeyboardEvent) {
   if (event.isComposing) return;
@@ -165,7 +211,7 @@ function searchKey(event: KeyboardEvent) {
 function markSearch(line:string,index:number) {
   const data=syntax.data.value, current=currentHit.value;
   const start=current?.line===index?current.start:-1;
-  return data?renderSyntaxLine(line,data.lines[index],data.styles,query.value,start):renderTextLine(line,'',query.value,start);
+  return data?renderSyntaxLine(line,data.lines[index],data.styles,searchedQuery.value,start):renderTextLine(line,'',searchedQuery.value,start);
 }
 watch(syntax.data,()=>void nextTick().then(updateVirtual));
 </script>
@@ -175,6 +221,7 @@ watch(syntax.data,()=>void nextTick().then(updateVirtual));
       <span class="text-tools filebar-inline" data-text-tools>
         <span v-if="file.ext==='md'" class="preview-tool-group" data-text-group="reading"><ToolButton class="md-outline-toggle" icon="navigation" title="显示 / 隐藏标题目录" :pressed="showOutline" :disabled="sourceMode" @click="showOutline=!showOutline" /><ToolButton class="md-source-toggle" :icon="sourceMode?'preview':'code'" :title="sourceMode?'查看 Markdown 排版':'查看 Markdown 源码'" :pressed="sourceMode" @click="toggleSource" /></span>
         <span class="preview-tool-group" data-text-group="query"><ToolButton class="text-search-toggle" icon="search" :pressed="showSearch" :aria-expanded="showSearch" aria-haspopup="dialog" :title="showSearch?'收起查找窗口':'查找文本内容（Ctrl+F）'" @click="showSearch=!showSearch" /><ToolButton class="text-lines-toggle" icon="lines" :pressed="!showHtml&&showLines" :disabled="showHtml" :title="showHtml?'Markdown 排版预览不显示行号':'显示 / 隐藏行号'" @click="showLines=!showLines" /></span>
+        <span v-if="!showHtml" class="preview-tool-group" data-text-group="navigation"><ToolButton class="text-go-toggle" icon="jump" title="跳转到行（Ctrl+G）" :pressed="showGo" @click="showGo=!showGo"/><template v-if="folds.length"><ToolButton class="text-fold-all" icon="minus" title="折叠所有代码块" @click="folded=new Set(folds.map(range=>range.start))"/><ToolButton class="text-unfold-all" icon="plus" title="展开所有代码块" :disabled="!folded.size" @click="folded=new Set()"/></template></span>
         <label class="tool-field" title="文本编码"
           >
           <select v-model="encoding" aria-label="文本编码" title="文本编码">
@@ -186,6 +233,7 @@ watch(syntax.data,()=>void nextTick().then(updateVirtual));
         >
       </span>
     </Teleport>
+    <PreviewPanel v-model:open="showGo" title="跳转到行" :target="`[data-file-id='${props.file.id}'] .floating-tools`" trigger=".text-go-toggle" close-label="关闭行号跳转"><form class="text-go-form" novalidate @submit.prevent="goToLine"><label>行号（1–{{lines.length}}）<input ref="goInput" v-model="goLine" type="number" min="1" :max="lines.length" aria-label="跳转行号"/></label><button type="submit">跳转</button><p v-if="goError" role="alert">{{goError}}</p></form></PreviewPanel>
     <PreviewPanel v-model:open="showSearch" title="查找文本内容" :target="`[data-file-id='${props.file.id}'] .floating-tools`" trigger=".text-search-toggle" close-label="关闭文本搜索">
       <div class="text-search-bar" role="search">
         <div class="query-primary">
@@ -198,21 +246,23 @@ watch(syntax.data,()=>void nextTick().then(updateVirtual));
           @keydown.enter="searchKey"
         />
         <ToolButton icon="clear" title="清除搜索" :disabled="!query" @click="query=''" /></div>
-        <div class="query-results"><span class="text-search-count" aria-live="polite">{{query.trim()?(matchCount?(matchIndex+1)+' / '+matchCount+' 处匹配':'0 处匹配'):'输入内容开始查找'}}</span><ToolButton class="text-find-previous" :class="{'md-find-previous':showHtml}" icon="up" title="上一处匹配（Shift+Enter）" :disabled="!matchCount" @click="findNext(-1)"/><ToolButton class="text-find-next" :class="{'md-find-next':showHtml}" icon="down" title="下一处匹配（Enter）" :disabled="!matchCount" @click="findNext(1)"/></div>
+        <div class="query-results"><span class="text-search-count" aria-live="polite">{{searching?'搜索中…':query.trim()?(matchCount?(matchIndex+1)+' / '+matchCount+' 处匹配':'0 处匹配'):'输入内容开始查找'}}</span><ToolButton class="text-find-previous" :class="{'md-find-previous':showHtml}" icon="up" title="上一处匹配（Shift+Enter）" :disabled="!matchCount" @click="findNext(-1)"/><ToolButton class="text-find-next" :class="{'md-find-next':showHtml}" icon="down" title="下一处匹配（Enter）" :disabled="!matchCount" @click="findNext(1)"/></div>
       </div>
     </PreviewPanel>
     <div v-if="invalidJson" class="notice">
       JSON 格式不完整，按原始文本显示。
     </div>
+    <p v-if="!showHtml&&partialHighlights" class="notice">重复匹配较多的行仅显示部分高亮；匹配计数和上一处、下一处定位仍包含全部结果。</p>
     <p v-if="linkError" class="notice" role="alert">{{linkError}}</p>
     <div class="text-body">
     <MarkdownOutline v-if="showHtml&&showOutline" :headings="headings" :active="activeHeading" @jump="jumpHeading" />
     <div
       ref="textScroll"
       class="text-scroll"
+      tabindex="0"
       @scroll.passive="updateVirtual"
     >
-      <MarkdownView v-if="showHtml" ref="mdReader" :file="file" :raw="raw" :query="query" :zoom="zoom" @headings="headings=$event" @active="activeHeading=$event" @hits="renderedHits=$event" @error="linkError=$event" />
+      <MarkdownView v-if="showHtml" ref="mdReader" :file="file" :raw="raw" :query="delayedQuery" :zoom="zoom" @headings="headings=$event" @active="activeHeading=$event" @hits="renderedHits=$event" @error="linkError=$event" />
       <div
         v-else
         class="text-code preview-content"
@@ -228,14 +278,16 @@ watch(syntax.data,()=>void nextTick().then(updateVirtual));
         ></div>
         <div
           v-for="(line, i) in virtualLines"
-          :key="vStart + i"
+          :key="line.line"
           class="text-line"
-          :data-line="vStart + i + 1"
+          :class="{'text-jump-target':jumpedLine===line.line}"
+          :data-line="line.line + 1"
         >
+          <span v-if="folds.length" class="text-fold-gutter"><button v-if="foldByLine.has(line.line)" type="button" class="text-fold-toggle" :aria-expanded="!folded.has(line.line)" :aria-label="(folded.has(line.line)?'展开':'折叠')+'第 '+(line.line+1)+' 行代码块'" @click="toggleFold(line.line)">{{folded.has(line.line)?'▸':'▾'}}</button></span>
           <span v-if="showLines" class="line-no" aria-hidden="true">{{
-            vStart + i + 1
+            line.line + 1
           }}</span>
-          <code class="line-body" v-html="markSearch(line,vStart+i)"></code>
+          <code class="line-body" v-html="markSearch(line.text,line.line)"></code><button v-if="folded.has(line.line)&&foldByLine.has(line.line)" class="text-fold-summary" :title="'展开 '+(foldByLine.get(line.line)!.end-line.line)+' 行'" @click="toggleFold(line.line)">… {{foldByLine.get(line.line)!.end-line.line}} 行</button>
         </div>
         <!-- 虚拟滚动下方占位 -->
         <div

@@ -30,6 +30,9 @@ import ppt from "@/modules/ppt/tests/e2e";
 import pdf from "@/modules/pdf/tests/e2e";
 import pdfthumbs from '@/modules/pdf/tests/thumbnails';
 import pdfoutline from '@/modules/pdf/tests/outlineLayout';
+import pdfdest from '@/modules/pdf/tests/destinations';
+import texttools from '@/modules/text/tests/readingTools';
+import imagetools from '@/modules/image/tests/tools';
 import text from "@/modules/text/tests/e2e";
 import textsearch from '@/modules/text/tests/sourceSearch';
 import syntax from '@/modules/text/tests/syntax';
@@ -90,6 +93,9 @@ const suites: Record<string, Suite> = {
   pdf,
   pdfthumbs,
   pdfoutline,
+  pdfdest,
+  texttools,
+  imagetools,
   text,
   textsearch,
   syntax,

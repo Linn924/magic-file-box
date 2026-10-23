@@ -8,6 +8,7 @@ import { pdfWork } from "../core/workQueue";
 import { PdfRowIndex } from '../core/rowIndex';
 import { cachedPageSize, rememberPageSize, pageSize } from '../core/metadata';
 import { pdfResources } from '../core/resources';
+import {destinationPoint,type PdfDestination,type PdfReadingPosition} from '../core/destination';
 import { allocatePdfCanvas, availablePdfPixels, releasePdfCanvas, prunePdfCanvases } from '../core/canvasPool';
 import {
   onMounted,
@@ -30,7 +31,7 @@ const OVERSCAN = 2;
 /** Must match .pdf-scroll padding; row heights/gaps are indexed in PdfRowIndex. */
 const SCROLL_PADDING = 26;
 
-export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermission?:(allowed:boolean,password?:string)=>void,presentation=ref(false)) {
+export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermission?:(allowed:boolean,password?:string)=>void,presentation=ref(false),trackReading=ref(false)) {
   const previewTask = usePreviewTask();
   GlobalWorkerOptions.workerSrc = workerUrl;
   const scroll = ref<HTMLElement>();
@@ -39,6 +40,9 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
   const pages = ref<Array<{ width: number; height: number }>>([]);
   const savedReading=props.file.view?.pdfReading;
   const current = ref(savedReading?.page||1);
+  const readingPosition=shallowRef<PdfReadingPosition>();
+  let destinationRevision=0,readingRevision=0;
+  let activeDestinationKey:string|undefined;
   let navigationPage:number|undefined;
   let pdf: PDFDocumentProxy | undefined,
     observer: IntersectionObserver | undefined,
@@ -162,15 +166,17 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     }
     if(positions.rowForPage(current.value-1)!==row)current.value=positions.rows[row].pages[0]+1;
   }
-  function releasePageFocus(){navigationPage=undefined;}
+  function cancelDestination(){destinationRevision++;activeDestinationKey=undefined;if(readingPosition.value)readingPosition.value={...readingPosition.value,destinationKey:undefined};}
+  function releasePageFocus(){cancelDestination();navigationPage=undefined;}
   function focusPage(index:number) {
+    cancelDestination();
     if(!presentation.value&&index>=0&&index<pages.value.length){navigationPage=index;current.value=index+1;rememberReading();}
   }
   function sync() {
     if (scrollFrame) return;
     scrollFrame = requestAnimationFrame(() => {
       scrollFrame = 0;
-      if (!disposed&&isVisible()) {updateVirtualWindow();rememberReading();scheduleWarmup();}
+      if (!disposed&&isVisible()) {updateVirtualWindow();rememberReading();scheduleWarmup();void readPosition();}
     });
   }
   function scheduleWarmup() {
@@ -188,7 +194,8 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
       })();
     },{timeout:500});
   }
-  function jump(value: number) {
+  function jump(value: number,keepDestination=false) {
+    if(!keepDestination)cancelDestination();
     const n = pages.value.length;
     const index = Math.max(0, Math.min(n, Math.floor(value) || 1) - 1);
     const root = scroll.value;
@@ -198,7 +205,39 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     root.scrollTop = Math.max(0, offsetAt(index));
     current.value = index + 1;
     updateVirtualWindow();rememberReading();scheduleWarmup();
+    void readPosition();
   }
+
+  async function readPosition(){
+    const token=++readingRevision,doc=pdf,page=current.value,root=scroll.value,geometry=geometryKey();
+    if(!doc||!root||!isVisible()||!trackReading.value)return;
+    try{
+      const source=await doc.getPage(page);await nextTick();
+      if(disposed||token!==readingRevision||pdf!==doc||page!==current.value||geometry!==geometryKey())return;
+      const element=root.querySelector<HTMLElement>(`.pdf-page[data-page="${page-1}"]`);if(!element)return;
+      const rect=element.getBoundingClientRect(),view=root.getBoundingClientRect(),viewport=source.getViewport({scale:1,rotation:(source.rotate+rotate.value)%360});
+      readingPosition.value={page,viewport,destinationKey:activeDestinationKey,x:(view.left+24-rect.left)*viewport.width/rect.width,y:(view.top+24-rect.top)*viewport.height/rect.height};
+    }catch{/* The current page can be released during a view change. */}
+  }
+  async function jumpDestination(target:PdfDestination){
+    const token=++destinationRevision,doc=pdf,root=scroll.value,geometry=geometryKey();
+    const valid=()=>!disposed&&token===destinationRevision&&pdf===doc&&geometry===geometryKey();
+    if(!doc||!root||target.page<1||target.page>doc.numPages)return;
+    try{
+      const page=await doc.getPage(target.page);if(!valid())return;
+      const original=page.getViewport({scale:1});
+      await updateSizes([{index:target.page-1,width:original.width,height:original.height}]);if(!valid())return;
+      jump(target.page,true);await nextTick();if(!valid()||presentation.value)return;
+      const element=root.querySelector<HTMLElement>(`.pdf-page[data-page="${target.page-1}"]`);if(!element)return;
+      const viewport=page.getViewport({scale:1,rotation:(page.rotate+rotate.value)%360}),point=destinationPoint(target.dest,viewport),rect=element.getBoundingClientRect(),view=root.getBoundingClientRect();
+      root.scrollTop+=rect.top-view.top+point[1]*rect.height/viewport.height-24;
+      const x=rect.left+point[0]*rect.width/viewport.width;
+      if(x<view.left+24||x>view.right-24)root.scrollLeft+=x-view.left-24;
+      destinationRevision++;activeDestinationKey=target.key;navigationPage=target.page-1;current.value=target.page;updateVirtualWindow();rememberReading();void readPosition();
+    }catch{if(valid())jump(target.page);}
+  }
+  watch([current,layout],()=>{void nextTick().then(readPosition);});
+  watch(trackReading,()=>{void readPosition();});
 
   function updateSizes(updates:Array<{index:number;width:number;height:number}>) {
     sizeQueue=sizeQueue.then(()=>applySizes(updates));return sizeQueue;
@@ -214,7 +253,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     );
     if (!updates.length) return;
     const root = scroll.value;
-    const reading=anchor();
+    const reading=anchor(),navigation=destinationRevision;
     for (const p of updates)
       pages.value[p.index] = { width: p.width, height: p.height };
     positions.update(updates.map(p=>({index:p.index,...pageCss(p.index)})));
@@ -223,7 +262,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     if (updates.some(p=>visiblePages.value.includes(p.index)))
       textGeometry.value++;
     await nextTick();
-    if(!disposed&&root)restoreAnchor(reading);
+    if(!disposed&&root&&navigation===destinationRevision)restoreAnchor(reading);
 
   }
 
@@ -376,7 +415,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     if (refreshing) { refreshAgain = true; return; }
     refreshing = true;
     try {
-      const reading=anchor();
+      const reading=anchor(),navigation=destinationRevision;
       generation.abort();generation=new AbortController();
       const geometry=geometryKey();
       if(geometry!==lastGeometry){lastGeometry=geometry;rebuildPositions();textGeometry.value++;}
@@ -389,7 +428,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
       // Keep current bitmaps on screen; render() replaces each page when ready.
       rendered.clear();
       await nextTick();
-      restoreAnchor(reading);
+      if(navigation===destinationRevision)restoreAnchor(reading);
       observe();
     } finally {
       refreshing = false;
@@ -403,8 +442,8 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     // Delaying the index while CSS sizes already changed can undo a user's pan.
     const geometry=geometryKey();
     if(geometry!==lastGeometry){
-      const reading=anchor();lastGeometry=geometry;rebuildPositions();textGeometry.value++;
-      void nextTick().then(()=>{if(!disposed)restoreAnchor(reading);});
+      const reading=anchor(),navigation=destinationRevision;lastGeometry=geometry;rebuildPositions();textGeometry.value++;
+      void nextTick().then(()=>{if(!disposed&&navigation===destinationRevision)restoreAnchor(reading);});
     }
     clearTimeout(refreshTimer);
     // Keep existing pixels during continuous resize/zoom, redraw after settling.
@@ -564,6 +603,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     current,
     sync,
     jump,
+    jumpDestination,readingPosition,cancelDestination,
     dimensions,
     visiblePages,visibleRows,pageLayout,rowDimensions,focusPage,releasePageFocus,
     padTop,
