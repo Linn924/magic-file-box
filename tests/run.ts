@@ -20,6 +20,12 @@ const names = [
   "wordnav",
   "excel",
   "exceledit",
+  "excelbasic",
+  "excelstructure",
+  "excelformula",
+  "excelcompat",
+  "excelrefs",
+  "excelsources",
   "excelgrid",
   "excelformat",
   "exceladvanced",
@@ -90,8 +96,8 @@ if(selected.includes('pdfspread')||selected.includes('pdfenhancements')||selecte
   run(process.execPath,['--import','tsx','src/modules/pdf/tests/optimization.ts']);
   run(process.execPath,['--import','tsx','src/modules/pdf/tests/rowsUnit.ts']);
 }
-if(selected.includes('exceledit')||selected.includes('excelgrid')||selected.includes('excelformat')||selected.includes('excel'))run(process.execPath,['--import','tsx','src/modules/excel/tests/editModelUnit.ts']);
-if(selected.includes('exceledit')||selected.includes('exceladvanced')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/excel/tests/regionFormulaUnit.ts']);
+if(selected.includes('all')||selected.some(name=>['exceledit','excelbasic','excelstructure','excelformula','excelcompat','excelrefs','excelgrid','excelformat','excel'].includes(name)))run(process.execPath,['--import','tsx','src/modules/excel/tests/editModelUnit.ts']);
+if(selected.includes('exceledit')||selected.includes('exceladvanced')||selected.includes('excelrefs')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/excel/tests/regionFormulaUnit.ts']);
 if(selected.includes('exceledit')||selected.includes('excelfind')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/excel/tests/findAssistUnit.ts']);
 if(selected.includes('exceledit')||selected.includes('excelsheets')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/excel/tests/sheetModelUnit.ts']);
 if(selected.includes('exceledit')||selected.includes('exceltable')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/excel/tests/tableModelUnit.ts']);

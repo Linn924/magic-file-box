@@ -16,7 +16,7 @@ import findEditing from './findEditing';
 import sheetEditing from './sheetEditing';
 import tableEditing from './tableEditing';
 import {withSettledHistory} from './editingContext';
-const suite:Suite=async c=>{
+export const basicEditing:Suite=async c=>{
   c=withSettledHistory(c);
   const name='edit-basic.xlsx';
   if(!existsSync(c.fixture(name))){const book=new ExcelJS.Workbook(),sheet=book.addWorksheet('Data');book.addWorksheet('Other').getCell('A1').value='untouched';sheet.getCell('A1').value='Name';sheet.getCell('A2').value='Alpha';sheet.getCell('A3').value='Beta';sheet.getCell('B2').value=2;sheet.getCell('B3').value=3;sheet.getCell('C1').value={formula:'SUM(B2:B3)',result:5};sheet.getCell('D1').value='00123';sheet.mergeCells('A5:B5');sheet.getCell('A5').value='merged';sheet.getCell('B2').fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFEEF6FF'}};sheet.getCell('B2').font={bold:true,color:{argb:'FF2255AA'}};const image=book.addImage({buffer:readFileSync(c.fixture('image.png')) as any,extension:'png'});sheet.addImage(image,'F2:G3');writeFileSync(c.fixture(name),Buffer.from(await book.xlsx.writeBuffer()));}
@@ -65,6 +65,10 @@ const suite:Suite=async c=>{
     const promptCount=prompts;tabs.close();assert.equal(prompts,promptCount,'source no longer owns moved dirty state');target.close();assert.ok(!target.isDestroyed(),'destination owns close protection');await c.click(target,'.excel-apply-cell');savePath=path.resolve('outputs/verification/edit-moved.xlsx');await c.click(target,'.excel-save-copy');await c.check(target,'moved draft can be saved',"document.querySelector('.excel-edit-status')?.textContent.includes('已另存')");const moved=XLSX.read(readFileSync(savePath),{type:'buffer',sheetStubs:true});assert.equal(moved.Sheets.Data.B2.v,21);assert.equal(moved.Sheets.Data.A2.v,'pending text');c.close(target);assert.deepEqual(readFileSync(c.fixture(name)),source);
 
   }finally{dialog.showSaveDialog=realSave;dialog.showMessageBoxSync=realPrompt;if(!win.isDestroyed())c.close(win);}
+};
+const suite:Suite=async c=>{
+  c=withSettledHistory(c);
+  await basicEditing(c);
   await gridEditing(c);
   await formulaEditing(c);
   await xlsSaveCompatibility(c);

@@ -125,6 +125,8 @@ electron/main.ts 仍持有应用和窗口的总调度，并非所有窗口逻辑
 
 具体支持范围和资源上限见 README；各函数的实现参数以源码为准，实质断言及样例见 TESTING。
 
+Excel 的剪切引用检查先将两个端点归成几何边界，只有完整包含的引用才能随剪切移动；实际输出仍从原始端点坐标平移，以保留反向顺序与 `$` 标记。结构编辑按归一化的编辑轴调整范围后恢复原顺序，并对两个端点共同检查行列上限。useSourceRecords 切换工作表时同时重置起始行与列组，避免较窄新表继承无效列偏移；已完成读取的位置仍保留在文件会话中供卸载与移交恢复。
+
 文本源码搜索由 [sourceSearch.ts](../src/modules/text/core/sourceSearch.ts) 按匹配行保存累计计数，选中结果时才展开该行的字符范围。JSON 按格式化后的显示文本搜索；[highlight.ts](../src/modules/text/core/highlight.ts) 在原字符范围上合并语法标记、普通命中和当前命中，不改写源码。[index.vue](../src/modules/text/index.vue) 在跳转远处结果前挂载对应虚拟窗口，再按命中文字的实际位置定位，支持长换行行；新查询、关闭与卸载使旧导航失效。Markdown 排版查询继续使用渲染正文的搜索流程。
 
 DOCX 通过 docx-preview 的 parseAsync/renderDocument 流程渲染。[core/outline.ts](../src/modules/word/core/outline.ts) 在解析后的内存模型中标记段落大纲级别和继承的标题样式，显式正文级别覆盖标题样式，样式循环被截断；标题标签不覆盖原书签。目录按标记映射到 Shadow DOM，长目录按可见行挂载。[useDocxNavigation.ts](../src/modules/word/composables/useDocxNavigation.ts) 管理查找浮窗、定位与活动章节，目录开关存于 PreviewFile.view.word，和临时列宽一起随会话卸载/移交；查询与命中节点仅属于当前组件。卸载清理计时器、滚动/键盘监听和动画帧。

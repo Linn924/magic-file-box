@@ -13,10 +13,10 @@ export function moveIndex(value:number,op:ExcelStructure):number|null {
   return value<op.index+op.count?null:value-op.count;
 }
 export function moveRange(ref:string,op:ExcelStructure){
-  const range=XLSX.utils.decode_range(ref),axis=op.axis==='row'?'r':'c';let start=range.s[axis],end=range.e[axis];
+  const range=XLSX.utils.decode_range(ref),axis=op.axis==='row'?'r':'c',reverse=range.s[axis]>range.e[axis];let start=Math.min(range.s[axis],range.e[axis]),end=Math.max(range.s[axis],range.e[axis]);
   if(op.kind==='insert'){if(start>=op.index)start+=op.count;if(end>=op.index)end+=op.count;}
   else {if(end<op.index){}else if(start>=op.index+op.count){start-=op.count;end-=op.count;}else {start=Math.min(start,op.index);end=end>=op.index+op.count?end-op.count:op.index-1;if(start>end)return null;}}
-  range.s[axis]=start;range.e[axis]=end;return XLSX.utils.encode_range(range);
+  range.s[axis]=reverse?end:start;range.e[axis]=reverse?start:end;return XLSX.utils.encode_range(range);
 }
 export function moveFormula(formula:string,sheet:string,op:ExcelStructure){
   let refs:ReturnType<typeof formulaReferences>;try{refs=formulaReferences(parseFormula(formula));}catch{throw Error('此工作簿含暂不支持调整的公式，请在表格软件中插入或删除行列。');}
@@ -25,7 +25,7 @@ export function moveFormula(formula:string,sheet:string,op:ExcelStructure){
     const original=formula.slice(ref.start,ref.end),prefix=ref.sheet?(original.match(/^(?:'(?:[^']|'')*'|[A-Za-z_\u0080-\uFFFF][\w.\u0080-\uFFFF]*)\s*!/)?.[0]||''):'';
     const moved=moveRange(a.replace(/\$/g,'')+(b?':'+b.replace(/\$/g,''):''),op),range=moved?XLSX.utils.decode_range(moved):undefined;
     const encode=(cell:XLSX.CellAddress,prior:string)=>{const parts=prior.match(/^(\$?)[A-Za-z]+(\$?)\d+$/)!;return parts[1]+XLSX.utils.encode_col(cell.c)+parts[2]+String(cell.r+1);};
-    const replacement=!range||range.e.r>=1048576||range.e.c>=16384?prefix+'#REF!':prefix+encode(range.s,a)+(b?':'+encode(range.e,b):'');result=result.slice(0,ref.start)+replacement+result.slice(ref.end);
+    const replacement=!range||Math.max(range.s.r,range.e.r)>=1048576||Math.max(range.s.c,range.e.c)>=16384?prefix+'#REF!':prefix+encode(range.s,a)+(b?':'+encode(range.e,b):'');result=result.slice(0,ref.start)+replacement+result.slice(ref.end);
   }return result;
 }
 export async function changeStructure(bytes:Uint8Array,op:ExcelStructure){

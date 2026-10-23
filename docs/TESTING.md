@@ -276,6 +276,10 @@ npm test -- --suite immersive,visual,bulk
 
 文件：`src/modules/excel/tests/editModelUnit.ts`、`formulaUnit.ts`、`xlsStylesUnit.ts`、`editing.ts`、`formulaEditing.ts`、`xlsSaveCompatibility.ts`。`npm test -- --skip-build --suite exceledit,excel` 在独立编译受影响运行资源后执行；修改通用关闭/移交 IPC 时，另加 core、六种受影响格式、zoom/bulk，以及受影响打印入口专项。
 
+完整 Excel 查验可分片执行，保留 exceledit 的全部既有断言并避免总运行时长集中在一个进程：先运行 excelbasic 生成基础编辑样例，再运行 excelstructure、excelformula、excelcompat、excelgrid、excelformat，以及 exceladvanced、excelfind、excelsheets、exceltable。基础、结构、公式、旧格式分片分别复用原实现；exceledit 与 all 仍运行原有完整链路，all 排除分片别名以免重复，并包含 Excel 编辑模型单测。
+
+`excelrefs` 可独立复验反向范围的部分剪切拒绝、完整剪切、删除低端点、绝对/跨表引用、上限、撤销重做、保存缓存与源字节；界面用例已纳入 exceladvanced/exceledit。`excelsources` 使用含 240 行、81 列和第二个窄表的 32 MiB 合成工作簿，验证切表首列、行/列组/表标识的闲置恢复与移交、窗口 token 隔离和关闭后会话/句柄归零。该大文件主要增加未选择附件，不代表复杂大正文的性能。
+
 `formulaUnit.ts` 覆盖查找精确/近似/通配符及类型差异、负数/负位数舍入、跨 Sheet、IF 分支、循环/错误/边界、依赖值更新，XLS 编码后重新读取公式及数值/布尔/文本/错误/空串缓存、数字格式/合并/行高/对齐。`formulaEditing.ts` 验证真实 XLS 默认预览与默认 XLS 另存、实时依赖及撤销、ƒx 参数/焦点、保存取消/源路径保护、重开和行列移动后的结果/对齐；生成样例原始字节前后不变。仅修改 Excel 计算/格式保存白名单时执行 excel,exceledit，不扩大到其他解析/打印套件。
 
 `xlsStylesFixture.ts` 依据 BIFF 字段手工编码字体/XF/调色板，不使用产品样式编码器生成源样例；`xlsStylesUnit.ts` 断言原始字体/边框/填充位、保留索引、空白格和合并边缘样式、ExcelJS 独立读取、主题色、颜色溢出/风险类别及 1904 日期系统/隐藏 Sheet。`xlsSaveCompatibility.ts` 检查真实保存、插行、撤销重做、重新打开的样式，以及原生对话框前的实际损失清单、默认取消、Esc/焦点恢复、确认写入和未修改副本的字节保留。失效的旧硬链接测试产物不能充当当前源别名，每次创建新的源硬链接；异步保存消息断言须等元素出现。

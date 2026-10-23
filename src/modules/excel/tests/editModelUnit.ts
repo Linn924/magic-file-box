@@ -23,6 +23,10 @@ assert.equal(moveFormula("'Data'!$B$2+Other!A1",'Other',insert),"'Data'!$B$4+Oth
 const remove={...insert,kind:'delete' as const,count:1};assert.equal(moveIndex(1,remove),null);assert.equal(moveFormula('B2+B3','Data',remove),'#REF!+B2');assert.equal(moveRange('A2:B2',remove),null);assert.equal(moveRange('A1:B3',remove),'A1:B2');
 assert.equal(moveFormula('#REF!+B2','Data',insert),'#REF!+B4');assert.equal(moveFormula('IF(A1="A2",1,0)','Data',insert),'IF(A1="A2",1,0)');
 assert.equal(moveFormula('Data!#REF!+B2','Other',insert),'Data!#REF!+B2');assert.equal(moveFormula('A1048576','Data',insert),'#REF!');
+const deleteFirst={sheet:'Data',axis:'row' as const,kind:'delete' as const,index:0,count:1};
+assert.equal(moveFormula('SUM(A3:A1)','Data',deleteFirst),'SUM(A2:A1)');
+assert.equal(moveFormula("SUM('Data'!$C$3:$A$1)",'Other',{...deleteFirst,axis:'column'}),"SUM('Data'!$B$3:$A$1)");
+assert.equal(moveFormula('SUM(A1048576:A1)','Data',{...insert,index:0,count:1}),'SUM(#REF!)');
 console.log('PASS Excel structural references: insertion/deletion, absolute/range/cross-sheet references and unsupported formulas');
 
 // Selection and formatting are small parts of the shared Excel editing model.

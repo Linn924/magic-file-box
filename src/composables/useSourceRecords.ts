@@ -33,7 +33,7 @@ export function useSourceRecords(file:PreviewFile,emit:(event:'ready'|'error',me
   function next(){previousStarts.push(start.value);if(previousStarts.length>256)previousStarts.shift();void load({start:(page.value?.rows.at(-1)?.index??start.value)+1});}
   function previous(){void load({start:previousStarts.pop()??Math.max(0,start.value-100)});}
   function find(){if(!query.value)return;const from=lastQuery===query.value&&page.value?.match!==undefined?page.value.match+1:0;lastQuery=query.value;void load({start:from,query:query.value});}
-  function changeSheet(){start.value=0;previousStarts.length=0;lastQuery='';void load({start:0});}
+  function changeSheet(){start.value=0;column.value=0;previousStarts.length=0;lastQuery='';void load({start:0});}
   function changeColumn(delta:number){column.value=Math.max(0,Math.min(16360,column.value+delta));void load();}
   function changeEncoding(){stop();start.value=0;previousStarts.length=0;lastQuery='';void load({start:0});}
   onMounted(()=>{void load();});

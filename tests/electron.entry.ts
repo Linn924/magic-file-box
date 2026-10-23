@@ -19,7 +19,13 @@ import bulk from "./suites/bulk";
 import zoom from "./suites/zoom";
 import word from "@/modules/word/tests/e2e";
 import wordnav from '@/modules/word/tests/navigation';
-import exceledit from '@/modules/excel/tests/editing';
+import exceledit,{basicEditing} from '@/modules/excel/tests/editing';
+import excelstructure from '@/modules/excel/tests/gridEditing';
+import excelformula from '@/modules/excel/tests/formulaEditing';
+import excelcompat from '@/modules/excel/tests/xlsSaveCompatibility';
+import excelrefs from '@/modules/excel/tests/reverseReferences';
+import excelsources from '@/modules/excel/tests/sourceLifecycle';
+import {withSettledHistory} from '@/modules/excel/tests/editingContext';
 import excelgrid from '@/modules/excel/tests/selectionEditing';
 import excelformat from '@/modules/excel/tests/formatEditing';
 import exceladvanced from '@/modules/excel/tests/advancedEditing';
@@ -88,6 +94,12 @@ const suites: Record<string, Suite> = {
   wordnav,
   excel,
   exceledit,
+  excelbasic:basicEditing,
+  excelstructure,
+  excelrefs,
+  excelsources,
+  excelformula:c=>excelformula(withSettledHistory(c)),
+  excelcompat:c=>excelcompat(withSettledHistory(c)),
   excelgrid,
   excelformat,
   exceladvanced,
@@ -118,7 +130,7 @@ const suites: Record<string, Suite> = {
 };
 const selected =
   requested === "all"
-    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "pdfimmersive" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind" && n !== "excelsheets" && n !== "exceltable" && n !== "textsearch" && n !== "wordnav")
+    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "pdfimmersive" && !['excelbasic','excelstructure','excelformula','excelcompat','excelrefs'].includes(n) && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind" && n !== "excelsheets" && n !== "exceltable" && n !== "textsearch" && n !== "wordnav")
     : requested.split(",");
 const output = path.resolve("outputs/verification");
 const fixtureRoot = path.resolve("work/fixtures");
