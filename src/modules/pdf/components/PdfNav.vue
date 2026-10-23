@@ -11,6 +11,8 @@ import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import { pdfWork } from "../core/workQueue";
 import { pageSize } from '../core/metadata';
 import {destinationPoint,type PdfDestination,type PdfReadingPosition} from '../core/destination';
+import {outlineTitleDestinations} from '../core/outlineTitle';
+import {pageTextContent} from '../core/textCache';
 import { allocatePdfCanvas, releasePdfCanvas, availablePdfPixels } from '../core/canvasPool';
 
 const props = defineProps<{
@@ -91,7 +93,7 @@ async function loadOutline() {
               typeof refObj === "number"
                 ? refObj + 1
                 : (await props.pdf!.getPageIndex(refObj as never)) + 1;
-            if(page>=1&&page<=doc.numPages)destination={page,dest,key};
+            if(page>=1&&page<=doc.numPages)destination={page,dest,key,title:item.title};
           }
         } catch {
           page = 0;
@@ -159,6 +161,18 @@ const currentOutlineKey = computed(() => {
   const picked=same.find(item=>item.key===pickedKey.value);
   if(picked&&hit&&Math.abs(coordinate(picked)-best)<1)return picked.key;
   return hit?.key??previous?.key??same[0]?.key??null;
+});
+
+watch([()=>props.current,()=>outline.value],async(_value,_previous,cleanup)=>{
+  const doc=props.pdf,page=props.current,nodes=outline.value.filter(item=>item.page===page&&item.destination&&!item.destination.titleResolved);
+  if(!doc||!nodes.length)return;
+  const controller=new AbortController();cleanup(()=>controller.abort());
+  try{
+    const [source,content]=await Promise.all([doc.getPage(page),pageTextContent(doc,page,1,controller.signal)]);
+    if(disposed||controller.signal.aborted||props.pdf!==doc)return;
+    const targets=outlineTitleDestinations(nodes.map(item=>item.destination!),content,source.getViewport({scale:1,rotation:0}));
+    nodes.forEach((item,index)=>{item.destination=targets[index];});
+  }catch{/* Keep original bookmark coordinates when text extraction is unavailable. */}
 });
 function activateOutline(item:OutlineNode){if(!item.page)return;pickedKey.value=item.key;if(item.destination)emit('destination',item.destination);else emit('jump',item.page);}
 watch(currentOutlineKey,async key=>{

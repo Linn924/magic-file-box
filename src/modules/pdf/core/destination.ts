@@ -1,5 +1,5 @@
 import type {PDFDocumentProxy,PDFPageProxy} from 'pdfjs-dist';
-export interface PdfDestination {page:number;dest:unknown[];key?:string}
+export interface PdfDestination {page:number;dest:unknown[];key?:string;title?:string;titleResolved?:boolean}
 export interface PdfReadingPosition {page:number;x:number;y:number;viewport:ReturnType<PDFPageProxy['getViewport']>;destinationKey?:string}
 export async function resolvePdfDestination(pdf:PDFDocumentProxy,value:unknown):Promise<PdfDestination|undefined>{
   const dest=typeof value==='string'?await pdf.getDestination(value):value;

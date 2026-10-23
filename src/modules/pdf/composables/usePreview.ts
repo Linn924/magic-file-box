@@ -9,6 +9,8 @@ import { PdfRowIndex } from '../core/rowIndex';
 import { cachedPageSize, rememberPageSize, pageSize } from '../core/metadata';
 import { pdfResources } from '../core/resources';
 import {destinationPoint,type PdfDestination,type PdfReadingPosition} from '../core/destination';
+import {outlineTitleDestinations} from '../core/outlineTitle';
+import {pageTextContent} from '../core/textCache';
 import { allocatePdfCanvas, availablePdfPixels, releasePdfCanvas, prunePdfCanvases } from '../core/canvasPool';
 import {
   onMounted,
@@ -42,6 +44,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
   const current = ref(savedReading?.page||1);
   const readingPosition=shallowRef<PdfReadingPosition>();
   let destinationRevision=0,readingRevision=0;
+  let destinationController:AbortController|undefined;
   let activeDestinationKey:string|undefined;
   let navigationPage:number|undefined;
   let pdf: PDFDocumentProxy | undefined,
@@ -166,7 +169,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     }
     if(positions.rowForPage(current.value-1)!==row)current.value=positions.rows[row].pages[0]+1;
   }
-  function cancelDestination(){destinationRevision++;activeDestinationKey=undefined;if(readingPosition.value)readingPosition.value={...readingPosition.value,destinationKey:undefined};}
+  function cancelDestination(){destinationRevision++;destinationController?.abort();destinationController=undefined;activeDestinationKey=undefined;if(readingPosition.value)readingPosition.value={...readingPosition.value,destinationKey:undefined};}
   function releasePageFocus(){cancelDestination();navigationPage=undefined;}
   function focusPage(index:number) {
     cancelDestination();
@@ -220,11 +223,17 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
     }catch{/* The current page can be released during a view change. */}
   }
   async function jumpDestination(target:PdfDestination){
+    cancelDestination();
     const token=++destinationRevision,doc=pdf,root=scroll.value,geometry=geometryKey();
     const valid=()=>!disposed&&token===destinationRevision&&pdf===doc&&geometry===geometryKey();
     if(!doc||!root||target.page<1||target.page>doc.numPages)return;
+    const controller=new AbortController();destinationController=controller;
     try{
       const page=await doc.getPage(target.page);if(!valid())return;
+      if(target.title&&!target.titleResolved){
+        try{const content=await pageTextContent(doc,target.page,0,controller.signal);if(!valid())return;target=outlineTitleDestinations([target],content,page.getViewport({scale:1,rotation:0}))[0];}
+        catch{if(!valid())return;}
+      }
       const original=page.getViewport({scale:1});
       await updateSizes([{index:target.page-1,width:original.width,height:original.height}]);if(!valid())return;
       jump(target.page,true);await nextTick();if(!valid()||presentation.value)return;
@@ -235,6 +244,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
       if(x<view.left+24||x>view.right-24)root.scrollLeft+=x-view.left-24;
       destinationRevision++;activeDestinationKey=target.key;navigationPage=target.page-1;current.value=target.page;updateVirtualWindow();rememberReading();void readPosition();
     }catch{if(valid())jump(target.page);}
+    finally{if(destinationController===controller)destinationController=undefined;}
   }
   watch([current,layout],()=>{void nextTick().then(readPosition);});
   watch(trackReading,()=>{void readPosition();});
@@ -586,6 +596,7 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
   );
   onBeforeUnmount(() => {
     disposed = true;
+    destinationController?.abort();
     lifetime.abort();generation.abort();warmupController.abort();cancelIdleCallback(idleWarmup);visibility?.disconnect();
     clearTimeout(refreshTimer);
     cancelAnimationFrame(scrollFrame);
