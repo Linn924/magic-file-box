@@ -10,6 +10,7 @@ const index = args.indexOf("--suite");
 const selected = (index < 0 ? "all" : args[index + 1] || "").split(",");
 const names = [
   "core",
+  "exitresources",
   "loading",
   "tablifecycle",
   "excelbackground",
@@ -77,6 +78,11 @@ if (!args.includes("--skip-build"))
     ["run", "build"],
     process.platform === "win32",
   );
+if(selected.includes('exitresources')){
+  run(process.execPath,['--import','tsx','tests/exitResources.ts']);
+  selected.splice(selected.indexOf('exitresources'),1);
+  if(!selected.length)process.exit(0);
+}
 if(selected.some(name=>['loading','tablifecycle','all'].includes(name)))run(process.execPath,['--import','tsx','tests/previewResidencyUnit.ts']);
 if (selected.some(name => !['pdfoutline','pdfdest','pdfsources','pdflinks','pdfimmersive','texttools','imagetools'].includes(name)))
   run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);

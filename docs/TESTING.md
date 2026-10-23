@@ -103,6 +103,23 @@ openHomeAction 覆盖缺省及旧配置回退为 ask、tray/keep 合法值、非
 
 系统模态选择框在测试中替换返回值，以便自动化；真实对话框文案、按钮位置、托盘菜单操作还应按下方手工流程检查。
 
+### exitresources：退出后的进程与资源残留
+
+```powershell
+npm test -- --suite exitresources
+# 运行资源对应当前源码时可加 --skip-build。
+```
+
+`tests/exitResources.ts` 从独立 Node 进程逐项启动当前运行资源对应的 Electron，使用 `work/test-profiles/exit-resources-<pid>/`，不操作已安装软件或真实用户窗口。`tests/exitResources.entry.ts` 准备场景后走正常首页关闭或 app.quit，成功路径不调用 app.exit、强制终止或修改源文件。
+
+覆盖：已读取字节响应延迟时退出、150000×12 XLSX 的真实 Worker 解析中及另一窗口排队时退出、300 MiB 文本扫描/持有读取句柄、加密 PDF 等待密码、多窗口六种格式的已完成预览/语法/图片 Blob/PDF 画布缓存、隐藏到托盘后真正退出、取消未保存输入的退出后再次确认退出，以及复用配置重启后无旧文件会话。隐藏 PDF 会主动裁剪位图，因此缓存场景重新激活 PDF，确认实际画布像素后才退出。
+
+外部通过 Windows CIM 按主 PID、应用上报 PID、父子关系和创建时间记录真实主进程、渲染/GPU/辅助进程。主进程正常结束后首次检查与 5 秒复查均不得有残留；再对所有源样例执行 .NET FileShare.None 独占只读打开，并逐项核对 SHA256。源标记文字不得出现在独立配置目录的普通小文件中。结果写入 `outputs/verification/exit-resources*.json`，包括退出耗时、进程身份、工作集、退出前/期间资源统计和磁盘文件清单。
+
+`will-quit` 发生时异步句柄关闭计数可能尚未递减，不能据此判定退出后泄漏；最终以外部进程消失与独占打开通过为准。工作集总和可能重复统计共享页，不代表整机可用内存变化，也不测量 Windows 待机文件缓存。偏好、Chromium 运行时文件、字典或已有更新包不要求退出时删除；内存预览会话不得随配置重启恢复。此专项不执行真实安装、升级、实体打印或全量模块回归，原生未保存确认框使用测试返回值。
+
+需要单独复验某组时，可运行 `node --import tsx tests/exitResources.ts --cases reading,parsing,source-read,password`；`restart-clean` 与 `multi-cache` 需在同次进程中按顺序运行，以复用刚退出的配置。
+
 ### loading：统一加载、关闭与重试
 
 文件：`tests/suites/previewLoading.ts`、`tests/previewLoadDriver.ts`。测试执行器在单独测试偏好下暂缓已完成的读取响应，验证各格式内部阶段继续流转但只显示“正在加载…”，超过 3 秒显示耗时、第 9 秒仍无操作、第 10 秒出现唯一的重新加载按钮；在途重载重置计时并隔离迟到响应。检查居中提示、窄窗口/深色/150% 缩放时重载可达和文字居中、加载中直接关闭标签、迟到响应不重挂载、重新打开和错误重试、标签切换。读取本身的真实中止、共享消费者保留和取消后新读取由 tests/unit.ts 验证，延迟响应不能代替这些断言。跨窗口检查单解析名额、关闭排队标签、关闭持有者后的队列推进和外部文件身份拒绝；结束检查任务登记归零。PDF 密码等待中关闭及共享文档取消分别由 pdfchain 与 optimization.ts 覆盖。
