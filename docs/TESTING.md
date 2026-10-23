@@ -19,6 +19,8 @@ npm run test:fixtures
 
 测试使用独立 `work/test-profiles/<pid>/`，不改真实偏好；系统选择框模拟返回，打印机枚举和 print 出口拦截，真实渲染/内存生成 PDF 校验，绝不凭自动测试声称实体出纸成功。测试窗口单独关闭后台节流，产品保持原后台策略。测试前后核对原样例 SHA256；输出在忽略的 outputs/verification 与 outputs/bench，不能提交。
 
+公共套件可用 `--formats word,ppt,text,image` 限定文件矩阵，省略时保留原完整覆盖。当前覆盖 loading、immersive、visual、updates、sources、sourcelifecycle 的相关格式分支；PDF 与 Excel 专属场景在这组筛选中不运行。通用 open 会拒绝范围外的样例，视觉测量按筛选另存。Excel 不参与时，loading 直接通过两个普通文本窗口验证同一解析队列的等待/取消/重试/关闭/重载及所有权，不伪造其他格式的排队 UI。
+
 ## 独立编译运行资源
 
 默认 build 含类型检查。需要仅编译运行资源时，可分别执行以下命令，再按实际影响选择专项；示例套件不是每次必跑清单：
@@ -178,6 +180,8 @@ npm test -- --skip-build --suite pdfimmersive,pdfsources,pdflinks,printing
 新增 `pdfdest`、`texttools`、`imagetools` 为独立专项，单独选择这些套件（含 pdfoutline）时不执行无关基础单测。`npm test -- --suite pdfdest,texttools,imagetools` 先编译当前源码，再分别验证：同页 XYZ/FitH/命名目录定位、正文滚动章节选中、缩放/双页/旋转；虚拟文本跳行、折叠与隐藏结果搜索、查询取消和非法行号；常见 EXIF、旋转后真实像素取样、大图预览像素标识及来源会话释放。文本与图片单测分别位于模块 readingToolsUnit.ts、toolsUnit.ts，覆盖真实语法字符串/正则屏蔽、缩进、协作取消，以及恶意 EXIF 偏移和旋转坐标。保留所有源样例字节与原有 SHA256 门禁。
 
 相关回归按实际影响选择 pdfoutline、pdfspread、text、textsearch、syntax、appearance、image；不扩展到打印、Office 编辑或全量套件。首次生成的合成 EXIF 不含真实个人信息，取色不改剪贴板；截图仅验证本地样例，不代表所有相机私有标签或浏览器色彩管理的一致性。
+
+texttools 补充 Markdown 四字符外围栏包含较短围栏和示例标题的真实源码折叠，检查隐藏范围、独立章节及展开后原字符；readingToolsUnit 使用现有 Markdown 解析器核对围栏语义并覆盖未闭合块。imagetools/toolsUnit 覆盖 3/4、2/5、1/2 秒的 EXIF 曝光表示，真实图片信息浮窗核对 0.75 s；源文件 SHA256 门禁继续保持。
 
 各模块 `tests/e2e.ts`。文本检查原文安全显示、JSON 格式化/无效 JSON 回退、Markdown 渲染；图片检查 PNG/SVG/JPEG/WebP/GIF/BMP 的实际解码。缺失的小型位图样例由图片测试自动生成。均检查滚轮不改变倍率或图片显示尺寸。黑夜模式检查图片背景没有亮色棋盘格，使用 #252a32 深灰，并保存截图。扩展某种编码或图片格式时，应在对应套件加入真实样例和断言。
 

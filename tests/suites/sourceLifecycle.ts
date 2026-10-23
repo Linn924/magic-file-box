@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import path from 'node:path';
 import type {Suite} from '../context';
 import {sourceFixtures} from '../sourceFixtures';
+import {formatInScope} from '../scope';
 const suite:Suite=async c=>{
   await sourceFixtures();
   const idOf=(win:Electron.BrowserWindow)=>c.evaluate<string>(win,"document.querySelector('.preview-tab').dataset.fileId");
@@ -69,10 +70,12 @@ const suite:Suite=async c=>{
   await c.check(c.home,'another window cannot fetch private image capability',`fetch(${JSON.stringify(info.url)}).then(r=>!r.ok,()=>true)`);
   await c.evaluate(image,`window.localPreview.closeFileSource(${JSON.stringify(imageToken)})`);
   await c.check(image,'closed image capability is revoked',`fetch(${JSON.stringify(info.url)}).then(r=>!r.ok,()=>true)`);c.close(image);
+  if(formatInScope(c,'pdf')){
   const pdf=await c.open('document.pdf'),pdfId=await idOf(pdf),pdfToken='source-range-security-token';
   await c.evaluate(pdf,`window.localPreview.openFileSource(${JSON.stringify(pdfId)},${JSON.stringify(pdfToken)})`);
   for(const [offset,length] of [[-1,1],[0,2*1024*1024],[Number.MAX_SAFE_INTEGER,100]])await c.check(pdf,'invalid or oversized range rejected '+offset+':'+length,`window.localPreview.readFileRange(${JSON.stringify(pdfToken)},${offset},${length}).then(()=>false,()=>true)`);
   await c.evaluate(pdf,`window.localPreview.closeFileSource(${JSON.stringify(pdfToken)})`);c.close(pdf);
+  }
   const huge=path.resolve('outputs/verification/source-oversized.png'),bytes=Buffer.from(readFileSync(c.fixture('image.png')));bytes.writeUInt32BE(100000,16);bytes.writeUInt32BE(100000,20);writeFileSync(huge,bytes);
   const rejected=await c.program.openPath(huge);await c.check(rejected,'image pixels rejected before decode',"document.querySelector('.error')?.textContent.includes('像素')&&!document.querySelector('.large-image-preview')");c.close(rejected);
   const reopening=await c.program.openPath(txt);await c.check(reopening,'source ready before reload',"document.querySelector('.preview-body')?.dataset.loadPhase==='ready'");reopening.webContents.reload();await c.pause(300);assert.equal(c.program.previewResourceStats().sourceSessions,0,'reload releases sessions');c.close(reopening);

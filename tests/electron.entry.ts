@@ -3,6 +3,7 @@ import { mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import type { TestContext, Suite } from "./context";
+import {testFormats,fixtureInScope} from './scope';
 import immersive,{pdfImmersive} from "./suites/immersive";
 import nonpdfprinting from "./suites/nonpdfprinting";
 import printing from "@/modules/pdf/tests/printing";
@@ -62,6 +63,8 @@ app.on("browser-window-created", (_event, win) => {
   });
 });
 const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
+const formatIndex=process.argv.indexOf('--formats'),formats=formatIndex<0?undefined:new Set((process.argv[formatIndex+1]||'').split(','));
+if(formats&&[...formats].some(value=>!testFormats.includes(value as typeof testFormats[number])))throw Error('未知文件类型筛选。');
 if(requested==='all'||requested.split(',').includes('updates'))installUpdateTestDriver();
 if(requested==='all'||requested.split(',').includes('loading'))installPreviewLoadDriver();
 const program =
@@ -157,6 +160,7 @@ program.ready
   .then(async (home) => {
     if (!home) throw new Error("Test instance was not created");
     const context: TestContext = {
+      formats,
       home,
       program,
       pass,
@@ -166,6 +170,7 @@ program.ready
       fixture: (name) => path.resolve("work/fixtures", name),
       close: program.closePreview,
       async open(name) {
+        if(!fixtureInScope(context,name))throw Error('文件不在本次测试范围内：'+name);
         const win = await program.openPath(path.resolve("work/fixtures", name));
         await check(
           win,

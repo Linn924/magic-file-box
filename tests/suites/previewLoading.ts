@@ -1,8 +1,9 @@
 import type { Suite } from '../context';
 import { holdPreviewResponses, releasePreviewResponses } from '../previewLoadDriver';
+import {fixtureInScope} from '../scope';
 
 const suite: Suite = async c => {
-  for (const name of ['text.txt', 'data.json', 'document.docx', 'styled.xlsx', 'presentation.pptx', 'document.pdf', 'vector.svg']) {
+  for (const name of ['text.txt', 'data.json', 'document.docx', 'styled.xlsx', 'presentation.pptx', 'document.pdf', 'vector.svg'].filter(name=>fixtureInScope(c,name))) {
     holdPreviewResponses();
     const win = await c.program.openPath(c.fixture(name));
     try {
@@ -48,10 +49,12 @@ const suite: Suite = async c => {
   await c.click(broken, '.preview-retry');
   await c.check(broken, 'parse failure can retry and returns a clean error', "!!document.querySelector('.error .preview-retry')&&!document.querySelector('.loading')&&!document.querySelector('.word-host')");
   c.close(broken);
+  if(fixtureInScope(c,'styled.xlsx')){
   const owner = await c.open('text.txt');
   const fileId = await c.evaluate<string>(owner, "document.querySelector('.preview-tab').dataset.fileId");
   await c.evaluate(owner, `window.__parserLease=window.localPreview.acquirePreviewParser(${JSON.stringify(fileId)},'held-parser')`);
-  const queued = await c.program.openPath(c.fixture('styled.xlsx'));
+  const queuedFile='styled.xlsx';
+  const queued = await c.program.openPath(c.fixture(queuedFile));
   await c.check(queued, 'global parser slot queues another window', "document.querySelector('.preview-body')?.dataset.loadPhase==='queued'");
   await c.click(queued, '.preview-cancel-load');
   await c.evaluate(owner, "window.localPreview.releasePreviewParser('held-parser')");
@@ -59,7 +62,7 @@ const suite: Suite = async c => {
   await c.check(queued, 'queued cancellation releases its place and retry works', "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'");
   c.close(queued);
   await c.evaluate(owner, `window.__parserLease=window.localPreview.acquirePreviewParser(${JSON.stringify(fileId)},'closed-owner')`);
-  const next = await c.program.openPath(c.fixture('table.csv'));
+  const next = await c.program.openPath(c.fixture(fixtureInScope(c,'table.csv')?'table.csv':'presentation.pptx'));
   await c.check(next, 'parser waits while owner is alive', "document.querySelector('.preview-body')?.dataset.loadPhase==='queued'");
   c.close(owner);
   await c.check(next, 'closing parser owner releases next window', "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'");
@@ -68,14 +71,41 @@ const suite: Suite = async c => {
   const reloading=await c.open('text.txt');
   const reloadId=await c.evaluate<string>(reloading,"document.querySelector('.preview-tab').dataset.fileId");
   await c.evaluate(reloading,`window.localPreview.acquirePreviewParser(${JSON.stringify(reloadId)},'reload-owner')`);
-  const afterReload=await c.program.openPath(c.fixture('styled.xlsx'));
+  const afterReload=await c.program.openPath(c.fixture(queuedFile));
   await c.check(afterReload,'parser waits before owner reload',"document.querySelector('.preview-body')?.dataset.loadPhase==='queued'");
   reloading.webContents.reload();
   await c.check(afterReload,'main-frame reload releases the old parser lease',"document.querySelector('.preview-body')?.dataset.loadPhase==='ready'");
   c.close(reloading);c.close(afterReload);
+  }else await parserQueueWithoutExcel(c);
   await c.pause(100);
   const stats = c.program.previewResourceStats();
   if (stats.reads || stats.parsers || stats.activeParsers) throw Error('Preview task resources leaked');
   c.pass('all reading and parser tasks released after cancellation, retry and window closure');
 };
 export default suite;
+
+async function parserQueueWithoutExcel(c:import('../context').TestContext){
+  const owner=await c.open('text.txt'),waiting=await c.open('data.json');
+  const id=(win:Electron.BrowserWindow)=>c.evaluate<string>(win,"document.querySelector('.preview-tab').dataset.fileId");
+  const ownerId=await id(owner),waitingId=await id(waiting);
+  try{
+    await c.evaluate(owner,`window.localPreview.acquirePreviewParser(${JSON.stringify(ownerId)},'scope-held')`);
+    await c.evaluate(waiting,`window.scopeGranted=null;window.localPreview.acquirePreviewParser(${JSON.stringify(waitingId)},'scope-wait').then(value=>window.scopeGranted=value);true`);
+    await c.check(waiting,'shared parser acquisition waits without loading an excluded format',"window.scopeGranted===null");
+    await c.evaluate(waiting,"window.localPreview.releasePreviewParser('scope-wait')");
+    await c.check(waiting,'cancel queued parser acquisition resolves without admission',"window.scopeGranted===false");
+    await c.evaluate(owner,"window.localPreview.releasePreviewParser('scope-held')");
+    await c.check(waiting,'queued parser retry obtains the released slot',`window.localPreview.acquirePreviewParser(${JSON.stringify(waitingId)},'scope-retry')`);
+    await c.evaluate(waiting,"window.localPreview.releasePreviewParser('scope-retry')");
+    await c.evaluate(owner,`window.localPreview.acquirePreviewParser(${JSON.stringify(ownerId)},'scope-closed-owner')`);
+    await c.evaluate(waiting,`window.scopeGranted=null;window.localPreview.acquirePreviewParser(${JSON.stringify(waitingId)},'scope-after-close').then(value=>window.scopeGranted=value);true`);
+    c.close(owner);await c.check(waiting,'closing parser owner admits the next window',"window.scopeGranted===true");await c.evaluate(waiting,"window.localPreview.releasePreviewParser('scope-after-close')");
+    await c.check(c.home,'preview IPC rejects another window file identity',`window.localPreview.acquirePreviewParser(${JSON.stringify(waitingId)},'foreign').then(()=>false,()=>true)`);
+    const reload=await c.open('text.txt'),reloadId=await id(reload);
+    try{
+      await c.evaluate(reload,`window.localPreview.acquirePreviewParser(${JSON.stringify(reloadId)},'scope-reload-owner')`);
+      await c.evaluate(waiting,`window.scopeGranted=null;window.localPreview.acquirePreviewParser(${JSON.stringify(waitingId)},'scope-after-reload').then(value=>window.scopeGranted=value);true`);
+      reload.webContents.reload();await c.check(waiting,'main-frame reload releases its parser lease',"window.scopeGranted===true");await c.evaluate(waiting,"window.localPreview.releasePreviewParser('scope-after-reload')");
+    }finally{c.close(reload);}
+  }finally{if(!owner.isDestroyed())c.close(owner);c.close(waiting);}
+}

@@ -42,7 +42,8 @@ export function imageExif(input:Uint8Array):ImageInfoField[]{
     const add=(label:string,value:string|number|undefined)=>{if(value!==undefined&&value!=='')fields.push({label,value:String(value)});};
     add('相机厂商',string(0x10f));add('相机型号',string(0x110));add('拍摄时间',string(0x9003)||string(0x132));add('镜头',string(0xa434));
     const exposure=number(0x829a),aperture=number(0x829d),focal=number(0x920a);
-    add('曝光时间',exposure===undefined?undefined:exposure>0&&exposure<1?`1/${Math.round(1/exposure)} s`:`${exposure} s`);
+    const inverse=exposure?1/exposure:Infinity,reciprocal=exposure!==undefined&&exposure>0&&exposure<1&&Math.abs(inverse-Math.round(inverse))<1e-8;
+    add('曝光时间',exposure===undefined?undefined:reciprocal?`1/${Math.round(inverse)} s`:`${Number(exposure.toPrecision(8))} s`);
     add('光圈',aperture===undefined?undefined:`f/${Number(aperture.toFixed(2))}`);add('ISO',number(0x8827));add('焦距',focal===undefined?undefined:`${Number(focal.toFixed(2))} mm`);
     const orientations=['','正常','水平镜像','旋转 180°','垂直镜像','转置','旋转 90°','横向转置','旋转 270°'];add('EXIF 方向',orientations[number(0x112)??0]||undefined);
     add('软件',string(0x131));add('作者',string(0x13b));add('版权',string(0x8298));

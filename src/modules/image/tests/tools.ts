@@ -3,14 +3,15 @@ import {existsSync,readFileSync,writeFileSync} from 'node:fs';
 import type {Suite} from '../../../../tests/context';
 import {withExif} from './toolsFixtures';
 const suite:Suite=async c=>{
-  const png='image-tools-v1.png',jpeg='image-exif-tools-v1.jpg',large='large-image-tools-v1.png',largeJpeg='large-image-exif-tools-v1.jpg';
+  const png='image-tools-v1.png',jpeg='image-exif-tools-v1.jpg',large='large-image-tools-v1.png',largeJpeg='large-image-exif-tools-v1.jpg',fractional='image-exposure-fraction-v1.jpg';
   if(!existsSync(c.fixture(png))){const data=await c.evaluate<string>(c.home,"(()=>{const c=document.createElement('canvas');c.width=80;c.height=40;const x=c.getContext('2d');x.fillStyle='#ff0000';x.fillRect(0,0,40,20);x.fillStyle='#00ff00';x.fillRect(40,0,40,20);x.fillStyle='#0000ff';x.fillRect(0,20,40,20);x.fillStyle='#ffffff';x.fillRect(40,20,40,20);return c.toDataURL().split(',')[1]})()");writeFileSync(c.fixture(png),Buffer.from(data,'base64'));}
   if(!existsSync(c.fixture(jpeg))){const data=await c.evaluate<string>(c.home,"(()=>{const c=document.createElement('canvas');c.width=80;c.height=40;return c.toDataURL('image/jpeg').split(',')[1]})()");writeFileSync(c.fixture(jpeg),withExif(Buffer.from(data,'base64'),6));}
+  if(!existsSync(c.fixture(fractional))){const data=await c.evaluate<string>(c.home,"(()=>{const c=document.createElement('canvas');c.width=80;c.height=40;return c.toDataURL('image/jpeg').split(',')[1]})()");writeFileSync(c.fixture(fractional),withExif(Buffer.from(data,'base64'),1,[3,4]));}
   if(!existsSync(c.fixture(large)))writeFileSync(c.fixture(large),Buffer.concat([readFileSync(c.fixture(png)),Buffer.alloc(9*1024*1024)]));
   if(!existsSync(c.fixture(largeJpeg)))writeFileSync(c.fixture(largeJpeg),Buffer.concat([readFileSync(c.fixture(jpeg)),Buffer.alloc(9*1024*1024)]));
-  const originals=[png,jpeg,large,largeJpeg].map(name=>({name,bytes:readFileSync(c.fixture(name))}));
-  for(const name of [jpeg,largeJpeg]){const info=await c.open(name);
-    try{await c.click(info,'.image-info-toggle');await c.check(info,'image information shows local EXIF values safely: '+name,"document.querySelector('.image-info').textContent.includes('Fixture Camera')&&document.querySelector('.image-info').textContent.includes('1/125 s')&&document.querySelector('.image-info').textContent.includes('2026:10:23')");await c.snapshot(info,name===jpeg?'image-exif-information':'large-image-exif-information');}finally{c.close(info);}
+  const originals=[png,jpeg,large,largeJpeg,fractional].map(name=>({name,bytes:readFileSync(c.fixture(name))}));
+  for(const name of [jpeg,largeJpeg,fractional]){const info=await c.open(name),exposure=name===fractional?'0.75 s':'1/125 s';
+    try{await c.click(info,'.image-info-toggle');await c.check(info,'image information shows local EXIF values safely: '+name,`document.querySelector('.image-info').textContent.includes('Fixture Camera')&&document.querySelector('.image-info').textContent.includes(${JSON.stringify(exposure)})&&document.querySelector('.image-info').textContent.includes('2026:10:23')`);await c.snapshot(info,name===fractional?'image-exif-fractional-exposure':name===jpeg?'image-exif-information':'large-image-exif-information');}finally{c.close(info);}
   }
   for(const name of [png,large]){
     const win=await c.open(name);try{

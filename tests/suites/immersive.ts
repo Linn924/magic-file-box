@@ -1,5 +1,6 @@
 import type { Suite,TestContext } from "../context";
 import type { BrowserWindow } from 'electron';
+import {fixtureInScope} from '../scope';
 const suite = async (c:TestContext,pdfOnly=false) => {
   const state=(mode:string|undefined,zoom:number)=>`document.querySelector('.zoom-control input').value==='${zoom}'${mode?`&&document.querySelector('[aria-label=页面适配]').value==='${mode}'`:''}`;
   async function choose(win:BrowserWindow,mode:string|undefined,zoom:number){
@@ -16,6 +17,7 @@ const suite = async (c:TestContext,pdfOnly=false) => {
     await c.click(win,'.immersive-toggle');
     await c.check(win,`${name} immersive exit restores ${mode??'zoom'} and ${zoom}%`,`!document.documentElement.classList.contains('immersive')&&${state(mode,zoom)}`);
   }
+  if(fixtureInScope(c,'document.pdf')){
   const win = await c.open("document.pdf");
   await choose(win,'original',137);
   await c.evaluate(win, "document.querySelector('.pdf-scroll').scrollTop=100");
@@ -65,6 +67,7 @@ const suite = async (c:TestContext,pdfOnly=false) => {
   win.webContents.sendInputEvent({type:'keyDown',keyCode:'Escape'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Escape'});
   await c.check(win,'leaving PDF presentation restores the selected reading mode and zoom',"!document.querySelector('.pdf-presentation')&&!document.documentElement.classList.contains('immersive')&&"+state('original',137));
   c.close(win);
+  }
   if(pdfOnly)return;
   for (const [name, expression] of [
     [
@@ -77,6 +80,7 @@ const suite = async (c:TestContext,pdfOnly=false) => {
     ],
     ["vector.svg", "document.querySelector('.image img')"],
   ]) {
+    if(!fixtureInScope(c,name))continue;
     const preview = await c.open(name);
     const ratio = await c.evaluate<number>(
       preview,
@@ -98,6 +102,7 @@ const suite = async (c:TestContext,pdfOnly=false) => {
     c.close(preview);
   }
   for(const name of ['styled.xlsx','text.txt']){
+    if(!fixtureInScope(c,name))continue;
     const preview=await c.open(name);
     try{await roundTrip(preview,name,undefined,137);}finally{c.close(preview);}
   }

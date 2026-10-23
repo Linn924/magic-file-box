@@ -39,14 +39,19 @@ export function codeFolds(lines:string[],syntax:SyntaxData|undefined,language:st
     for(const block of blocks)add(block.line,last);
   }
   if(language==='markdown'){
-    const headings:Array<{line:number;level:number}>=[];let fence:{line:number;char:string}|undefined;
+    const headings:Array<{line:number;level:number}>=[];let fence:{line:number;char:string;length:number}|undefined;
     for(let i=0;i<lines.length;i++){
-      const block=lines[i].match(/^\s*(`{3,}|~{3,})/);
-      if(block){if(fence&&block[1][0]===fence.char){add(fence.line,i);fence=undefined;}else if(!fence)fence={line:i,char:block[1][0]};continue;}
-      if(fence)continue;const heading=lines[i].match(/^(#{1,6})\s/);if(!heading)continue;
+      const block=lines[i].match(/^ {0,3}(`{3,}|~{3,})(.*)$/);
+      if(fence){
+        if(block&&block[1][0]===fence.char&&block[1].length>=fence.length&&!block[2].trim()){add(fence.line,i);fence=undefined;}
+        continue;
+      }
+      if(block&&!(block[1][0]==='`'&&block[2].includes('`'))){fence={line:i,char:block[1][0],length:block[1].length};continue;}
+      const heading=lines[i].match(/^ {0,3}(#{1,6})(?:[ \t]+|$)/);if(!heading)continue;
       while(headings.length&&headings.at(-1)!.level>=heading[1].length){const open=headings.pop()!;add(open.line,i-1);}
       headings.push({line:i,level:heading[1].length});
     }
+    if(fence)add(fence.line,lines.length-1);
     for(const heading of headings)add(heading.line,lines.length-1);
   }
   return [...ranges].map(([start,end])=>({start,end})).sort((a,b)=>a.start-b.start);

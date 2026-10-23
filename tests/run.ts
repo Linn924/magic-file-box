@@ -2,7 +2,10 @@ import { spawnSync } from "node:child_process";
 import { build } from "esbuild";
 import { mkdirSync } from "node:fs";
 import electron from "electron";
+import {testFormats} from './scope';
 const args = process.argv.slice(2);
+const formatIndex=args.indexOf('--formats'),formats=formatIndex<0?undefined:(args[formatIndex+1]||'').split(',');
+if(formats?.some(value=>!testFormats.includes(value as typeof testFormats[number])))throw Error('未知文件类型。支持：'+testFormats.join(','));
 const index = args.indexOf("--suite");
 const selected = (index < 0 ? "all" : args[index + 1] || "").split(",");
 const names = [
@@ -109,6 +112,7 @@ run(electron as unknown as string, [
   ".test-build/tests.cjs",
   "--suite",
   selected.join(","),
+  ...(formats?['--formats',formats.join(',')]:[]),
 ]);
 if (selected.includes("core") || selected.includes("all")) {
   await build({

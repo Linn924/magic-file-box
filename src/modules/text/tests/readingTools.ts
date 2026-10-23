@@ -37,5 +37,19 @@ const suite:Suite=async c=>{
     await c.check(repeat,'last repeated occurrence remains navigable beyond the highlight budget',"document.querySelector('.text-search-count').textContent.includes('20000 / 20000')&&document.querySelector('.text-current-hit')?.dataset.hitStart==='19999'");
     const gap=await c.evaluate<number>(repeat,"window.searchGap");assert.ok(gap<600,'repeated-search fixture keeps the renderer responsive');c.pass('repeated-search fixture timer gap '+Math.round(gap)+' ms');
   }finally{await c.evaluate(repeat,"clearInterval(window.searchTimer)");c.close(repeat);}
+  const markdown='text-fold-fences-v1.md',fenced=['# Main','','````md','```js','# This is code, not a section','```','````','','## Next','body'].join('\n');
+  if(!existsSync(c.fixture(markdown)))writeFileSync(c.fixture(markdown),fenced);
+  const original=readFileSync(c.fixture(markdown)),md=await c.open(markdown);
+  try{
+    await c.click(md,'.md-source-toggle');
+    await c.check(md,'outer Markdown fence has a fold control',"!!document.querySelector('.text-line[data-line=\"3\"] .text-fold-toggle')");
+    await c.check(md,'code-example headings do not become Markdown section folds',"!document.querySelector('.text-line[data-line=\"5\"] .text-fold-toggle')");
+    await c.click(md,'.text-line[data-line="3"] .text-fold-toggle');
+    await c.check(md,'folding an outer Markdown fence hides the whole nested example',"!document.querySelector('.text-line[data-line=\"5\"]')&&!document.querySelector('.text-line[data-line=\"7\"]')&&!!document.querySelector('.text-line[data-line=\"9\"]')");
+    await c.snapshot(md,'text-markdown-fence-fold');
+    await c.click(md,'.text-line[data-line="3"] .text-fold-toggle');
+    assert.equal(await c.evaluate(md,"[...document.querySelectorAll('.line-body')].map(el=>el.textContent).join('\\n')"),fenced);
+    assert.deepEqual(readFileSync(c.fixture(markdown)),original);c.pass('Markdown nested-fence folding restores exact source characters');
+  }finally{c.close(md);}
 };
 export default suite;

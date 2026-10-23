@@ -7,6 +7,9 @@ assert.ok(fields.some(field=>field.label==='相机厂商'&&field.value==='Fixtur
 assert.ok(fields.some(field=>field.label==='曝光时间'&&field.value==='1/125 s'));
 assert.ok(fields.some(field=>field.label==='EXIF 方向'&&field.value==='旋转 90°'));
 assert.ok(fields.some(field=>field.label==='拍摄时间'&&field.value==='2026:10:23 12:34:56'));
+for(const [rational,expected] of [[[3,4],'0.75 s'],[[2,5],'0.4 s'],[[1,2],'1/2 s']] as Array<[[number,number],string]>){
+  assert.equal(imageExif(withExif(new Uint8Array([255,216,255,217]),1,rational)).find(field=>field.label==='曝光时间')?.value,expected,'EXIF fractions must not be rounded to a different exposure');
+}
 const tiff=jpeg.slice(12,4+((jpeg[4]<<8)|jpeg[5])),png=new Uint8Array(20+tiff.length+4);png.set([137,80,78,71,13,10,26,10]);new DataView(png.buffer).setUint32(8,tiff.length);png.set(new TextEncoder().encode('eXIf'),12);png.set(tiff,16);assert.deepEqual(imageExif(png),fields);
 const webp=new Uint8Array(20+tiff.length+(tiff.length%2));webp.set(new TextEncoder().encode('RIFF'));webp.set(new TextEncoder().encode('WEBPEXIF'),8);new DataView(webp.buffer).setUint32(4,webp.length-8,true);new DataView(webp.buffer).setUint32(16,tiff.length,true);webp.set(tiff,20);assert.deepEqual(imageExif(webp),fields);
 assert.deepEqual(imageExif(jpeg.slice(0,30)),[]);

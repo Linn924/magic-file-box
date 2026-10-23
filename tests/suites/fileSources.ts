@@ -4,12 +4,14 @@ import {app} from 'electron';
 import {createHash} from 'node:crypto';
 import type {Suite} from '../context';
 import {sourceFixtures} from '../sourceFixtures';
+import {fixtureInScope} from '../scope';
 const hash=async(file:string)=>{const value=createHash('sha256');for await(const data of createReadStream(file))value.update(data);return value.digest('hex');};
 const suite:Suite=async c=>{
   const fixtures=await sourceFixtures();
   const names=['txt','csv','json','xlsx','docx','pptx','pdf','image'] as const;
   const measurements:Array<Record<string,unknown>>=[];
   for(const name of names){
+    if(!fixtureInScope(c,fixtures[name]))continue;
     const file=fixtures[name],before=await hash(file),baseline=c.program.previewResourceStats().sourceBytesRead,start=performance.now();
     const memory=()=>app.getAppMetrics().reduce((sum,process)=>sum+process.memory.workingSetSize,0)/1024;
     const initialMemory=memory();let peakMemory=initialMemory;
@@ -60,6 +62,6 @@ const suite:Suite=async c=>{
   assert.ok(c.program.previewResourceStats().sourceMaxRange<=1024*1024);
   assert.ok(c.program.previewResourceStats().sourcePeakReads<=8);
   c.pass('all large source SHA256, file handles, sessions and range/concurrency budgets verified');
-  writeFileSync('outputs/verification/source-measurements.json',JSON.stringify({measurements,note:'Single synthetic run, warm filesystem cache. Sum of app process working sets sampled at 50 ms may double-count shared pages; includes lifecycle actions. Office packages and PDF include large unselected embedded content; not evidence for every complex document.'},null,2));
+  writeFileSync(`outputs/verification/source-measurements${c.formats?'-'+[...c.formats].join('-'):''}.json`,JSON.stringify({measurements,note:'Single synthetic run, warm filesystem cache. Sum of app process working sets sampled at 50 ms may double-count shared pages; includes lifecycle actions. Office packages and PDF include large unselected embedded content; not evidence for every complex document.'},null,2));
 };
 export default suite;

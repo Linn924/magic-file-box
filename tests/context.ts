@@ -1,5 +1,7 @@
 import type { BrowserWindow } from "electron";
 export interface TestContext {
+  /** Optional shared-suite file-format selection; omitted means the existing full matrix. */
+  formats?:ReadonlySet<string>;
   home: BrowserWindow;
   program: typeof import("../electron/main");
   open: (name: string) => Promise<BrowserWindow>;

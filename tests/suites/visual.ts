@@ -1,5 +1,6 @@
 import {writeFileSync} from 'node:fs';
 import type {Suite} from '../context';
+import {fixtureInScope} from '../scope';
 
 /** Real Electron layout matrix. Audit mode records before images without enforcing new rules. */
 const suite:Suite=async c=>{
@@ -8,7 +9,7 @@ const suite:Suite=async c=>{
  const previousZoom=c.home.webContents.getZoomFactor();
  c.program.updateSettings({maximizePreview:false});
  try{
-  for(const name of ['document.pdf','document.docx','styled.xlsx','presentation.pptx','vector.svg','readme.md','data.json']){
+  for(const name of ['document.pdf','document.docx','styled.xlsx','presentation.pptx','vector.svg','readme.md','data.json'].filter(name=>fixtureInScope(c,name))){
    const win=await c.open(name);win.setMinimumSize(520,380);
    for(const theme of ['light','dark'] as const){
     c.program.updateSettings({theme});win.setContentSize(960,640);win.webContents.setZoomFactor(1.25);await c.pause(180);
@@ -41,7 +42,10 @@ const suite:Suite=async c=>{
    }
    win.webContents.setZoomFactor(previousZoom);c.close(win);
   }
-  const queryTabs=(await c.program.openPaths([c.fixture('document.pdf'),c.fixture('data.json')],'tabs'))[0];await c.check(queryTabs,'tabbed PDF ready for query isolation',"!!document.querySelector('.pdf-search-toggle')");await c.click(queryTabs,'.pdf-search-toggle');await c.check(queryTabs,'PDF query window opens in its own tab',"!!document.querySelector('.pdf-search-input')");await c.click(queryTabs,'.tab .tab-name','data.json');await c.check(queryTabs,'inactive tab query window does not cover current file',"[...document.querySelectorAll('.preview-floating-panel')].every(panel=>panel.getClientRects().length===0)");await c.evaluate(queryTabs,"document.dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,bubbles:true,cancelable:true}))");await c.check(queryTabs,'Ctrl F opens active text query only',"document.querySelector('.text-search-input')===document.activeElement&&[...document.querySelectorAll('.preview-floating-panel')].filter(panel=>panel.getClientRects().length).length===1");await c.evaluate(queryTabs,"document.querySelector('.text-search-input').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");await c.check(queryTabs,'closing text query restores entry focus',"!document.querySelector('.text-search-input')&&document.activeElement===document.querySelector('.text-search-toggle')");c.close(queryTabs);
+  if(fixtureInScope(c,'data.json')){
+  const first=fixtureInScope(c,'document.pdf')?'document.pdf':'text.txt',prefix=first==='document.pdf'?'pdf':'text';
+  const queryTabs=(await c.program.openPaths([c.fixture(first),c.fixture('data.json')],'tabs'))[0];await c.check(queryTabs,'first file ready for query isolation',`!!document.querySelector('.${prefix}-search-toggle')`);await c.click(queryTabs,`.${prefix}-search-toggle`);await c.check(queryTabs,'query window opens in its own tab',`!!document.querySelector('.${prefix}-search-input')`);await c.click(queryTabs,'.tab .tab-name','data.json');await c.check(queryTabs,'inactive tab query window does not cover current file',"[...document.querySelectorAll('.preview-floating-panel')].every(panel=>panel.getClientRects().length===0)");await c.evaluate(queryTabs,"document.dispatchEvent(new KeyboardEvent('keydown',{key:'f',ctrlKey:true,bubbles:true,cancelable:true}))");await c.check(queryTabs,'Ctrl F opens active text query only',"document.activeElement?.classList.contains('text-search-input')&&[...document.querySelectorAll('.preview-floating-panel')].filter(panel=>panel.getClientRects().length).length===1");await c.evaluate(queryTabs,"document.activeElement.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");await c.check(queryTabs,'closing text query restores entry focus',"![...document.querySelectorAll('.text-search-input')].some(input=>input.getClientRects().length)&&document.activeElement?.classList.contains('text-search-toggle')");c.close(queryTabs);
+  }
  }finally{c.home.webContents.setZoomFactor(previousZoom);c.program.updateSettings({maximizePreview:true,theme:'light'});}
- writeFileSync(`outputs/verification/visual-${audit?'before':'after'}.json`,JSON.stringify(measurements,null,2));
+ writeFileSync(`outputs/verification/visual-${audit?'before':'after'}${c.formats?'-'+[...c.formats].join('-'):''}.json`,JSON.stringify(measurements,null,2));
 };export default suite;
