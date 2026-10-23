@@ -233,7 +233,7 @@ const orderLabel = (o?: string) =>
               :title="row.file.name"
               @click="preview(row.file)"
             >
-              {{ row.file.name }}</button
+              <span class="print-filename">{{ row.file.name }}</span></button
             ><span class="file-type-badge">{{ row.file.ext }}</span
             ><button
               type="button"

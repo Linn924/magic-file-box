@@ -34,5 +34,5 @@ async function update(clear=false) {
   </section>
 </template>
 <style scoped>
-.exclusive-settings{border-top:1px solid var(--line);padding-top:12px;margin-top:12px;min-width:0}.exclusive-settings h3{font-size:14px;margin:0 0 8px}.exclusive-status,.exclusive-pending,.exclusive-storage,.exclusive-message{font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:var(--muted);margin:6px 0}.exclusive-settings form{display:flex;flex-direction:column;gap:6px}.exclusive-settings label{font-size:12px}.exclusive-settings input{box-sizing:border-box;width:100%;min-width:0;padding:6px}.exclusive-actions{display:flex;flex-wrap:wrap;gap:8px}.exclusive-message{color:var(--text)}
+.exclusive-settings{border-top:1px solid var(--line);padding-top:12px;margin-top:12px;min-width:0}.exclusive-settings h3{font-size:14px;margin:0 0 8px}.exclusive-status,.exclusive-pending,.exclusive-storage,.exclusive-message{font-size:12px;line-height:1.5;overflow-wrap:anywhere;color:var(--muted);margin:6px 0}.exclusive-settings form{display:flex;flex-direction:column;gap:6px}.exclusive-settings label{font-size:12px}.exclusive-settings input{box-sizing:border-box;width:100%;min-width:0;padding:0 6px}.exclusive-actions{display:flex;flex-wrap:wrap;gap:8px}.exclusive-message{color:var(--text)}
 </style>

@@ -1,0 +1,52 @@
+/* Clip the visual surface, keeping layout and saved floating-panel positions stable. */
+.popup-tv-enter-active { animation: popup-backdrop-in 240ms ease-out both; }
+.popup-tv-leave-active { animation: popup-backdrop-out 180ms ease-in both; }
+.popup-tv-enter-active > [role="dialog"],
+.popup-tv-floating-enter-active { animation: popup-screen-in 240ms cubic-bezier(.2,.7,.2,1) both; }
+.popup-tv-leave-active > [role="dialog"],
+.popup-tv-floating-leave-active { animation: popup-screen-out 180ms cubic-bezier(.4,0,.8,.3) both; }
+.popup-tv-leave-active,
+.popup-tv-floating-leave-active { user-select: none; }
+
+@keyframes popup-screen-in {
+  0% { clip-path: inset(50% 49.5% round 8px); opacity: 0; }
+  25% { clip-path: inset(calc(50% - 1px) 0 round 8px); opacity: 1; }
+  100% { clip-path: inset(0 round 8px); opacity: 1; }
+}
+@keyframes popup-screen-out {
+  0% { clip-path: inset(0 round 8px); opacity: 1; }
+  65% { clip-path: inset(calc(50% - 1px) 0 round 8px); opacity: 1; }
+  100% { clip-path: inset(50% 50% round 8px); opacity: 0; }
+}
+@keyframes popup-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes popup-backdrop-out { 0%,65% { opacity: 1; } 100% { opacity: 0; } }
+
+.notification-slide-enter-active,
+.notification-slide-leave-active {
+  interpolate-size: allow-keywords;
+  height: auto;
+  overflow: hidden;
+  transition: transform 220ms cubic-bezier(.2,.7,.2,1), opacity 180ms ease,
+    height 220ms ease, padding-block 220ms ease, border-block-width 220ms ease;
+}
+:root .notification-stack .notification-slide-enter-from,
+:root .notification-stack .notification-slide-leave-to {
+  transform: translateX(calc(100% + 16px));
+  opacity: 0;
+  height: 0;
+  padding-block: 0;
+  border-block-width: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .popup-tv-enter-active, .popup-tv-leave-active,
+  .popup-tv-enter-active > [role="dialog"], .popup-tv-leave-active > [role="dialog"],
+  .popup-tv-floating-enter-active, .popup-tv-floating-leave-active {
+    animation-duration: 1ms;
+    animation-name: popup-reduced;
+  }
+  .notification-slide-enter-active, .notification-slide-leave-active { transition: opacity 1ms; }
+  :root .notification-stack .notification-slide-enter-from,
+  :root .notification-stack .notification-slide-leave-to { transform: none; height: auto; padding-block: 14px; border-block-width: 1px; }
+}
+@keyframes popup-reduced { from { opacity: 1; } to { opacity: 1; } }

@@ -226,7 +226,7 @@
 }
 .sheet-tools label { flex-shrink:0; }
 .locate-status { flex-basis:100%; color:var(--muted); }
-.sheet-tools input:not([type="checkbox"]) { height:28px; border:1px solid var(--line); border-radius:var(--radius); background:var(--well); }
+.sheet-tools input:not([type="checkbox"]) { height:28px; border:1px solid var(--field-border); border-radius:var(--radius); background-color:var(--field-bg); }
 .sheet-footer { height:auto!important; min-height:36px!important; padding:4px 10px!important; }
 .cell-locate {
   display: flex;
@@ -237,7 +237,7 @@
 }
 .cell-locate-input {
   width: 72px;
-  padding: 4px 6px;
+  padding:0 6px;
 }
 .cell-locate small {
   color: var(--muted);
@@ -265,11 +265,11 @@
 }
 
 .excel-edit-tools{display:inline-flex;align-items:center;gap:6px;flex-wrap:wrap}
-.excel-edit-tools select{max-width:150px;background:var(--well);color:var(--text);border:1px solid var(--line);border-radius:4px;height:28px}
+.excel-edit-tools select{max-width:150px;background-color:var(--field-bg);color:var(--field-text);border:1px solid var(--field-border);border-radius:4px;height:28px}
 .excel-dirty{font-size:11px;color:var(--muted)}
 .excel-editor-bar{display:flex;gap:4px;align-items:flex-start;flex-wrap:nowrap;padding:4px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0}
 .excel-cell-address{font-size:12px;max-width:160px;overflow-wrap:anywhere}
-.excel-cell-input{flex:1;min-width:100px;box-sizing:border-box;height:28px;min-height:28px;max-height:88px;padding:3px 6px;border:1px solid var(--line);border-radius:4px;background:var(--well);color:var(--text);font:inherit;line-height:20px;resize:none}
+.excel-cell-input{flex:1;min-width:100px;box-sizing:border-box;height:28px;min-height:28px;max-height:88px;padding:3px 6px;border:1px solid var(--field-border);border-radius:4px;background-color:var(--field-bg);color:var(--field-text);font:inherit;line-height:20px;resize:none}
 .excel-editor-bar small{flex-basis:100%;color:var(--muted);font-size:11px}
 .excel-edit-error,.excel-edit-status{margin:0;padding:5px 10px;font-size:12px;overflow-wrap:anywhere}.excel-edit-error{color:var(--danger)}
 .excel-selected-cell{outline:2px solid var(--accent);outline-offset:-2px}
@@ -279,7 +279,7 @@
 .excel-text-box{display:block}.excel-text-rotated{display:flex;align-items:center;justify-content:center;overflow:hidden;width:100%}
 .spreadsheet tbody th,.spreadsheet td.excel-range-cell{position:relative}.row-resize-handle{position:absolute;bottom:0;left:0;right:0;height:6px;cursor:row-resize;z-index:10}.row-resize-handle:hover{background:var(--accent)}.excel-fill-handle{position:absolute;bottom:0;right:0;width:7px;height:7px;background:var(--accent);border:1px solid var(--panel);cursor:crosshair;z-index:6}
 .excel-grid-menu{position:fixed;z-index:125;width:226px;border:1px solid var(--line);border-radius:6px;padding:4px;background:var(--panel);color:var(--text);box-shadow:0 4px 18px #0003}.excel-grid-menu button{display:block;width:100%;text-align:left;padding:7px 8px;background:transparent;border:0;color:inherit;border-radius:3px;font-size:12px}.excel-grid-menu button:hover,.excel-grid-menu button:focus-visible{background:var(--well);outline:1px solid var(--accent)}.excel-context-menu{max-height:80vh;overflow:auto}
-.excel-grid-overlay{position:fixed;inset:0;z-index:140;display:grid;place-items:center;background:#0005}.excel-grid-dialog{display:flex;flex-direction:column;gap:10px;width:min(440px,calc(100vw - 32px));max-height:85vh;overflow:auto;padding:18px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font-size:13px}.excel-grid-dialog label{display:flex;align-items:center;gap:10px}.excel-grid-dialog input:not([type=checkbox]),.excel-grid-dialog select{flex:1;min-width:0;max-width:none;height:30px;background:var(--well);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:4px 6px}.excel-grid-dialog small{color:var(--muted)}.excel-dialog-actions{display:flex;gap:8px;justify-content:flex-end}.excel-dialog-actions button{padding:6px 12px}.excel-conflict-list{max-height:160px;overflow:auto;padding-left:22px;overflow-wrap:anywhere}
+.excel-grid-overlay{position:fixed;inset:0;z-index:140;display:grid;place-items:center;background:#0005}.excel-grid-dialog{display:flex;flex-direction:column;gap:10px;width:min(440px,calc(100vw - 32px));max-height:85vh;overflow:auto;padding:18px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--text);font-size:13px}.excel-grid-dialog label{display:flex;align-items:center;gap:10px}.excel-grid-dialog input:not([type=checkbox]),.excel-grid-dialog select{flex:1;min-width:0;max-width:none;height:30px;background-color:var(--field-bg);color:var(--field-text);border:1px solid var(--field-border);border-radius:4px;padding:0 6px}.excel-grid-dialog small{color:var(--muted)}.excel-dialog-actions{display:flex;gap:8px;justify-content:flex-end}.excel-dialog-actions button{padding:0 12px}.excel-conflict-list{max-height:160px;overflow:auto;padding-left:22px;overflow-wrap:anywhere}
 .excel-changed-cell{box-shadow:inset 3px 0 #16803c}
 .spreadsheet td:has(.excel-inline-input){position:relative;overflow:visible!important;padding:0!important}
 .excel-inline-input{display:block;box-sizing:border-box;width:100%;min-width:40px;min-height:24px;height:100%;margin:0;resize:none;border:2px solid var(--accent);border-radius:0;padding:2px;background:#fff;color:#20262e;font:inherit;line-height:inherit;outline:none;white-space:pre-wrap}
@@ -291,21 +291,21 @@
 .excel-context-menu small{color:var(--muted);font-size:10px}.excel-context-menu hr{border:0;border-top:1px solid var(--line);margin:3px 0}
 .excel-insert-overlay{position:fixed;inset:0;z-index:130;background:#0003;display:grid;place-items:center}
 .excel-insert-dialog{display:grid;gap:12px;padding:18px;width:min(330px,calc(100vw - 40px));background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px #0004}
-.excel-insert-dialog label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}.excel-insert-dialog select,.excel-insert-dialog input{width:170px;min-height:28px;background:var(--well);color:var(--text);border:1px solid var(--line);border-radius:4px;padding:4px}.excel-insert-dialog>div{display:flex;justify-content:flex-end;gap:8px}.excel-insert-dialog small{color:var(--muted);font-size:11px}
+.excel-insert-dialog label{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:12px}.excel-insert-dialog select,.excel-insert-dialog input{width:170px;min-height:28px;background-color:var(--field-bg);color:var(--field-text);border:1px solid var(--field-border);border-radius:4px;padding:0 4px}.excel-insert-dialog>div{display:flex;justify-content:flex-end;gap:8px}.excel-insert-dialog small{color:var(--muted);font-size:11px}
 .excel-editor-toolbar{display:flex;align-items:center;flex-wrap:wrap;gap:4px;padding:4px 8px;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0}
 .excel-command-group{display:inline-flex;align-items:center;gap:2px;padding-right:6px;border-right:1px solid var(--line);flex-shrink:0}.excel-command-group:last-child{border-right:0;padding-right:0}
-.excel-editor-toolbar select{width:76px;height:28px;border:1px solid var(--line);border-radius:4px;padding:2px 4px;background:var(--well);color:var(--text);font-size:12px}
-.excel-name-box{flex:0 0 76px;box-sizing:border-box;height:28px;border:1px solid var(--line);border-radius:4px;padding:3px 6px;background:var(--well);color:var(--text);font-size:12px}.excel-formula-label{display:flex;align-items:center;justify-content:center;height:28px;width:24px;flex-shrink:0;color:var(--muted);font-size:14px;font-style:italic}
+.excel-editor-toolbar select{width:76px;height:28px;border:1px solid var(--field-border);border-radius:4px;padding:0 4px;background-color:var(--field-bg);color:var(--field-text);font-size:12px}
+.excel-name-box{flex:0 0 76px;box-sizing:border-box;height:28px;border:1px solid var(--field-border);border-radius:4px;padding:0 6px;background-color:var(--field-bg);color:var(--field-text);font-size:12px}.excel-formula-label{display:flex;align-items:center;justify-content:center;height:28px;width:24px;flex-shrink:0;color:var(--muted);font-size:14px;font-style:italic}
 .excel-actions{position:relative;display:inline-flex}.excel-actions-menu{position:absolute;right:0;top:calc(100% + 4px);z-index:100;min-width:182px;max-height:calc(100vh - 220px);overflow:auto;padding:4px;border:1px solid var(--line);border-radius:6px;background:var(--panel);color:var(--text);box-shadow:0 4px 18px #0003}
-.excel-actions-menu button{display:flex;align-items:center;gap:8px;white-space:nowrap;width:100%;min-height:28px;padding:4px 8px;background:transparent;border:0;color:inherit;text-align:left;font-size:12px;border-radius:3px}.excel-actions-menu button:hover,.excel-actions-menu button:focus-visible{background:var(--well);outline:1px solid var(--accent)}.excel-actions-menu button>span:last-child{margin-left:auto}.excel-actions-menu hr{margin:4px 0;border:0;border-top:1px solid var(--line)}
+.excel-actions-menu button{display:flex;align-items:center;justify-content:flex-start;gap:8px;white-space:nowrap;width:100%;min-height:28px;padding:4px 8px;background:transparent;border:0;color:inherit;text-align:left;font-size:12px;border-radius:3px}.excel-actions-menu button:hover,.excel-actions-menu button:focus-visible{background:var(--well);outline:1px solid var(--accent)}.excel-actions-menu button>span:last-child{margin-left:auto}.excel-actions-menu hr{margin:4px 0;border:0;border-top:1px solid var(--line)}
 .excel-context-menu button{justify-content:flex-start;gap:8px}.excel-context-menu small{margin-left:auto}
-.sheet-footer .sheets{flex:1;min-width:80px;min-height:28px;padding:0;border:0;background:transparent;gap:2px}.sheet-footer .sheets button{max-width:150px;overflow:hidden;text-overflow:ellipsis;border-radius:3px 3px 0 0}.sheet-footer>span{white-space:nowrap;font-size:11px}.sheet-footer{gap:8px;flex-shrink:0}
+.sheet-footer .sheets{flex:1;min-width:80px;min-height:28px;padding:0;border:0;background:transparent;gap:2px}.sheet-footer .sheets button{max-width:150px;overflow:hidden;text-overflow:ellipsis;border-radius:3px 3px 0 0}.sheet-footer .sheets button>span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.sheet-footer>span{white-space:nowrap;font-size:11px}.sheet-footer{gap:8px;flex-shrink:0}
 .spreadsheet td.excel-find-hit{outline:2px solid var(--accent);outline-offset:-2px;box-shadow:inset 0 0 0 4px color-mix(in srgb,var(--accent) 16%,transparent)}
 .spreadsheet td.excel-formula-reference{box-shadow:inset 0 0 0 2px #b65a00;background-image:linear-gradient(#b65a0015,#b65a0015)}
 .excel-sheet-actions{display:inline-flex;gap:2px;flex-shrink:0}
 .excel-sheet-overlay{position:absolute;inset:0;z-index:150;background:#0005;display:flex;align-items:center;justify-content:center;padding:16px}
 .excel-sheet-dialog{box-sizing:border-box;display:grid;gap:12px;width:min(440px,100%);max-height:100%;overflow:auto;padding:18px;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px #0004;font-size:12px}
-.excel-sheet-dialog label{display:grid;gap:6px}.excel-sheet-dialog input,.excel-sheet-dialog select{box-sizing:border-box;width:100%;min-height:28px;padding:4px;background:var(--well);color:var(--text);border:1px solid var(--line);border-radius:4px}
+.excel-sheet-dialog label{display:grid;gap:6px}.excel-sheet-dialog input,.excel-sheet-dialog select{box-sizing:border-box;width:100%;min-height:28px;padding:0 4px;background-color:var(--field-bg);color:var(--field-text);border:1px solid var(--field-border);border-radius:4px}
 .excel-sheet-modes{display:flex;flex-wrap:wrap;gap:4px}.excel-sheet-modes button{font-size:11px;min-height:28px}.excel-sheet-modes button[aria-pressed=true]{outline:1px solid var(--accent);color:var(--accent)}
 .excel-sheet-submit{display:flex;justify-content:flex-end;gap:8px}.excel-sheet-dialog p{margin:0;line-height:1.6;overflow-wrap:anywhere}.excel-sheet-dialog small{color:var(--muted);line-height:1.5}
 .excel-editor-toolbar .excel-copy-scope{width:136px}.excel-data-dialog{width:min(480px,100%);display:flex;flex-direction:column;overflow:hidden}.excel-data-body{display:grid;gap:12px;min-height:0;overflow:auto}.excel-data-dialog>strong,.excel-data-dialog>.excel-sheet-submit,.excel-data-dialog>small,.excel-data-dialog>.excel-edit-error{flex-shrink:0}.excel-data-dialog label.excel-data-check{display:flex;align-items:center}.excel-data-check input{width:auto;min-height:0}.excel-sort-key{display:flex;gap:6px}.excel-sort-key select:first-child{flex:1;min-width:0}.excel-sort-key select:nth-child(2){width:90px}.excel-filter-controls{display:flex;gap:6px;align-items:center}.excel-filter-controls>span{margin-left:auto;color:var(--muted)}.excel-filter-values{max-height:180px;overflow:auto;border:1px solid var(--line);border-radius:4px;padding:6px}.excel-filter-values label{display:flex;align-items:center;gap:6px;min-height:28px}.excel-filter-values input{width:auto;min-height:0}.excel-filter-values label>span{flex:1;overflow-wrap:anywhere}.excel-filter-values label>small{flex-shrink:0}.excel-sort-add{justify-self:start}

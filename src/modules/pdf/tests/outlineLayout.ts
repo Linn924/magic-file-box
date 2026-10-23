@@ -28,6 +28,8 @@ const suite:Suite=async c=>{
           await c.snapshot(win,'pdf-outline-layout-failure');throw error;
         });
         await c.check(win,'long directory heading overflows within its ellipsis box',"(()=>{const title=document.querySelector('.outline-title');return title.scrollWidth>title.clientWidth})()");
+        win.show();win.focus();
+        await c.check(win,'directory hover uses a focused test window',"document.hasFocus()");
         const point=await c.evaluate<{x:number;y:number}>(win,"(()=>{const r=document.querySelector('.outline-title').getBoundingClientRect();return {x:r.left+Math.min(10,r.width/2),y:r.top+r.height/2}})()");
         await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseMoved',x:0,y:0});
         await c.check(win,'pointer leaves the previous directory entry before hovering',"!document.querySelector('.outline-item').matches(':hover')");
@@ -43,6 +45,7 @@ const suite:Suite=async c=>{
     await c.check(win,'directory filter preserves full Chinese heading and ellipsis',`document.querySelectorAll('.outline-item').length===1&&document.querySelector('.outline-item').title===${JSON.stringify(titles[29])}&&${layout}`);
     await c.click(win,'.outline-item');
     await c.check(win,'truncated directory title still navigates to its destination',"document.querySelector('.page-nav input').value==='3'&&document.querySelector('.outline-item').classList.contains('current')");
+    await c.check(win,'directory clear icon is centered without widening its button',"(()=>{const b=document.querySelector('[aria-label=清除目录搜索]'),r=b.getBoundingClientRect(),s=b.querySelector('svg').getBoundingClientRect();return Math.abs(r.width-28)<.6&&Math.abs(r.left+r.width/2-s.left-s.width/2)<.6&&Math.abs(r.top+r.height/2-s.top-s.height/2)<.6})()");
     await c.click(win,'[aria-label=清除目录搜索]');
     await c.check(win,'clearing directory filter restores all single-line entries',`document.querySelectorAll('.outline-item').length===30&&${layout}`);
     assert.equal(digest(),original);c.pass('directory source file remains unchanged (SHA256)');
@@ -93,7 +96,10 @@ async function treeOutline(c:TestContext){
     await c.check(win,'directory search shows ancestors as expanded while keeping search fixed',`document.querySelectorAll('.outline-row').length===4&&[...document.querySelectorAll('.outline-toggle')].every(button=>button.disabled&&button.getAttribute('aria-expanded')==='true')&&${fixed}`);
     await c.click(win,'[aria-label=清除目录搜索]');
     await c.click(win,'[data-outline-key="r.1"] .outline-item');
-    await c.check(win,'automatic chapter reveal scrolls below the fixed search bar',`document.querySelector('.page-nav input').value==='3'&&document.querySelector('.pdf-outline').scrollTop>0&&${fixed}&&(()=>{const row=document.querySelector('[data-outline-key="r.1"]').getBoundingClientRect(),view=document.querySelector('.pdf-outline').getBoundingClientRect();return row.top>=view.top&&row.bottom<=view.bottom})()`);
+    await c.check(win,'automatic chapter reveal scrolls below the fixed search bar',`document.querySelector('.page-nav input').value==='3'&&document.querySelector('.pdf-outline').scrollTop>0&&${fixed}&&(()=>{const row=document.querySelector('[data-outline-key="r.1"]').getBoundingClientRect(),view=document.querySelector('.pdf-outline').getBoundingClientRect();return row.top>=view.top&&row.bottom<=view.bottom})()`).catch(async error=>{
+      console.log('Outline reveal',await c.evaluate(win,"(()=>{const list=document.querySelector('.pdf-outline');return {page:document.querySelector('.page-nav input').value,scroll:list.scrollTop,current:document.querySelector('.outline-item.current')?.closest('.outline-row')?.dataset.outlineKey,rects:Object.fromEntries(['.outline-filter','.pdf-outline','.pdf-outline-panel','[data-outline-key=\"r.1\"]'].map(s=>[s,document.querySelector(s).getBoundingClientRect().toJSON()]))}})()"));
+      await c.snapshot(win,'pdf-outline-reveal-failure');throw error;
+    });
     assert.equal(digest(),original);c.pass('nested directory source file remains unchanged (SHA256)');
   }finally{if(win.webContents.debugger.isAttached())win.webContents.debugger.detach();win.webContents.setZoomFactor(zoom);c.close(win);c.program.updateSettings({theme:'light'});}
 }

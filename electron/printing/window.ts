@@ -12,11 +12,19 @@ export function setupPrintWindow(
   let panel: BrowserWindow | undefined,
     preview: BrowserWindow | undefined,
     loading: Promise<void> | undefined;
+  const watchedPreviews=new WeakSet<BrowserWindow>();
+  function followPreview(win:BrowserWindow|undefined){
+    preview=win;
+    if(!win||watchedPreviews.has(win))return;
+    watchedPreviews.add(win);
+    win.on('close',event=>{if(!event.defaultPrevented&&preview===win)preview=undefined;});
+    win.on('closed',()=>{if(preview===win)preview=undefined;});
+  }
   const incoming: PreviewFile[] = [];
   let busy = false;
   ipcMain.handle("print:open-panel", async (event, files: PreviewFile[]) => {
     trusted(event);
-    preview = BrowserWindow.fromWebContents(event.sender) || undefined;
+    followPreview(BrowserWindow.fromWebContents(event.sender) || undefined);
     const list = Array.isArray(files) ? files : [];
     const printable = new Set([
       "pdf",
@@ -115,7 +123,7 @@ export function setupPrintWindow(
       registerFiles(preview.webContents.id, [file]);
       preview.webContents.send("print:preview-file", file);
       preview.showInactive();
-    } else preview = await openPreview([file]);
+    } else followPreview(await openPreview([file]));
   });
   ipcMain.handle("print:arrange", async (event) => {
     trusted(event);
@@ -134,7 +142,7 @@ export function setupPrintWindow(
       if(win.isMinimized())win.restore();
     }
     await Promise.all([normalize(targetPreview),normalize(targetPanel)]);
-    if(targetPreview.isDestroyed()||targetPanel.isDestroyed())return;
+    if(targetPreview.isDestroyed()||targetPanel.isDestroyed()||preview!==targetPreview||panel!==targetPanel)return;
     preview=targetPreview;panel=targetPanel;
     const right = Math.max(520,Math.min(700,area.width-720));
     preview.setMinimumSize(Math.min(720,area.width-right),450);

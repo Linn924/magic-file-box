@@ -15,12 +15,18 @@ body {
 
 button,
 select,
-input {
+input,
+textarea {
   font: inherit;
   color: var(--text);
 }
 
 button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  line-height: 1.2;
   white-space: nowrap;
   height: var(--ctl-h);
   min-width: var(--ctl-h);
@@ -40,7 +46,8 @@ button:hover:not(:disabled) {
 
 button:focus-visible,
 select:focus-visible,
-input:focus-visible {
+input:focus-visible,
+textarea:focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
@@ -66,22 +73,85 @@ button.primary:hover:not(:disabled) {
 }
 
 select {
+  cursor: pointer;
   height: var(--ctl-h);
-  border: 1px solid var(--line);
+  border: 1px solid var(--field-border);
   border-radius: var(--radius);
-  background: var(--well);
+  background-color: var(--field-bg);
   padding: 0 8px;
 }
 
+input:not([type]),
 input[type="text"],
 input[type="number"],
 input[type="password"],
 input[type="search"] {
   height: var(--ctl-h);
-  border: 1px solid var(--line);
+  border: 1px solid var(--field-border);
   border-radius: var(--radius);
-  background: var(--well);
+  background-color: var(--field-bg);
   padding: 0 8px;
+  line-height: normal;
+}
+
+/* State variables also drive format-specific fields without competing selectors. */
+input,
+select,
+textarea {
+  --field-bg: var(--input-bg);
+  --field-border: var(--input-border);
+  --field-text: var(--text);
+  color: var(--field-text);
+}
+
+:is(input, select, textarea):enabled:not([readonly]):hover {
+  --field-border: var(--accent);
+}
+
+:is(input, select, textarea):enabled:not([readonly]):focus {
+  --field-border: var(--accent);
+}
+
+:is(input, textarea)[readonly] {
+  --field-bg: var(--well);
+  --field-border: var(--line);
+  cursor: text;
+}
+
+:is(input, select, textarea):disabled {
+  --field-bg: var(--well);
+  --field-border: var(--line);
+  --field-text: var(--muted);
+  opacity: 1;
+  cursor: not-allowed;
+}
+
+:root select:not([multiple]):not([size]) {
+  appearance: none;
+  background-image: var(--select-arrow);
+  background-position: right 8px center;
+  background-repeat: no-repeat;
+  background-size: 12px;
+  padding-right: 28px;
+  line-height: normal;
+}
+
+select:disabled {
+  cursor: not-allowed;
+}
+
+select option {
+  background: var(--input-bg);
+  color: var(--text);
+}
+
+select option:disabled {
+  color: var(--muted);
+}
+
+button > svg {
+  display: block;
+  flex-shrink: 0;
 }
 
 input[type="checkbox"] {

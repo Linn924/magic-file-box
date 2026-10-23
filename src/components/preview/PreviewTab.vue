@@ -11,6 +11,7 @@ import type {PreviewFile} from '@shared/files';
 import { usePreviewLoad } from '@/composables/usePreviewLoad';
 import {usePreviewNoticeHost} from '@/composables/usePreviewNotice';
 import PreviewNotices from './PreviewNotices.vue';
+import PopupTransition from '@/components/ui/PopupTransition.vue';
 const props = defineProps<{
   file: PreviewFile;
   initialZoom: number;
@@ -138,7 +139,7 @@ async function loaded() {
       <ToolButton class="immersive-toggle" icon="fullscreen" :title="immersive ? '退出全屏（Esc）' : '沉浸阅读（F11）'" :pressed="immersive" @click="toggleFullscreen" />
     </div>
     <div class="floating-tools"></div>
-    <Teleport to="#preview-notice-target" defer><PreviewNotices v-if="active && phase==='ready' && !error && notices.length" :file-name="file.name" :messages="notices" @dismiss="dismissNotice"/></Teleport>
+    <Teleport to="#preview-notice-target" defer><PopupTransition notice><PreviewNotices v-if="active && phase==='ready' && !error && notices.length" :file-name="file.name" :messages="notices" @dismiss="dismissNotice"/></PopupTransition></Teleport>
     <div class="preview-body" tabindex="-1" :aria-busy="busy && phase !== 'password'" :data-load-phase="phase">
       <div v-if="error" class="error" role="alert">
         <strong>暂时无法预览</strong>

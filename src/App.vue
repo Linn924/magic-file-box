@@ -6,6 +6,7 @@ import PreviewTab from '@/components/preview/PreviewTab.vue';
 import SettingsPanel from '@/components/settings';
 import UpdateCenter from '@/components/updates';
 import NotificationStack from '@/components/ui/NotificationStack.vue';
+import PopupTransition from '@/components/ui/PopupTransition.vue';
 import {provideNotificationPolicy} from '@/composables/useNotificationTimeout';
 const {effect} = useExclusive();
 const {isPreview, immersive, files, active, updateLocked, settings, showSettings, error, dragging, tabStrip,
@@ -41,12 +42,12 @@ provideNotificationPolicy(()=>settings.value.notificationDuration,()=>showSettin
       {{ error }}<button @click="error = ''">关闭</button>
     </div>
     <div v-if="dragging" class="drag-overlay">松开鼠标，打开文件</div>
-    <SettingsPanel
+    <PopupTransition><SettingsPanel
       v-if="showSettings"
       :settings="settings"
       @close="showSettings = false"
       @change="save"
-    />
+    /></PopupTransition>
   </main>
   <NotificationStack :suppressed="showSettings||immersive||updateLocked">
     <div id="preview-notice-target" class="preview-notice-target"></div>

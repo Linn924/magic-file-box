@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {ref,nextTick} from 'vue';
+import PopupTransition from '@/components/ui/PopupTransition.vue';
 import {formulaFunctions,parseFormula} from '../core/formula/formula';
 defineProps<{disabled:boolean}>();
 const emit=defineEmits<{insert:[formula:string]}>();
@@ -13,7 +14,7 @@ async function insert(){try{if(args.value.some(arg=>!arg.trim()))throw Error('�
 </script>
 <template>
   <button ref="trigger" class="tool-icon-button excel-formula-label" :disabled="disabled" title="插入常用公式" aria-label="插入常用公式" aria-haspopup="dialog" @click="show"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M14 4c-4-2-5 1-5.5 4L7 18c-.4 3-2 3-4 2M5 10h8M15 12l6 8m0-8-6 8" /></svg></button>
-  <div v-if="open" class="excel-insert-overlay" @mousedown.self="close" @keydown="key">
+  <PopupTransition><div v-if="open" class="excel-insert-overlay" @mousedown.self="close" @keydown="key">
     <form ref="dialog" class="excel-insert-dialog excel-formula-dialog" role="dialog" aria-modal="true" aria-label="插入常用公式" @submit.prevent="insert">
       <h3>插入常用公式</h3>
       <label>函数<select v-model="name" aria-label="公式函数" @change="reset"><option v-for="fn in formulaFunctions" :key="fn.name" :value="fn.name">{{fn.name}} · {{fn.label}}</option></select></label>
@@ -22,7 +23,7 @@ async function insert(){try{if(args.value.some(arg=>!arg.trim()))throw Error('�
       <div v-if="error" class="excel-edit-error" role="alert">{{error}}</div>
       <footer><button type="button" @click="close">取消</button><button type="submit">填入公式</button></footer>
     </form>
-  </div>
+  </div></PopupTransition>
 </template>
 <style scoped>
 .excel-formula-dialog{display:block;box-sizing:border-box;width:min(440px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto}.excel-formula-dialog h3{margin:0 0 16px}.excel-formula-dialog label{display:block;margin:12px 0}.excel-formula-dialog label input,.excel-formula-dialog label select{display:block;width:100%;box-sizing:border-box;margin-top:6px}.excel-formula-dialog small{display:block;color:var(--muted);line-height:1.5}.excel-formula-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}

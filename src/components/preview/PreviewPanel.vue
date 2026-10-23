@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {ref,watch,nextTick,onBeforeUnmount,onMounted} from 'vue';
 import ToolButton from '@/components/ui/ToolButton.vue';
+import PopupTransition from '@/components/ui/PopupTransition.vue';
 const props=defineProps<{open:boolean;title:string;target:string;trigger:string;closeLabel:string}>();
 const emit=defineEmits<{'update:open':[boolean]}>();
 const panel=ref<HTMLElement>(),x=ref(8),y=ref(80);let placed=false,disposed=false;
@@ -16,4 +17,4 @@ function close(){emit('update:open',false);}
 onMounted(()=>window.addEventListener('resize',clamp));onBeforeUnmount(()=>{disposed=true;window.removeEventListener('resize',clamp);});
 defineExpose({focusInput});
 </script>
-<template><Teleport :to="target" defer><section v-if="open" ref="panel" class="preview-floating-panel" role="dialog" aria-modal="false" :aria-label="title" :style="{left:x+'px',top:y+'px',maxHeight:`calc(100% - ${y+8}px)`}" @keydown.esc.stop.prevent="close"><header class="preview-panel-head" @pointerdown="start" @pointermove="move" @pointerup="end" @pointercancel="end"><strong>{{title}}</strong><ToolButton class="search-close" icon="cancel" :title="closeLabel+'（Esc）'" @click="close" /></header><div class="preview-panel-content"><slot /></div></section></Teleport></template>
+<template><Teleport :to="target" defer><PopupTransition floating><section v-if="open" ref="panel" class="preview-floating-panel" role="dialog" aria-modal="false" :aria-label="title" :style="{left:x+'px',top:y+'px',maxHeight:`calc(100% - ${y+8}px)`}" @keydown.esc.stop.prevent="close"><header class="preview-panel-head" @pointerdown="start" @pointermove="move" @pointerup="end" @pointercancel="end"><strong>{{title}}</strong><ToolButton class="search-close" icon="cancel" :title="closeLabel+'（Esc）'" @click="close" /></header><div class="preview-panel-content"><slot /></div></section></PopupTransition></Teleport></template>

@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import {ref,computed,nextTick,watch,onBeforeUnmount} from 'vue';
+import PopupTransition from '@/components/ui/PopupTransition.vue';
+import ToolbarIcon from '@/components/ui/ToolbarIcon.vue';
 import * as XLSX from 'xlsx';
 import type {useEditor} from '../composables/useEditor';
 import {parseTableRange,type SortKey} from '../core/editing/tableModel';
@@ -33,6 +35,7 @@ onBeforeUnmount(()=>{generation++;release();});
     <select v-model="editor.copyRows.value" class="excel-copy-scope" aria-label="复制及文本导出范围" title="全部行含隐藏行；仅可见行复制显示值。此导出范围仅用于 CSV/TSV，Excel 副本始终保留全部行。" :disabled="editor.saving.value"><option value="all">复制/导出全部行</option><option value="visible">复制/导出可见行</option></select>
   </span>
   <Teleport :to="`[data-file-id='${fileId}'] .excel`" defer>
+    <PopupTransition>
     <div v-if="mode" class="excel-sheet-overlay" @pointerdown.self="close">
       <form ref="panel" class="excel-sheet-dialog excel-data-dialog" role="dialog" aria-modal="true" :aria-label="mode==='sort'?'排序':'筛选'" @submit.prevent="apply()" @keydown="key">
         <strong>{{mode==='sort'?'排序':'按值筛选'}}</strong>
@@ -40,7 +43,7 @@ onBeforeUnmount(()=>{generation++;release();});
         <label>区域<input v-model="rangeText" aria-label="数据区域" placeholder="A1:D20" :disabled="disabled" @change="mode==='filter'&&readChoices()" required/></label>
         <template v-if="mode==='sort'">
           <label class="excel-data-check"><input v-model="header" type="checkbox" aria-label="首行为标题" :disabled="disabled"/>首行为标题，不参与排序</label>
-          <div v-for="(sort,i) in keys" :key="i" class="excel-sort-key"><select v-model.number="sort.column" :aria-label="'排序列 '+(i+1)" :disabled="disabled"><option v-for="c in columns" :key="c" :value="c">{{label(c)}}</option></select><select v-model="sort.direction" :aria-label="'排序方向 '+(i+1)" :disabled="disabled"><option value="asc">升序</option><option value="desc">降序</option></select><button type="button" title="删除此排序条件" aria-label="删除此排序条件" :disabled="disabled||keys.length===1" @click="keys.splice(i,1)">×</button></div>
+          <div v-for="(sort,i) in keys" :key="i" class="excel-sort-key"><select v-model.number="sort.column" :aria-label="'排序列 '+(i+1)" :disabled="disabled"><option v-for="c in columns" :key="c" :value="c">{{label(c)}}</option></select><select v-model="sort.direction" :aria-label="'排序方向 '+(i+1)" :disabled="disabled"><option value="asc">升序</option><option value="desc">降序</option></select><button type="button" class="icon-only-btn" title="删除此排序条件" aria-label="删除此排序条件" :disabled="disabled||keys.length===1" @click="keys.splice(i,1)"><ToolbarIcon name="cancel" /></button></div>
           <button type="button" class="excel-sort-add" :disabled="disabled||keys.length>=8||keys.length>=columns.length" @click="keys.push({column:columns.find(c=>!keys.some(k=>k.column===c))!,direction:'asc'})">添加排序条件</button>
           <p>按以上优先级排序全部数据行，同行内容、公式、样式、行高及手动隐藏随行移动。区域必须覆盖这些行的全部非空列。</p>
           <small>升序：数字/日期 → 文本 → 布尔 → 错误；降序反转，空值始终最后。相同值保持原顺序。无法安全移动的合并、对象或公式提前拒绝。</small>
@@ -60,5 +63,6 @@ onBeforeUnmount(()=>{generation++;release();});
         <small>仅修改本次副本草稿，可撤销；源文件保持原样。</small>
       </form>
     </div>
+    </PopupTransition>
   </Teleport>
 </template>

@@ -2,6 +2,7 @@
 import {computed,ref,nextTick,onBeforeUnmount,watch} from 'vue';
 import type {WorkBook} from 'xlsx';
 import ToolButton from '@/components/ui/ToolButton.vue';
+import PopupTransition from '@/components/ui/PopupTransition.vue';
 import {nextSheetName,validateSheetName,type SheetOperation} from '../core/workbook/sheetWorkbook';
 import {visibleSheetNames} from '../core/editing/sheetState';
 import {parseFormula,formulaReferences} from '../core/formula/formula';
@@ -34,6 +35,7 @@ const titles={create:'新建工作表',copy:'复制工作表',rename:'重命名�
     <ToolButton class="excel-sheets-toggle" icon="layout" title="管理工作表" :disabled="disabled" @click="show('rename',$event)"/>
   </span>
   <Teleport :to="`[data-file-id='${fileId}'] .excel`" defer>
+    <PopupTransition>
     <div v-if="open" class="excel-sheet-overlay" @pointerdown.self="close">
       <form ref="panel" class="excel-sheet-dialog" role="dialog" aria-modal="true" aria-label="工作表管理" @submit.prevent="submit" @keydown="key">
         <strong>{{titles[kind]}}</strong>
@@ -49,5 +51,6 @@ const titles={create:'新建工作表',copy:'复制工作表',rename:'重命名�
         <small>本次修改仅在内存中，可撤销；主动另存 Excel 副本才保存全部工作表。</small>
       </form>
     </div>
+    </PopupTransition>
   </Teleport>
 </template>

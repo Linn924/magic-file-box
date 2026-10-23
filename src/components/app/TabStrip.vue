@@ -76,7 +76,7 @@ defineExpose<TabStripHandle>({align: alignActiveTab});
             title="关闭"
             @click.stop="emit('close', file.id)"
           >
-            ×
+            <ToolbarIcon name="cancel" />
           </button>
         </div>
         <button
@@ -87,11 +87,11 @@ defineExpose<TabStripHandle>({align: alignActiveTab});
           aria-label="打开文件"
           @click="emit('open')"
         >
-          +
+          <ToolbarIcon name="plus" />
         </button>
       </nav>
       <span class="tab-actions">
-        <button v-if="tabsOverflow" type="button" class="tab-add-file" title="打开文件（Ctrl+O）" aria-label="打开文件" @click="emit('open')">+</button>
+        <button v-if="tabsOverflow" type="button" class="tab-add-file" title="打开文件（Ctrl+O）" aria-label="打开文件" @click="emit('open')"><ToolbarIcon name="plus" /></button>
         <button
           type="button"
           class="settings-button tab-settings"

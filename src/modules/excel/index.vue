@@ -5,6 +5,7 @@ import { usePreview } from "./composables/usePreview";
 import {useGridInteraction} from './composables/useGridInteraction';
 import ExcelToolButton from '@/components/ui/ToolButton.vue';
 import ExcelIcon from '@/components/ui/ToolbarIcon.vue';
+import PopupTransition from '@/components/ui/PopupTransition.vue';
 import FormulaPicker from './components/FormulaPicker.vue';
 import XlsSaveReview from './components/XlsSaveReview.vue';
 import FormatPanel from './components/FormatPanel.vue';
@@ -144,7 +145,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
     <FormulaAssist :assist="assist"/>
     <p v-if="editor.error.value" class="excel-edit-error" role="alert">{{editor.error.value}}</p>
     <span v-if="editor.status.value" class="excel-edit-status sr-only" role="status">{{editor.status.value}}</span>
-    <XlsSaveReview v-if="editor.saveWarnings.value" :warnings="editor.saveWarnings.value" :format="editor.format.value" @answer="answerCopy" />
+    <PopupTransition><XlsSaveReview v-if="editor.saveWarnings.value" :warnings="editor.saveWarnings.value" :format="editor.format.value" @answer="answerCopy" /></PopupTransition>
     <div v-show="!editor.editing.value" class="sheet-tools" role="toolbar" aria-label="表格定位与冻结">
       <label class="cell-locate"
         >定位<input
@@ -254,7 +255,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
       <p v-else class="empty">此工作表没有数据</p>
     </div>
     <footer class="sheet-footer">
-      <span v-if="editor.editing.value" class="excel-selection-summary" aria-live="polite">{{grid.rangeLabel.value}}</span><nav class="sheets" aria-label="工作表"><button v-for="name in visibleSheets" :key="name" :class="{active:name===sheetName}" :title="name" :disabled="editor.saving.value" @pointerdown="sheetPointer($event,name)" @click="selectSheet(name)">{{name}}</button></nav>
+      <span v-if="editor.editing.value" class="excel-selection-summary" aria-live="polite">{{grid.rangeLabel.value}}</span><nav class="sheets" aria-label="工作表"><button v-for="name in visibleSheets" :key="name" :class="{active:name===sheetName}" :title="name" :disabled="editor.saving.value" @pointerdown="sheetPointer($event,name)" @click="selectSheet(name)"><span>{{name}}</span></button></nav>
       <SheetTools v-if="editor.editing.value" :file-id="file.id" :book="book" :sheet="sheetName" :disabled="editor.saving.value" :prepare="prepareSheets" :apply="editor.manageSheet" :message="editor.error.value"/>
       <div v-if="colCount > pageCols">
         <button :disabled="colPage === 0" @click="colPage--">
@@ -290,7 +291,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
       <button role="menuitem" data-action="delete-row" title="删除当前行" @click="grid.structure('row','delete','before')"><ExcelIcon name="row" />删除当前行</button>
       <button role="menuitem" data-action="delete-column" title="删除当前列" @click="grid.structure('column','delete','before')"><ExcelIcon name="column" />删除当前列</button>
     </div>
-    <div v-if="grid.custom.value" class="excel-insert-overlay" @pointerdown.self="grid.closeAll">
+    <PopupTransition><div v-if="grid.custom.value" class="excel-insert-overlay" @pointerdown.self="grid.closeAll">
       <form class="excel-insert-dialog" role="dialog" aria-modal="true" aria-label="自定义插入行列" @keydown.tab="dialogTab" @submit.prevent="grid.structure(grid.customAxis.value,'insert',grid.customSide.value,grid.customCount.value)">
         <strong>在 {{editor.address.value}} 附近插入</strong>
         <label>插入类型<select v-model="grid.customAxis.value" aria-label="插入类型" :disabled="editor.saving.value"><option value="row">整行</option><option value="column">整列</option></select></label>
@@ -300,7 +301,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
         <p v-if="editor.error.value" class="excel-edit-error" role="alert">{{editor.error.value}}</p>
         <small>整行/整列移动，保留普通样式与合并区域；可撤销，源文件不变。</small>
       </form>
-    </div>
+    </div></PopupTransition>
     <PageNavigation
       v-if="rowCount > pageRows"
       :current="rowPage + 1"

@@ -218,7 +218,9 @@ PDF 的 [fileRange.ts](../src/modules/pdf/core/fileRange.ts) 适配 PDFDataRange
 
 打印状态区分取消、失败与已提交系统队列；系统接受任务不等于已实际出纸。
 
-打印工作区为输入框与下拉框设置局部输入底色和边框变量，明暗主题分别区分可编辑与禁用状态；聚焦强调边框，禁用时恢复灰底、弱化文字和不可用指针。该配色仅作用于打印控件，文件阅读内容区继续使用 stage 主题变量，浅色值为 #DCE2EA。
+打印控件复用公共输入状态变量，明暗主题分别区分可编辑与禁用状态；局部聚焦阴影继续保留。文件阅读内容区使用 stage 主题变量，浅色值为 #DCE2EA，不由输入配色覆盖。
+
+打印列表跟随当前预览窗口，在未被阻止的 close 事件中立即清除引用，closed 再作身份核对；不能将“尚未销毁但正在关闭”的窗口继续用作文件预览目标。关闭取消时保留原目标。并排布局等待全屏/最大化结束后也核对两侧窗口身份，避免迟到操作恢复旧窗口引用。
 
 ## 专属服务
 
@@ -248,7 +250,13 @@ UpdateCenter 通过 [releaseNotes.ts](../src/components/updates/releaseNotes.ts)
 
 文件迁移保留了原级联顺序。Word/PPT 内容隔离于应用主题；表格已有样式和图片本身颜色不由全局暗色主题改写。字体、CSS 和尺寸改变可能影响虚拟行高与阅读锚点，相关处理仍属于各模块。
 
+base.css 为普通按钮提供居中的 Flex 内容区和一致行高；固定高度的操作按钮不再叠加挤压文字的上下内边距。导航及菜单显式保持左对齐，长工作表和打印文件按钮在内部文字容器省略。关闭和标签添加按钮复用 ToolbarIcon，避免字符图标的字体基线差异。tokens.css 定义明暗输入底色、边框与下拉箭头；原生 input/select/textarea 按自身可用、readonly 和 :disabled 状态计算 --field-bg/--field-border/--field-text，模块只引用状态变量，禁用 fieldset 的后代也采用相同状态。单行字段上下内边距对称，下拉箭头位于垂直中心；多行内容保持原编辑行高。
+
+[PopupTransition](../src/components/ui/PopupTransition.vue) 包装实际 v-if 节点，设置、代码外观、公共 PreviewPanel 与 Excel 编辑/确认弹窗采用 240 ms 展开、180 ms 收拢。popups.css 用中心裁剪产生两像素细线，再展开/收拢到中心点，不改变实际布局测量与浮窗位置；离场节点在保留动画的同时设为 inert/aria-hidden，动画取消或结束时还原，现有关闭回调和资源释放仍按原生命周期执行。通知采用 220 ms 水平滑动与高度收拢，通知容器同步调整间隔，避免余下卡片突然跳位；横向裁剪防止临时水平滚动条。prefers-reduced-motion 简化动画，不保留不可见遮罩或动画计时器。
+
 PreviewPanel 将浮窗挂到所属标签的 floating-tools 层，位置与查询保留在会话中。TabStrip 测量固有标签宽度，分别处理未溢出和有横向滚动条的布局；沉浸与演示隐藏整条标签区域。
+
+PDF 目录自动揭示选中项时只调整条目滚动区域，并在上下边缘保留 4 CSS px，避免非整数缩放的像素舍入裁掉选中行或连带滚动父区域；nextTick 后复核选中键，放弃过时定位。
 
 [usePreviewNotice](../src/composables/usePreviewNotice.ts) 在 PreviewTab 提供按文件隔离的提示登记：格式模块只报告具名文本，模块卸载按所有者撤销，重复文字合并。当前且已就绪的文件通过 Teleport 将 [PreviewNotices](../src/components/preview/PreviewNotices.vue) 放到 App 的右下角 [NotificationStack](../src/components/ui/NotificationStack.vue)，不参与工具栏和正文排版。Word/Excel 版式警告、RecordPreview 大文件模式、缩小图片说明、JSON 降级/部分高亮和 PDF 打印限制使用该入口；操作错误、密码、查询反馈和 XLS 另存风险确认保留原位置。
 

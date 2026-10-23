@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {ref,nextTick,useId} from 'vue';
+import PopupTransition from '@/components/ui/PopupTransition.vue';
 import {validateFormat,type FormatPatch} from '../core/editing/formatModel';
 const props=defineProps<{disabled:boolean;prepare:()=>boolean;styles:()=>any[];apply:(patch:FormatPatch)=>Promise<boolean>;message:string}>();
 const opened=ref(false),tab=ref('font'),dialog=ref<HTMLElement>(),trigger=ref<HTMLButtonElement>(),localError=ref(''),patch=ref<FormatPatch>({}),values=ref<Record<string,any>>({}),titleId=useId();
@@ -14,7 +15,7 @@ function key(event:KeyboardEvent){if(event.key==='Escape'){event.preventDefault(
 </script>
 <template>
   <button ref="trigger" class="tool-icon-button excel-format-toggle" :disabled="disabled" title="设置单元格格式" aria-label="设置单元格格式" aria-haspopup="dialog" @click="open"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true"><path d="m4 17 6-13 6 13M6 13h8M3 21h15M18 4h3m-3 5h3m-3 5h3" /></svg></button>
-  <div v-if="opened" class="excel-insert-overlay" @keydown="key">
+  <PopupTransition><div v-if="opened" class="excel-insert-overlay" @keydown="key">
     <form ref="dialog" class="excel-insert-dialog excel-format-dialog" role="dialog" aria-modal="true" :aria-labelledby="titleId" @submit.prevent="submit">
       <h3 :id="titleId">单元格格式</h3>
       <nav role="tablist" aria-label="格式类别"><button v-for="item in [{id:'font',label:'字体与颜色'},{id:'border',label:'边框'},{id:'alignment',label:'对齐'},{id:'number',label:'数字'}]" :key="item.id" type="button" role="tab" :aria-selected="tab===item.id" :disabled="disabled" @click="tab=item.id">{{item.label}}</button></nav>
@@ -47,7 +48,7 @@ function key(event:KeyboardEvent){if(event.key==='Escape'){event.preventDefault(
       <p class="format-note">未操作的属性保持原值；混合选区仅修改所选属性。</p><p v-if="localError||message" class="excel-edit-error" role="alert">{{localError||message}}</p>
       <footer><button type="button" :disabled="disabled" @click="close">取消</button><button type="submit" :disabled="disabled">{{disabled?'应用中…':'应用到选区'}}</button></footer>
     </form>
-  </div>
+  </div></PopupTransition>
 </template>
 <style scoped>
 .excel-format-dialog{display:block;box-sizing:border-box;width:min(480px,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto}.excel-format-dialog h3{margin:0 0 14px}.excel-format-dialog nav{display:flex;gap:5px;flex-wrap:wrap}.excel-format-dialog nav [aria-selected=true]{color:var(--accent);border-color:var(--accent)}.excel-format-dialog fieldset{border:0;padding:8px 0;margin:0}.excel-format-dialog label{display:flex;gap:8px;margin:10px 0;justify-content:flex-start}.excel-format-dialog input:not([type=checkbox]):not([type=color]),.excel-format-dialog select{flex:1;min-width:0;width:auto;box-sizing:border-box}.excel-format-dialog input[type=checkbox]{width:auto}.excel-format-dialog input[type=color]{width:48px;height:28px;min-height:0;padding:2px}.format-toggles{display:flex;flex-wrap:wrap;gap:10px}.format-note{font-size:11px;color:var(--muted)}.excel-format-dialog footer{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}

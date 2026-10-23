@@ -8,6 +8,7 @@ import immersive,{pdfImmersive} from "./suites/immersive";
 import nonpdfprinting from "./suites/nonpdfprinting";
 import printing from "@/modules/pdf/tests/printing";
 import core from "./suites/core";
+import controls from './suites/controls';
 import loading from './suites/previewLoading';
 import excelbackground from '@/modules/excel/tests/background';
 import sources from './suites/fileSources';
@@ -75,7 +76,7 @@ app.on("browser-window-created", (_event, win) => {
 const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
 const formatIndex=process.argv.indexOf('--formats'),formats=formatIndex<0?undefined:new Set((process.argv[formatIndex+1]||'').split(','));
 if(formats&&[...formats].some(value=>!testFormats.includes(value as typeof testFormats[number])))throw Error('未知文件类型筛选。');
-if(requested==='all'||requested.split(',').some(name=>['updates','notices','notificationprefs'].includes(name)))installUpdateTestDriver();
+if(requested==='all'||requested.split(',').some(name=>['updates','notices','notificationprefs','controls'].includes(name)))installUpdateTestDriver();
 if(requested==='all'||requested.split(',').some(name=>['loading','sources','sourcelifecycle','tablifecycle'].includes(name)))installPreviewLoadDriver();
 const program =
   require("../electron-dist/main.cjs") as typeof import("../electron/main");
@@ -86,6 +87,7 @@ const suites: Record<string, Suite> = {
   notices,
   tablifecycle,
   core,
+  controls,
   loading,
   excelbackground,
   sources,
@@ -160,6 +162,13 @@ const evaluate = <T = unknown>(
   win: BrowserWindow,
   expression: string,
 ): Promise<T> => win.webContents.executeJavaScript(expression);
+async function settleSurfaces(win:BrowserWindow){
+  for(let attempt=0;attempt<40;attempt++){
+    if(!await evaluate(win,"!!document.querySelector('[class*=popup-tv-][class*=-active],[class*=notification-slide-][class*=-active]')"))return;
+    await pause(25);
+  }
+  throw Error('Surface transition did not finish');
+}
 const check = async (win: BrowserWindow, name: string, expression: string) => {
   for (let i = 0; i < 160; i++) {
     if (await evaluate(win, expression)) {
@@ -213,6 +222,8 @@ program.ready
           `(()=>{const el=${text ? `Array.from(document.querySelectorAll(${JSON.stringify(selector)})).find(el=>el.textContent.trim()===${JSON.stringify(text)})` : `document.querySelector(${JSON.stringify(selector)})`};if(!el)throw Error('Missing button');el.click()})()`,
         );
         await pause(100);
+        // Functional clicks wait for finite surface transitions; motion tests sample them explicitly.
+        await settleSurfaces(win);
       },
       async wheel(win, selector, delta) {
         await evaluate(
@@ -233,6 +244,7 @@ program.ready
           multiFileMode: "windows",
         });
         await suites[name](context);
+        await settleSurfaces(home);
         for (const win of BrowserWindow.getAllWindows())
           if (win.id !== home.id) program.closePreview(win);
       }

@@ -9,6 +9,7 @@ import {
 } from "vue";
 import type { PDFDocumentProxy, RenderTask } from "pdfjs-dist";
 import { pdfWork } from "../core/workQueue";
+import ToolbarIcon from '@/components/ui/ToolbarIcon.vue';
 import { pageSize } from '../core/metadata';
 import {destinationPoint,type PdfDestination,type PdfReadingPosition} from '../core/destination';
 import {outlineTitleDestinations} from '../core/outlineTitle';
@@ -184,11 +185,14 @@ watch(currentOutlineKey,async key=>{
  while(parent){next.delete(parent);parent=byKey.get(parent)?.parentKey??null;}
  if(next.size!==collapsed.value.size)collapsed.value=next;
  await nextTick();
+ if(disposed||key!==currentOutlineKey.value)return;
  const item=Array.from(outlineHost.value?.querySelectorAll<HTMLElement>('.outline-row')||[])
   .find(row=>row.dataset.outlineKey===key);
  if(item&&outlineHost.value){
-  const view=outlineHost.value.getBoundingClientRect(),rect=item.getBoundingClientRect();
-  if(rect.top<view.top||rect.bottom>view.bottom)item.scrollIntoView({block:'nearest'});
+  const host=outlineHost.value,view=host.getBoundingClientRect(),rect=item.getBoundingClientRect(),margin=4;
+  // Keep the selected row clear of clipped edges, including fractional browser zoom.
+  if(rect.top<view.top+margin)host.scrollTop+=rect.top-view.top-margin;
+  else if(rect.bottom>view.bottom-margin)host.scrollTop+=rect.bottom-view.bottom+margin;
  }
 });
 
@@ -500,7 +504,7 @@ const hasOutline = computed(() => outline.value.length > 0);
       role="tabpanel"
       aria-label="目录"
     >
-      <label v-if="hasOutline" class="outline-filter"><span class="sr-only">搜索目录</span><input v-model="outlineQuery" aria-label="搜索目录" placeholder="搜索章节标题"/><button v-if="outlineQuery" type="button" aria-label="清除目录搜索" @click="outlineQuery=''">×</button></label>
+      <label v-if="hasOutline" class="outline-filter"><span class="sr-only">搜索目录</span><input v-model="outlineQuery" aria-label="搜索目录" placeholder="搜索章节标题"/><button v-if="outlineQuery" type="button" class="icon-only-btn" aria-label="清除目录搜索" @click="outlineQuery=''"><ToolbarIcon name="cancel" /></button></label>
       <div ref="outlineHost" class="pdf-outline">
       <p v-if="hasOutline && !visibleOutline.length" class="pdf-nav-empty" role="status">没有匹配的章节</p>
       <p v-if="!hasOutline" class="pdf-nav-empty">本文档没有目录/书签</p>

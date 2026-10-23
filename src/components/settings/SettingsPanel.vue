@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { Settings } from "@shared/contracts";
 import UpdateCenter from '@/components/updates/UpdateCenter.vue';
+import ToolbarIcon from '@/components/ui/ToolbarIcon.vue';
 import {defineAsyncComponent, onBeforeUnmount, onMounted, ref} from 'vue';
 import ExclusiveSettings from '@/components/exclusive/ExclusiveSettings.vue';
 import {loadCodeAppearanceSettings} from '@/modules/text/settings';
@@ -60,7 +61,7 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
     >
       <header>
         <h2>设置</h2>
-        <button aria-label="关闭设置" @click="emit('close')">×</button>
+        <button type="button" aria-label="关闭设置" @click="emit('close')"><ToolbarIcon name="cancel" /></button>
       </header>
       <div class="settings-layout">
         <nav class="settings-nav" aria-label="设置分组">

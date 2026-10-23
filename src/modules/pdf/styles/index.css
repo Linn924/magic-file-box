@@ -92,11 +92,11 @@
   min-width: 100px;
   width: auto;
   max-width: 420px;
-  padding: 5px 8px;
-  border: 1px solid var(--line);
+  padding:0 8px;
+  border:1px solid var(--field-border);
   border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
+  background-color: var(--field-bg);
+  color:var(--field-text);
 }
 .pdf-search-count {
   font-size: 12px;
@@ -193,7 +193,7 @@
 .pdf-note-head{display:flex;justify-content:space-between;gap:4px;}
 .pdf-note-head button{height:26px;font-size:11px;padding:0 5px;}
 .pdf-note p{font-size:12px;overflow-wrap:anywhere;line-height:1.4;max-height:5em;overflow:hidden;}
-.pdf-note textarea{width:100%;min-height:56px;resize:vertical;border:1px solid var(--line);background:var(--well);color:var(--text);font:inherit;padding:5px;}
+.pdf-note textarea{width:100%;min-height:56px;resize:vertical;border:1px solid var(--field-border);background-color:var(--field-bg);color:var(--field-text);font:inherit;padding:5px;}
 .pdf-nav-resizer {position:absolute;top:0;right:0;bottom:0;width:7px;cursor:col-resize;z-index:5;touch-action:none;}
 .pdf-nav-resizer:hover,.pdf-nav-resizer:focus-visible {background:color-mix(in srgb,var(--accent) 35%,transparent);outline:none;}
 .thumb-pane {padding:5px 7px;border-bottom:1px solid var(--line);}
@@ -347,11 +347,11 @@
   font-size: 13px;
 }
 .print-options input {
-  padding: 7px;
-  border: 1px solid var(--line);
+  padding:0 7px;
+  border:1px solid var(--field-border);
   border-radius: 6px;
-  background: var(--panel);
-  color: var(--text);
+  background-color:var(--field-bg);
+  color:var(--field-text);
 }
 .print-range {
   grid-column: 1/-1;
@@ -398,8 +398,7 @@
 }
 
 .pdf-print-panel{box-sizing:border-box;width:100%;display:flex;flex-direction:column}
-.print-workspace{height:100vh;background:var(--bg);overflow:auto;--print-input-bg:#fff;--print-input-border:#7d8b9d}
-html[data-theme="dark"] .print-workspace{--print-input-bg:#1b1f27;--print-input-border:#65748a}
+.print-workspace{height:100vh;background:var(--bg);overflow:auto}
 .print-workspace .pdf-print-panel{width:100%;min-height:100%;max-height:none;border-radius:0;box-shadow:none;display:flex;flex-direction:column;gap:10px;padding:12px 14px 10px;font-size:13px}
 .print-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .print-top h2{margin:0;font-size:14px;font-weight:600}
@@ -407,7 +406,7 @@ html[data-theme="dark"] .print-workspace{--print-input-bg:#1b1f27;--print-input-
 .print-printer-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--well)}
 .print-printer-bar .batch-printer{display:flex;align-items:center;gap:8px;min-width:min(280px,100%);flex:1;margin:0}
 .print-printer-bar .batch-printer span{font-weight:600;font-size:12px}
-.print-printer-bar select{flex:1;min-width:140px;height:28px;border:1px solid var(--line);border-radius:6px;background:var(--panel);padding:0 8px}
+.print-printer-bar select{flex:1;min-width:140px;height:28px;border:1px solid var(--field-border);border-radius:6px;background-color:var(--field-bg);padding:0 8px}
 .capability-chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted)}
 .chip.on{border-color:var(--accent);color:var(--accent);background:var(--accent-soft)}
@@ -425,7 +424,8 @@ html[data-theme="dark"] .paper-chip.warn{color:#fbbf24}
 .print-files{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px;max-height:none;overflow:visible;flex:1}
 .print-workspace .print-file-card{display:block;padding:10px 12px;border:1px solid var(--line);border-radius:8px;background:var(--panel);margin:0}
 .print-file-heading{display:flex;align-items:center;gap:6px}
-.print-file-heading .preview-print-file{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:12px;text-align:left}
+.print-file-heading .preview-print-file{flex:1;min-width:0;justify-content:flex-start;font-weight:600;font-size:12px;text-align:left}
+.print-filename{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .file-type-badge{font-size:10px;text-transform:uppercase;padding:1px 5px;border-radius:4px;background:var(--well);color:var(--muted);flex-shrink:0}
 .print-file-heading button{height:26px;min-width:26px;padding:0 6px}
 .print-file-summary{display:flex;align-items:center;gap:8px;margin-top:6px}
@@ -437,12 +437,12 @@ html[data-theme="dark"] .paper-chip.warn{color:#fbbf24}
 .print-side .paper-layout-preview{margin:0;padding:8px;flex-direction:column;align-items:center;text-align:center;gap:6px}
 .print-options{display:grid;grid-template-columns:1fr 1fr;gap:8px 10px;margin:0}
 .print-options label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted)}
-.print-workspace .print-options select,.print-workspace .print-options input{height:28px;border:1px solid var(--print-input-border);border-radius:6px;background:var(--print-input-bg);color:var(--text);padding:0 6px;font-size:12px}
-.print-printer-bar select{background:var(--print-input-bg);border-color:var(--print-input-border);color:var(--text)}
+.print-workspace .print-options select,.print-workspace .print-options input{height:28px;border:1px solid var(--field-border);border-radius:6px;background-color:var(--field-bg);color:var(--field-text);padding:0 6px;font-size:12px}
+.print-printer-bar select{background-color:var(--field-bg);border-color:var(--field-border);color:var(--field-text)}
 .print-options input::placeholder{color:var(--muted);opacity:1}
 .print-options select:enabled:hover,.print-options input:enabled:hover,.print-printer-bar select:enabled:hover{border-color:var(--accent)}
 .print-options select:enabled:focus,.print-options input:enabled:focus,.print-printer-bar select:enabled:focus{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
-.print-options select:disabled,.print-options input:disabled,.print-printer-bar select:disabled{background:var(--well);border-color:var(--line);color:var(--muted);cursor:not-allowed;opacity:1;box-shadow:none}
+.print-options select:disabled,.print-options input:disabled,.print-printer-bar select:disabled{background-color:var(--well);border-color:var(--line);color:var(--muted);cursor:not-allowed;opacity:1;box-shadow:none}
 .print-options small{display:none}
 .print-range{grid-column:1/-1}
 .print-file-bottom{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:8px;font-size:12px;color:var(--muted)}
@@ -463,8 +463,8 @@ html[data-theme="dark"] .paper-chip.warn{color:#fbbf24}
 }
 .pdf-password input {
   width: 100%;
-  padding: 8px;
-  border: 1px solid var(--line);
+  padding:0 8px;
+  border:1px solid var(--field-border);
   border-radius: 6px;
 }
 
@@ -502,9 +502,9 @@ html[data-theme="dark"] .paper-chip.warn{color:#fbbf24}
 }
 
 .outline-filter{display:flex;flex-shrink:0;gap:4px;padding:8px 6px;border-bottom:1px solid var(--line);background:var(--panel)}
-.outline-filter input{width:100%;min-width:0;padding:5px;border:1px solid var(--line);border-radius:4px;background:var(--well);color:var(--text)}
+.outline-filter input{width:100%;min-width:0;padding:0 5px;border:1px solid var(--field-border);border-radius:4px;background-color:var(--field-bg);color:var(--field-text)}
 .outline-page{margin-left:auto;flex-shrink:0;color:var(--muted);font-size:11px}
-.pdf-search-mode{max-width:120px;height:28px;background:var(--well);color:var(--text);border:1px solid var(--line);border-radius:4px}
+.pdf-search-mode{max-width:120px;height:28px;background-color:var(--field-bg);color:var(--field-text);border:1px solid var(--field-border);border-radius:4px}
 .pdf-search-case[aria-pressed="true"]{background:var(--accent-soft);color:var(--accent)}
 .pdf-search-notice{flex-basis:100%;font-size:12px;color:var(--muted)}
 .pdf-pane{position:relative}.pdf-selection-actions{position:absolute;display:flex;gap:2px;padding:3px;z-index:70;border:1px solid var(--line);border-radius:5px;background:var(--panel);box-shadow:0 3px 12px #0003}

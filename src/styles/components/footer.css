@@ -34,10 +34,10 @@
   height: 22px;
   padding: 0 4px;
   text-align: center;
-  background: var(--well);
-  border: 1px solid var(--line);
+  background-color:var(--field-bg);
+  border:1px solid var(--field-border);
   border-radius: 4px;
-  color: var(--text);
+  color:var(--field-text);
 }
 
 .pane-footer,

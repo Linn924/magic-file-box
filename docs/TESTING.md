@@ -56,6 +56,16 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 
 ## 套件内容与成功标准
 
+### controls：公共控件对齐、状态与开合动画
+
+`tests/suites/controls.ts` 测量实际按钮中的文字 Range 和 SVG 中心，覆盖“自定义”、确认/取消、设置导航及 Excel 公式按钮，导航保留左对齐；在 1100 px/100%/浅色与 720 px/150%/深色检查输入、下拉箭头、可输入状态及禁用 fieldset 的颜色和指针。默认多行打开入口不按单行文字按钮计算。截图复核文字与图标的视觉居中，不能只检查 display 属性。
+
+对真实 CSS 动画读取中间帧，验证普通弹窗从中心细线展开/收拢，离场控件 inert，动画结束无残留遮罩；连续关闭重开仍只有一个可交互弹窗，嵌套外观恢复焦点。更新与预览通知叠放，验证从右进入、向右退出、高度收拢和卡片补位、无横向滚动条；通知检查使用测试更新驱动，不下载或安装。CDP 的减少动态效果模拟仅属于测试窗口，完成后恢复。
+
+功能点击和套件交接等待实际有限开合动画结束；动画中间帧使用即时操作单独采样，避免将上一弹窗的离场节点当成可交互的新弹窗。printing 保留关闭预览后立即点击列表重新打开的断言，用有界就绪检查识别新窗口，而非假设固定 250 ms 已完成加载；同步覆盖 nonpdfprinting。
+
+公共按钮及字段样式同时按实际影响补 core/visual、settingslayout/appearance/appearancelayout/updates、notices/notificationprefs、zoom/immersive/bulk；表格弹窗、PDF 目录/批注、文本跳行/搜索和图片信息/取色按本次具体入口补专项。printing 仅使用模拟打印出口，不连接实体打印机。仅布局变化不机械执行格式解析、所有编辑和性能全量。
+
 ### notices：右下角预览提示
 
 `tests/suites/previewNotices.ts` 运行独立通知专项。使用实际大文本/CSV/XLSX/DOCX/PPTX/图片/SVG、无效 JSON、可提取数据但实际样式解析失败的 XLSX，以及禁止打印的加密 PDF，核对说明只在当前文件右下角出现、文件名与正文一致，原顶部说明移除。关闭按钮支持键盘焦点，关闭不改变阅读区域尺寸或滚动位置。

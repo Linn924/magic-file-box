@@ -48,6 +48,8 @@
   color: var(--text);
 }
 
+.tab .tab-close svg { width: 12px; height: 12px; }
+
 .tab-add-file {
   height: 32px;
   width:32px;min-width:32px;

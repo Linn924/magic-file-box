@@ -30,10 +30,10 @@
 .tool-field select {
   height: 28px;
   max-width: 110px;
-  border: 1px solid var(--line);
+  border:1px solid var(--field-border);
   border-radius: 6px;
-  background: var(--well);
-  color: var(--text);
+  background-color:var(--field-bg);
+  color:var(--field-text);
   padding: 0 6px;
   font-size: 12px;
 }
@@ -47,9 +47,9 @@
 .text-search-input {
   width: 120px;
   height: 28px;
-  border: 1px solid var(--line);
+  border:1px solid var(--field-border);
   border-radius: 6px;
-  background: var(--well);
+  background-color:var(--field-bg);
   padding: 0 8px;
   font-size: 12px;
 }
@@ -105,7 +105,7 @@
 .text-fold-toggle{display:block;width:18px;min-width:18px;height:1.65em;padding:0;border:0;background:transparent;color:var(--muted);line-height:inherit;font-size:inherit}
 .text-fold-summary{align-self:flex-start;min-width:0;height:auto;padding:0 6px;border:1px solid var(--line);color:var(--muted);background:var(--well);font:inherit;white-space:nowrap;user-select:none}
 .text-jump-target{background:var(--accent-soft)}
-.text-go-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.text-go-form label{display:flex;gap:8px;align-items:center}.text-go-form input{width:120px;color:var(--text);background:var(--panel);border:1px solid var(--line);padding:4px}.text-go-form p{flex-basis:100%;color:var(--danger);margin:0}
+.text-go-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap}.text-go-form label{display:flex;gap:8px;align-items:center}.text-go-form input{width:120px;color:var(--field-text);background-color:var(--field-bg);border:1px solid var(--field-border);padding:0 4px}.text-go-form p{flex-basis:100%;color:var(--danger);margin:0}
 .tok-key {
   color: #0b5fff;
 }
@@ -133,7 +133,7 @@
 }
 .text-search-input {
   width: 160px;
-  padding: 4px 8px;
+  padding:0 8px;
 }
 .text-search-bar { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:6px 10px; }
 .text-search-bar .text-search-input { width:auto; flex:1 1 160px; min-width:100px; max-width:420px; }

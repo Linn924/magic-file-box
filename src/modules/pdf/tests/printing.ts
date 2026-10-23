@@ -344,14 +344,17 @@ const suite: Suite = async (c) => {
     );
     c.close(preview);
     await c.click(win, ".preview-print-file");
-    await c.pause(250);
-    const reopened = BrowserWindow.getAllWindows().find(
+    let reopened:BrowserWindow|undefined;
+    for(let attempt=0;attempt<100&&!reopened;attempt++){
+    reopened = BrowserWindow.getAllWindows().find(
       (w) =>
         w.id !== win.id &&
         w.id !== c.home.id &&
         w.webContents.getURL().includes("?preview=1"),
     );
-    if (!reopened) throw Error("Closed preview was not recreated");
+    if(!reopened)await c.pause(50);
+    }
+    if (!reopened) throw Error("Closed preview was not recreated: "+JSON.stringify(BrowserWindow.getAllWindows().map(w=>({id:w.id,url:w.webContents.getURL()})))+' '+await c.evaluate(win,"document.querySelector('.pdf-print-panel > p[role=alert]')?.textContent||''"));
     await c.check(
       reopened,
       "print list can recreate preview",

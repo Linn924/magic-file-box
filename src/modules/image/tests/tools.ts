@@ -25,6 +25,9 @@ const suite:Suite=async c=>{
       }
       if(name===large)await c.check(win,'reduced image sampling identifies preview pixel coordinates',"document.querySelector('.image-color-result').textContent.includes('预览像素')");
       await c.evaluate(win,"window.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");await c.check(win,'Escape exits sampling and keeps the sampled value selectable',"!document.querySelector('.image-pane').classList.contains('image-picking')&&document.querySelector('[aria-label=取样颜色值]').readOnly");
+      const sampled=await c.evaluate<string>(win,"(()=>{const input=document.querySelector('[aria-label=取样颜色值]');input.focus();return input.value})()");
+      win.webContents.sendInputEvent({type:'char',keyCode:'x'});
+      await c.check(win,'read-only color remains selectable and visually distinct from disabled input',`(()=>{const input=document.querySelector('[aria-label=取样颜色值]'),style=getComputedStyle(input);return input.value===${JSON.stringify(sampled)}&&!input.disabled&&input.selectionEnd-input.selectionStart===input.value.length&&style.cursor==='text'&&style.color===getComputedStyle(document.body).color&&style.getPropertyValue('--field-bg').trim()===style.getPropertyValue('--well').trim()})()`);
       c.program.updateSettings({theme:'dark'});await c.snapshot(win,name===large?'large-image-color-sample':'image-color-sample');
     }finally{if(win.webContents.debugger.isAttached())win.webContents.debugger.detach();c.program.updateSettings({theme:'light'});c.close(win);}
   }
