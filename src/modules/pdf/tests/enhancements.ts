@@ -1,3 +1,4 @@
+import {evictInactivePreviews} from '../../../../tests/previewPressure';
 import {dialog,nativeImage} from 'electron';
 import {writeFileSync,readFileSync,existsSync} from 'node:fs';
 import path from 'node:path';
@@ -47,10 +48,10 @@ const suite:Suite=async c=>{
   const tabs=(await c.program.openPaths([c.fixture('document.pdf'),c.fixture('text.txt')],'tabs'))[0];
   await c.check(tabs,'rotation session ready',"!!document.querySelector('.pdf-rotate')");
   await c.click(tabs,'.pdf-rotate');
-  await c.click(tabs,'.tab .tab-name','text.txt');await c.pause(2200);
+  await c.click(tabs,'.tab .tab-name','text.txt');await evictInactivePreviews(c,tabs);
   await c.click(tabs,'.tab .tab-name','document.pdf');
   try{
-  await c.check(tabs,'rotation survives tab unload and restore',"document.querySelector('.pdf-rotate').title.includes('90°')&&(()=>{const page=document.querySelector('.pdf-page');const canvas=page?.querySelector('canvas');return canvas?.height>canvas?.width&&!!page.querySelector('.pdf-text-layer[data-built] span')})()");
+  await c.check(tabs,'rotation survives pressure eviction and restore',"document.querySelector('.pdf-rotate').title.includes('90°')&&(()=>{const page=document.querySelector('.pdf-page');const canvas=page?.querySelector('canvas');return canvas?.height>canvas?.width&&!!page.querySelector('.pdf-text-layer[data-built] span')})()");
   }catch(error){throw Error(String(error)+' '+JSON.stringify(await c.evaluate(tabs,"[...document.querySelectorAll('.pdf-page')].map(p=>({style:p.getAttribute('style'),canvas:[p.querySelector('canvas').width,p.querySelector('canvas').height],text:p.querySelector('.pdf-text-layer').dataset,tab:p.closest('.preview-tab').getAttribute('style')}))")));}
   const id=await c.evaluate<string>(tabs,"document.querySelector('.preview-tab').dataset.fileId");
   const target=await c.open('text.txt');

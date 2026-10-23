@@ -1,3 +1,5 @@
+import {applyPreviewPressure} from '../previewPressure';
+import {holdSourceResponses,releaseSourceResponses} from '../previewLoadDriver';
 import assert from 'node:assert/strict';
 import {writeFileSync,readFileSync,createReadStream,createWriteStream} from 'node:fs';
 import {pipeline} from 'node:stream/promises';
@@ -13,16 +15,28 @@ const suite:Suite=async c=>{
   const tabs=(await c.program.openPaths([txt,c.fixture('text.txt')],'tabs'))[0];
   await c.check(tabs,'large tab first records ready',"document.querySelector('.source-record')&&document.querySelector('.preview-body').dataset.loadPhase==='ready'");
   await c.click(tabs,'.source-footer button','下一段');
-  await c.check(tabs,'large tab advances before idle unload',"Number(document.querySelector('[data-source-row]')?.dataset.sourceRow)>0&&!document.querySelector('.source-loading')");
+  await c.check(tabs,'large tab advances before pressure eviction',"Number(document.querySelector('[data-source-row]')?.dataset.sourceRow)>0&&!document.querySelector('.source-loading')");
   const first=await c.evaluate<string>(tabs,"document.querySelector('[data-source-row]').dataset.sourceRow");
   await c.evaluate(tabs,"(()=>{const input=document.querySelector('[aria-label=大文件查找]');input.value='中文';input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));})()");
   await c.check(tabs,'large source search locates and highlights first match',"document.querySelector('[data-source-row]')?.dataset.sourceRow==='0'&&document.querySelector('.source-record mark')?.textContent==='中文'&&!document.querySelector('.source-loading')");
   await c.click(tabs,'.source-footer button','下一段');
   await c.check(tabs,'restore next page before lifecycle check',`document.querySelector('[data-source-row]')?.dataset.sourceRow==='${first}'&&!document.querySelector('.source-loading')`);
-  await c.click(tabs,'.tab .tab-name','text.txt');await c.pause(2200);
-  assert.equal(c.program.previewResourceStats().sourceSessions,0,'idle large tab releases file source');
+  holdSourceResponses();
+  await c.evaluate(tabs,`(()=>{const input=document.querySelector('[aria-label=大文件起始位置]');input.value='${Number(first)+1}';input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));})()`);
+  await c.check(tabs,'segment request begins before leaving its tab',"!!document.querySelector('.source-loading')");
+  await c.click(tabs,'.tab .tab-name','text.txt');
+  await c.check(tabs,'comparison tab becomes ready while the segment stays in flight',"document.querySelector('.preview-tab:not([style*=none]) .preview-body')?.dataset.loadPhase==='ready'");
+  const restorePressure=await applyPreviewPressure(c,tabs);
+  try{
+    await c.pause(150);
+    await c.check(tabs,'pressure preserves the hidden in-flight segment and original session',"!!document.querySelector('.source-loading')&&document.querySelector('.preview-tab[style*=none] .preview-body')?.dataset.loadPhase==='ready'");
+    assert.equal(c.program.previewResourceStats().sourceSessions,1,'background segment keeps its source session');
+    releaseSourceResponses();
+    await c.check(tabs,'completed background segment becomes eligible for pressure eviction',"document.querySelector('.preview-tab[style*=none] .preview-body')?.dataset.loadPhase==='idle'");
+  }finally{releaseSourceResponses();await restorePressure();}
+  assert.equal(c.program.previewResourceStats().sourceSessions,0,'evicted large tab releases file source');
   await c.click(tabs,'.tab .tab-name','records.txt');
-  await c.check(tabs,'large tab restores logical position after idle unload',`document.querySelector('[data-source-row]')?.dataset.sourceRow==='${first}'&&!document.querySelector('.loading')`);
+  await c.check(tabs,'large tab restores logical position after pressure eviction',`document.querySelector('[data-source-row]')?.dataset.sourceRow==='${first}'&&!document.querySelector('.loading')`);
   const target=await c.open('text.txt'),id=await idOf(tabs);
   await c.evaluate(target,`(()=>{const data=new DataTransfer();data.setData('application/x-file-preview-tab',${JSON.stringify(id)});document.querySelector('main').dispatchEvent(new DragEvent('drop',{dataTransfer:data,bubbles:true,cancelable:true}));})()`);
   await c.check(target,'large file transfer reopens owned source at preserved position',`document.querySelector('[data-source-row]')?.dataset.sourceRow==='${first}'&&!document.querySelector('.loading')`);

@@ -11,6 +11,7 @@ const selected = (index < 0 ? "all" : args[index + 1] || "").split(",");
 const names = [
   "core",
   "loading",
+  "tablifecycle",
   "excelbackground",
   "sources",
   "sourcelifecycle",
@@ -76,6 +77,7 @@ if (!args.includes("--skip-build"))
     ["run", "build"],
     process.platform === "win32",
   );
+if(selected.some(name=>['loading','tablifecycle','all'].includes(name)))run(process.execPath,['--import','tsx','tests/previewResidencyUnit.ts']);
 if (selected.some(name => !['pdfoutline','pdfdest','pdfsources','pdflinks','pdfimmersive','texttools','imagetools'].includes(name)))
   run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);
 if(selected.includes('pdfdest')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/pdf/tests/outlineTitleUnit.ts']);

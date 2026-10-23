@@ -1,3 +1,4 @@
+import {evictInactivePreviews} from '../../../../tests/previewPressure';
 import assert from 'node:assert/strict';
 import {existsSync, readFileSync, writeFileSync} from 'node:fs';
 import JSZip from 'jszip';
@@ -94,8 +95,8 @@ const suite: Suite = async c => {
   const receiver=await c.open('data.json');
   try {
     await c.check(tabs,'DOCX tab is ready',"!!document.querySelector('.word-outline-toggle:not(:disabled)')");await c.click(tabs,'.word-outline-toggle');
-    await c.click(tabs,'.tab .tab-name','text.txt');await c.pause(2200);await c.click(tabs,'.tab .tab-name',name);
-    await c.check(tabs,'DOCX outline survives idle unload',"document.querySelectorAll('.word-outline button').length===5");
+    await c.click(tabs,'.tab .tab-name','text.txt');await evictInactivePreviews(c,tabs);await c.click(tabs,'.tab .tab-name',name);
+    await c.check(tabs,'DOCX outline survives pressure eviction',"document.querySelectorAll('.word-outline button').length===5");
     const id=await c.evaluate<string>(tabs,"document.querySelector('.preview-tab:has(.word-host)').dataset.fileId");
     await c.evaluate(receiver,`(()=>{const d=new DataTransfer();d.setData('application/x-file-preview-tab',${JSON.stringify(id)});document.querySelector('main').dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}))})()`);
     await c.check(receiver,'DOCX outline survives transfer without a persisted search',"document.querySelectorAll('.word-outline button').length===5&&!document.querySelector('.word-search-input')");

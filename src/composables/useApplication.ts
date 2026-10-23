@@ -221,11 +221,11 @@ export function useApplication() {
           Number(
             tab?.querySelector<HTMLInputElement>(".zoom-control input")?.value,
           ) || 100;
-        const scroll = Array.from(
+        const scroll = active.value===id?Array.from(
           tab?.querySelectorAll<HTMLElement>(
             ".pdf-scroll,.slide-scroll,.document-scroll,.table-wrap,.text-scroll,.image",
           ) || [],
-        ).map((el) => ({ top: el.scrollTop, left: el.scrollLeft }));
+        ).map((el) => ({ top: el.scrollTop, left: el.scrollLeft })):file.view?.scroll??[];
         window.localPreview.supply({ ...file, view: { ...file.view, zoom, scroll } });
       }),
     );

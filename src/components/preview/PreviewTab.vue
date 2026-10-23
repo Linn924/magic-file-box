@@ -35,7 +35,7 @@ function saveViewState() {
   }));
 }
 
-const { preview, phase, error, busy, label, elapsed, retry } = usePreviewLoad(props, loaded);
+const { preview, phase, error, busy, label, elapsed, retry } = usePreviewLoad(props, loaded,()=>module.value?.closeFile?.(props.file.id));
 watch(() => props.active, active => { if (!active && preview.value) saveViewState(); }, { flush: 'sync' });
 onBeforeUnmount(()=>{
  saveViewState();

@@ -17,6 +17,7 @@ export function useSourceRecords(file:PreviewFile,emit:(event:'ready'|'error',me
   const lifetime=()=>stop();task.signal.addEventListener('abort',lifetime,{once:true});
   async function load(request:Partial<SourceRequest>={}){
     if(busy.value||disposed)return;const current=++revision;busy.value=true;error.value='';queryNotice.value='';
+    const release=task.hold?.();
     try{
       task.signal.throwIfAborted();
       if(!session){controller?.abort();controller=new AbortController();const opened=await openFileSource(file,controller.signal,encoding.value||undefined);if(current!==revision||disposed){void opened.close();return;}session=opened;info.value=session.info;encoding.value=info.value.encoding??encoding.value;if(!sheet.value)sheet.value=info.value.sheets?.[0]?.id??'';}
@@ -30,7 +31,7 @@ export function useSourceRecords(file:PreviewFile,emit:(event:'ready'|'error',me
       if(current!==revision||disposed)return;
       if(!ready.value){ready.value=true;emit('ready');}
     }catch(cause){if(current!==revision||disposed||task.signal.aborted)return;error.value=fileSourceError(cause);void session?.close();session=undefined;if(!ready.value)emit('error',error.value);}
-    finally{if(current===revision)busy.value=false;}
+    finally{if(current===revision)busy.value=false;release?.();}
   }
   function next(){previousStarts.push(start.value);if(previousStarts.length>256)previousStarts.shift();void load({start:(page.value?.rows.at(-1)?.index??start.value)+1});}
   function previous(){void load({start:previousStarts.pop()??Math.max(0,start.value-100)});}

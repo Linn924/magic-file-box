@@ -9,6 +9,7 @@ const task=usePreviewTask();let observer:IntersectionObserver|undefined,visible=
 function clear(){serial++;rejectImage?.(new DOMException('已取消图片读取。','AbortError'));rejectImage=undefined;if(image){image.onload=null;image.onerror=null;image.src='';image=undefined;}if(lease){void window.localPreview.releasePreviewParser(lease).catch(()=>{});lease=undefined;}reservation?.release();reservation=undefined;if(canvas.value){canvas.value.width=1;canvas.value.height=1;}}
 async function load(){
   if(disposed||!visible)return;clear();const generation=serial,token=crypto.randomUUID();lease=token;status.value='正在加载…';
+  const release=task.hold?.();
   try{
     task.signal.throwIfAborted();
     if(!await window.localPreview.acquirePreviewParser(props.fileId,token))return;
@@ -24,7 +25,7 @@ async function load(){
     context.drawImage(img,0,0,target.width,target.height);ratio.value=img.naturalWidth+'/'+img.naturalHeight;status.value='';
     const size={width:img.naturalWidth,height:img.naturalHeight};img.onload=null;img.onerror=null;img.src='';image=undefined;emit('rendered',size);
   }catch(error){if(generation===serial&&!disposed&&!task.signal.aborted){if(image){image.onload=null;image.onerror=null;image.src='';image=undefined;}reservation?.release();reservation=undefined;if(canvas.value){canvas.value.width=1;canvas.value.height=1;}status.value=error instanceof Error?error.message:'图片无法显示。';emit('error',status.value);}}
-  finally{void window.localPreview.releasePreviewParser(token).catch(()=>{});if(lease===token)lease=undefined;}
+  finally{release?.();void window.localPreview.releasePreviewParser(token).catch(()=>{});if(lease===token)lease=undefined;}
 }
 const abort=()=>clear();task.signal.addEventListener('abort',abort,{once:true});
 onMounted(()=>{

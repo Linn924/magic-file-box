@@ -1,3 +1,4 @@
+import {evictInactivePreviews} from '../../../../tests/previewPressure';
 import {writeFileSync} from 'node:fs';
 import type {Suite} from '../../../../tests/context';
 import {linkFixture} from './linkFixture';
@@ -53,8 +54,8 @@ const suite:Suite=async c=>{
   await c.evaluate(win,"document.querySelector('.pdf-scroll').dispatchEvent(new KeyboardEvent('keydown',{key:'Escape',bubbles:true,cancelable:true}))");await c.pause(350);await c.check(win,'presentation exit restores double reading layout and right physical page',paired+"&&document.querySelector('.page-nav input').value==='4'");
   await c.snapshot(win,'pdf-double-reading');c.close(win);
   const tabs=(await c.program.openPaths([c.fixture('spread-reading.pdf'),c.fixture('text.txt')],'tabs'))[0];tabs.unmaximize();tabs.setSize(1000,750);await c.pause(250);await zoom(tabs,70);await jump(tabs,4);
-  await c.check(tabs,'right-page session ready before tab unload',"document.querySelector('.page-nav input').value==='4'");await c.click(tabs,'.tab .tab-name','text.txt');await c.pause(2200);await c.click(tabs,'.tab .tab-name','spread-reading.pdf');
-  await c.check(tabs,'tab unload restores physical right page and pair',"document.querySelector('.page-nav input').value==='4'&&!!document.querySelector('.pdf-row[data-pages=\"3,4\"]')");
+  await c.check(tabs,'right-page session ready before pressure eviction',"document.querySelector('.page-nav input').value==='4'");await c.click(tabs,'.tab .tab-name','text.txt');await evictInactivePreviews(c,tabs);await c.click(tabs,'.tab .tab-name','spread-reading.pdf');
+  await c.check(tabs,'pressure eviction restores physical right page and pair',"document.querySelector('.page-nav input').value==='4'&&!!document.querySelector('.pdf-row[data-pages=\"3,4\"]')");
   const id=await c.evaluate<string>(tabs,"[...document.querySelectorAll('.preview-tab')].find(t=>t.dataset.fileId&&getComputedStyle(t).display!=='none').dataset.fileId");
   const target=await c.open('text.txt');target.unmaximize();target.setSize(720,750);await c.pause(250);
   await c.evaluate(target,`(()=>{const d=new DataTransfer();d.setData('application/x-file-preview-tab',${JSON.stringify(id)});document.querySelector('main').dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}))})()`);

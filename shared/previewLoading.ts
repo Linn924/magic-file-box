@@ -5,4 +5,6 @@ export type PreviewLoadPhase = PreviewLoadStage | 'idle' | 'ready' | 'error';
 export interface PreviewTask {
   readonly signal: AbortSignal;
   report(stage: PreviewLoadStage): void;
+  /** Protect a mounted preview while an asynchronous segment/asset is loading. */
+  hold?():()=>void;
 }

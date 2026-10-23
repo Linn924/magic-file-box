@@ -1,3 +1,4 @@
+import {evictInactivePreviews} from '../../../../tests/previewPressure';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {createReadStream,createWriteStream,existsSync} from 'node:fs';
@@ -30,10 +31,10 @@ const suite:Suite=async c=>{
     await c.click(tabs,'.source-footer button','下一段');await c.check(tabs,'large XLSX advances to later logical rows',"Number(document.querySelector('[data-source-row]')?.dataset.sourceRow)>0&&!document.querySelector('.source-loading')");
     await c.click(tabs,'.source-footer button','后 40 列');await c.check(tabs,'large XLSX reaches a later column group',"document.querySelector('.source-table thead th:nth-child(2)')?.textContent==='AO'&&!document.querySelector('.source-loading')");
     const saved=await c.evaluate<{row:string;column:string;sheet:string}>(tabs,position);
-    await c.click(tabs,'.tab .tab-name','text.txt');await c.pause(2200);
-    assert.equal(c.program.previewResourceStats().sourceSessions,initial.sourceSessions,'idle workbook must release its range session');
+    await c.click(tabs,'.tab .tab-name','text.txt');await evictInactivePreviews(c,tabs);
+    assert.equal(c.program.previewResourceStats().sourceSessions,initial.sourceSessions,'evicted workbook must release its range session');
     await c.click(tabs,'.tab .tab-name',path.basename(file));
-    await c.check(tabs,'large XLSX restores row column and sheet after idle unload',`JSON.stringify(${position})===${JSON.stringify(JSON.stringify(saved))}&&!document.querySelector('.loading')`);
+    await c.check(tabs,'large XLSX restores row column and sheet after pressure eviction',`JSON.stringify(${position})===${JSON.stringify(JSON.stringify(saved))}&&!document.querySelector('.loading')`);
     const id=await c.evaluate<string>(tabs,"[...document.querySelectorAll('.preview-tab')].find(tab=>tab.getClientRects().length).dataset.fileId");target=await c.open('data.json');
     await c.evaluate(target,`(()=>{const data=new DataTransfer();data.setData('application/x-file-preview-tab',${JSON.stringify(id)});document.querySelector('main').dispatchEvent(new DragEvent('drop',{dataTransfer:data,bubbles:true,cancelable:true}));})()`);
     await c.check(target,'large XLSX transfer preserves its logical sheet row and columns',`JSON.stringify(${position})===${JSON.stringify(JSON.stringify(saved))}&&!document.querySelector('.loading')`);

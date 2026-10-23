@@ -1,3 +1,4 @@
+import {evictInactivePreviews} from '../../../../tests/previewPressure';
 import assert from 'node:assert/strict';
 import type { Suite } from "../../../../tests/context";
 import { existsSync, writeFileSync } from "node:fs";
@@ -82,8 +83,8 @@ const suite: Suite = async (c) => {
   await c.evaluate(wide,'window.localPreview.setFullscreen(false)');await c.pause(200);await c.check(wide,'leaving immersive mode restores original-pixel choice',"document.querySelector('.image-original').getAttribute('aria-pressed')==='true'&&document.querySelector('.image-frame').getBoundingClientRect().height>document.querySelector('.image').clientHeight");
   await c.evaluate(wide,"(()=>{const f=document.querySelector('[aria-label=页面适配]');f.value='page';f.dispatchEvent(new Event('change',{bubbles:true}))})()");
   await c.pause(150);assert.equal(await c.evaluate(wide,"document.querySelector('.image-frame').getBoundingClientRect().height<=document.querySelector('.image').clientHeight-40"),true,'software fit mode must override previous original-pixel selection');c.close(wide);
-  const tabs=(await c.program.openPaths([c.fixture('image.png'),c.fixture('text.txt')],'tabs'))[0];await c.check(tabs,'image tab ready',"!!document.querySelector('.image-rotate')");await c.click(tabs,'.image-rotate');await c.click(tabs,'.image-original');await c.click(tabs,'.tab .tab-name','text.txt');await c.pause(2200);await c.click(tabs,'.tab .tab-name','image.png');
-  await c.check(tabs,'image rotation and original mode survive idle tab unload',"document.querySelector('.image-rotate').title.includes('90')&&document.querySelector('.image-original').getAttribute('aria-pressed')==='true'");
+  const tabs=(await c.program.openPaths([c.fixture('image.png'),c.fixture('text.txt')],'tabs'))[0];await c.check(tabs,'image tab ready',"!!document.querySelector('.image-rotate')");await c.click(tabs,'.image-rotate');await c.click(tabs,'.image-original');await c.click(tabs,'.tab .tab-name','text.txt');await evictInactivePreviews(c,tabs);await c.click(tabs,'.tab .tab-name','image.png');
+  await c.check(tabs,'image rotation and original mode survive pressure eviction',"document.querySelector('.image-rotate').title.includes('90')&&document.querySelector('.image-original').getAttribute('aria-pressed')==='true'");
   await c.evaluate(tabs,"(()=>{const z=document.querySelector('.zoom-control input');z.value='137';z.dispatchEvent(new Event('input',{bubbles:true}));z.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true}))})()");await c.check(tabs,'original pixel label follows software zoom',"document.querySelector('.image-fit-label').textContent.includes('137%')");c.close(tabs);
   const png = await c.open("image.png");
   await c.check(

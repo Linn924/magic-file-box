@@ -7,7 +7,7 @@ export interface PreviewModule {
   sourceComponent?: Component;
   pageFit?: boolean;
   toolbar?: Component;
-  /** Release module caches when a file tab closes, not on idle DOM unload. */
+  /** Release module caches on tab close or eviction under memory pressure. */
   closeFile?: (id: string) => void | Promise<void>;
 }
 export interface PreviewProps {

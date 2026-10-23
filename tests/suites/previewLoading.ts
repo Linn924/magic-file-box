@@ -52,9 +52,9 @@ const suite: Suite = async c => {
   await c.check(switching,'switching fixture starts reading',"document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
   await c.click(switching,'.tab .tab-name','data.json');
   releasePreviewResponses();
-  await c.check(switching,'switching tabs cancels hidden load and finishes active file',"document.querySelector('[data-file-id]:not([style*=none]) .preview-body')?.dataset.loadPhase==='ready'");
+  await c.check(switching,'switching tabs lets both loads finish in the background',"document.querySelectorAll('.preview-body[data-load-phase=ready]').length===2");
   await c.click(switching,'.tab .tab-name','text.txt');
-  await c.check(switching,'returning to an interrupted tab starts a fresh load',"[...document.querySelectorAll('.preview-tab')].find(t=>t.getClientRects().length)?.querySelector('.preview-body').dataset.loadPhase==='ready'");
+  await c.check(switching,'returning to the background-loaded tab shows its completed preview',"[...document.querySelectorAll('.preview-tab')].find(t=>t.getClientRects().length)?.querySelector('.preview-body').dataset.loadPhase==='ready'");
   c.close(switching);
   holdPreviewResponses();
   const closing=await c.program.openPath(c.fixture('text.txt'));
