@@ -1,6 +1,6 @@
 {
   "name": "magic-file-box",
-  "version": "1.0.13",
+  "version": "1.0.14",
   "private": true,
   "description": "Offline, read-only file preview tool for Windows",
   "author": "magic file box",

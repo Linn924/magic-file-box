@@ -143,6 +143,18 @@ DOCX 搜索/目录变更运行 word、text、core：text 覆盖提取到公共�
 
 PDF 滚轮测试固定 1000×700，避免短样例在大屏无溢出。80 页混合尺寸样例检查总页数、虚拟 DOM、末页/中间页定位及往返重绘、400% 单页 600 万像素限制、缩略图重新挂载、文字/链接旋转对齐、搜索与批注。性能数据只描述已测样例，不代表全部 PDF 的表现。
 
+完整 PDF 功能查验按以下组分批执行，首组构建，源码未改时后续使用 skip-build；不是应用 all：
+
+```powershell
+npm test -- --suite pdf,pdfthumbs,pdfoutline,pdfdest
+npm test -- --skip-build --suite pdfenhancements,pdfspread,pdfchain
+npm test -- --skip-build --suite pdfimmersive,pdfsources,pdflinks,printing
+```
+
+`pdfimmersive` 复用公共 immersive 中的 PDF 断言，仅运行 PDF 的默认/宽度/整页适配、自定义倍率与原生全屏往返，不重复其他格式。`pdfsources` 使用 24 MiB 未选择附件的合成 PDF，验证实际范围读取少于完整文件、单次读取预算、来源 token 的窗口隔离、目录/搜索/旋转、跨窗口页码与旋转恢复，以及重载后一次性预览释放和关闭后的会话/句柄归零；该样例不代表真实大正文性能。`pdflinks` 验证有效跳页、缺失页面引用不产生未处理拒绝、HTTP 外链经过安全入口及脚本链接不生成可点击节点，系统浏览器出口模拟而不实际联网。新增 destinationUnit 随 pdfdest/pdflinks/pdfenhancements 执行，覆盖 XYZ、FitH/FitBH、FitV/FitBV、FitR、Fit/FitB、裁切/旋转、命名/引用解析和失效目标回退。基础 pdf 套件保留短尾页无法顶齐时的目录选中回归。
+
+修改 external:open 主进程/预加载桥接时补 core，保留可信 IPC 来源、网络拦截、沙箱与窗口生命周期检查；其当前格式调用方只有 PDF，不扩大到无关格式解析。PDF 压力检查另选 pdfperf 的六个合成场景，使用单独 FILE_PREVIEW_PERF_PHASE 保留本次结果；print-10 单独进程运行，不能把当前环境的功能测量当作跨环境性能改进。
+
 ### pdfthumbs：缩略图绘制与首项跳页
 
 `npm test -- --suite pdfthumbs`；文件 `src/modules/pdf/tests/thumbnails.ts`，使用本地生成的 80 页横竖混排 thumbs-mixed.pdf 和短文本 document.pdf。检查首项实际蓝色/文字像素（不以 canvas 默认非零尺寸判断成功）、虚拟占位包含完整卡片高度、画布实际显示高度不被压缩、跳到第 40 页再滚回首项重绘、点击第一页跳页及渲染进程计时器响应、尺寸切换、目录往返，以及初次绘制期间点击首项。原样例 SHA256 不变，并留存首项截图供检查。

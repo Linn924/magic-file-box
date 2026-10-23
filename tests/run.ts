@@ -28,6 +28,9 @@ const names = [
   "pdfthumbs",
   "pdfoutline",
   "pdfdest",
+  "pdfsources",
+  "pdflinks",
+  "pdfimmersive",
   "texttools",
   "imagetools",
   "text",
@@ -64,9 +67,10 @@ if (!args.includes("--skip-build"))
     ["run", "build"],
     process.platform === "win32",
   );
-if (selected.some(name => !['pdfoutline','pdfdest','texttools','imagetools'].includes(name)))
+if (selected.some(name => !['pdfoutline','pdfdest','pdfsources','pdflinks','pdfimmersive','texttools','imagetools'].includes(name)))
   run(process.execPath, ["--import", "tsx", "tests/unit.ts"]);
 if(selected.includes('pdfdest')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/pdf/tests/outlineTitleUnit.ts']);
+if(selected.includes('pdfdest')||selected.includes('pdflinks')||selected.includes('pdfenhancements')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/pdf/tests/destinationUnit.ts']);
 if(selected.includes('texttools')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/text/tests/readingToolsUnit.ts']);
 if(selected.includes('imagetools')||selected.includes('all'))run(process.execPath,['--import','tsx','src/modules/image/tests/toolsUnit.ts']);
 if(selected.includes('sources')||selected.includes('all')){

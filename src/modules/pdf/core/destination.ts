@@ -2,11 +2,13 @@ import type {PDFDocumentProxy,PDFPageProxy} from 'pdfjs-dist';
 export interface PdfDestination {page:number;dest:unknown[];key?:string;title?:string;titleResolved?:boolean}
 export interface PdfReadingPosition {page:number;x:number;y:number;viewport:ReturnType<PDFPageProxy['getViewport']>;destinationKey?:string}
 export async function resolvePdfDestination(pdf:PDFDocumentProxy,value:unknown):Promise<PdfDestination|undefined>{
-  const dest=typeof value==='string'?await pdf.getDestination(value):value;
-  if(!Array.isArray(dest)||!dest.length)return;
-  const page=typeof dest[0]==='number'?dest[0]+1:await pdf.getPageIndex(dest[0])+1;
-  if(!Number.isInteger(page)||page<1||page>pdf.numPages)return;
-  return {page,dest};
+  try{
+    const dest=typeof value==='string'?await pdf.getDestination(value):value;
+    if(!Array.isArray(dest)||!dest.length)return;
+    const page=typeof dest[0]==='number'?dest[0]+1:await pdf.getPageIndex(dest[0])+1;
+    if(!Number.isInteger(page)||page<1||page>pdf.numPages)return;
+    return {page,dest};
+  }catch{return;/* Broken references and pages released during navigation are optional link targets. */}
 }
 /** Convert PDF destinations using the actual crop box and intrinsic/user rotation. Keep the reader's zoom. */
 export function destinationPoint(dest:unknown[],viewport:PdfReadingPosition['viewport']):number[]{

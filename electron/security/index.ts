@@ -1,6 +1,8 @@
 import {
   session,
   net,
+  ipcMain,
+  shell,
   type Session,
   type BrowserWindow,
   type IpcMainInvokeEvent,
@@ -59,4 +61,14 @@ export function trusted(event: IpcMainInvokeEvent): void {
     !event.senderFrame?.url.startsWith("preview://local/")
   )
     throw new Error("无效调用来源。");
+}
+/** Sandboxed preload cannot access shell; validate explicit website opens in the main process. */
+export function setupExternalLinks():void {
+  ipcMain.handle('external:open',async(event,value:unknown)=>{
+    trusted(event);
+    if(typeof value!=='string'||value.length>8192||/[\u0000-\u001f]/.test(value))throw Error('链接地址无效。');
+    const url=new URL(value);
+    if(!['http:','https:'].includes(url.protocol))throw Error('仅允许打开 http(s) 链接。');
+    await shell.openExternal(url.href);
+  });
 }

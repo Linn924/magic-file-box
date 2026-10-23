@@ -3,7 +3,7 @@ import { mkdirSync, writeFileSync, readFileSync, readdirSync } from "node:fs";
 import { createHash } from "node:crypto";
 import path from "node:path";
 import type { TestContext, Suite } from "./context";
-import immersive from "./suites/immersive";
+import immersive,{pdfImmersive} from "./suites/immersive";
 import nonpdfprinting from "./suites/nonpdfprinting";
 import printing from "@/modules/pdf/tests/printing";
 import core from "./suites/core";
@@ -31,6 +31,8 @@ import pdf from "@/modules/pdf/tests/e2e";
 import pdfthumbs from '@/modules/pdf/tests/thumbnails';
 import pdfoutline from '@/modules/pdf/tests/outlineLayout';
 import pdfdest from '@/modules/pdf/tests/destinations';
+import pdfsources from '@/modules/pdf/tests/sources';
+import pdflinks from '@/modules/pdf/tests/links';
 import texttools from '@/modules/text/tests/readingTools';
 import imagetools from '@/modules/image/tests/tools';
 import text from "@/modules/text/tests/e2e";
@@ -94,6 +96,9 @@ const suites: Record<string, Suite> = {
   pdfthumbs,
   pdfoutline,
   pdfdest,
+  pdfsources,
+  pdflinks,
+  pdfimmersive:pdfImmersive,
   texttools,
   imagetools,
   text,
@@ -110,7 +115,7 @@ const suites: Record<string, Suite> = {
 };
 const selected =
   requested === "all"
-    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind" && n !== "excelsheets" && n !== "exceltable" && n !== "textsearch" && n !== "wordnav")
+    ? Object.keys(suites).filter((n) => n !== "bench" && n !== "pdfperf" && n !== "pdfimmersive" && n !== "excelgrid" && n !== "excelformat" && n !== "exceladvanced" && n !== "excelfind" && n !== "excelsheets" && n !== "exceltable" && n !== "textsearch" && n !== "wordnav")
     : requested.split(",");
 const output = path.resolve("outputs/verification");
 const fixtureRoot = path.resolve("work/fixtures");

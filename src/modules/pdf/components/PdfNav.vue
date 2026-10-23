@@ -154,7 +154,8 @@ const currentOutlineKey = computed(() => {
   if(position?.destinationKey&&same.some(item=>item.key===position.destinationKey))return position.destinationKey;
   const previous=outline.value.filter(item=>item.page>0&&item.page<props.current).at(-1);
   if(!position||position.page!==props.current)return same[0]?.key??previous?.key??null;
-  const axis=position.viewport.rotation%180?0:1,at=axis===0?position.x:position.y;
+  // A short tail page or the selected right page can start below/right of the reading point.
+  const axis=position.viewport.rotation%180?0:1,at=Math.max(0,axis===0?position.x:position.y);
   const coordinate=(item:OutlineNode)=>item.destination?destinationPoint(item.destination.dest,position.viewport)[axis]:0;
   let hit:OutlineNode|undefined,best=-Infinity;
   for(const item of same){const value=coordinate(item);if(value<=at+1&&value>=best){hit=item;best=value;}}

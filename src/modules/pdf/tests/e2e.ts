@@ -375,10 +375,11 @@ const suite: Suite = async (c) => {
 
   outlineFixture(c.fixture('outlined-pages.pdf'));
   const outlined=await c.open('outlined-pages.pdf');
+  outlined.unmaximize();outlined.setSize(1000,700);
   await c.click(outlined,'.pdf-nav-toggle');
   await c.check(outlined,'first chapter follows opening page',"document.querySelector('.outline-item.current')?.textContent.includes('Section One')");
   await c.evaluate(outlined,"(()=>{const p=document.querySelector('.page-nav input');p.value='3';p.dispatchEvent(new Event('change',{bubbles:true}))})()");
-  await c.check(outlined,'chapter follows page three',"document.querySelector('.outline-item.current')?.textContent.includes('Section Two')");
+  await c.check(outlined,'short final page selects its own chapter despite scroll clamping',"document.querySelector('.outline-item.current')?.textContent.includes('Section Two')&&document.querySelector('.page-nav input').value==='3'");
   await c.check(outlined,'active chapter scrolls into view',"(()=>{const host=document.querySelector('.pdf-outline'),item=host?.querySelector('.outline-item.current');if(!host||!item)return false;const h=host.getBoundingClientRect(),r=item.getBoundingClientRect();return r.top>=h.top&&r.bottom<=h.bottom+2&&host.scrollTop>0})()");
   c.close(outlined);
 

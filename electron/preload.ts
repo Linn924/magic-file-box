@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer, shell, webUtils } from "electron";
+import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopBridge, Settings } from "@shared/contracts";
 
 const bridge: DesktopBridge = {
@@ -38,10 +38,7 @@ const bridge: DesktopBridge = {
   readFileRange: (token,offset,length) => ipcRenderer.invoke('source:range',token,offset,length),
   closeFileSource: token => ipcRenderer.invoke('source:close',token),
   setPdfPassword:(id,password)=>ipcRenderer.invoke('pdf:password',id,password),
-  openExternal: async (url: string) => {
-    if (!/^https?:\/\//i.test(url)) throw Error("仅允许打开 http(s) 链接。");
-    await shell.openExternal(url);
-  },
+  openExternal: (url: string) => ipcRenderer.invoke('external:open',url),
   openPrintPanel: (files) => ipcRenderer.invoke("print:open-panel", files),
   printPanelFiles: () => ipcRenderer.invoke("print:panel-files"),
   onPrintIncoming: (handler) => {

@@ -1,6 +1,6 @@
-import type { Suite } from "../context";
+import type { Suite,TestContext } from "../context";
 import type { BrowserWindow } from 'electron';
-const suite: Suite = async (c) => {
+const suite = async (c:TestContext,pdfOnly=false) => {
   const state=(mode:string|undefined,zoom:number)=>`document.querySelector('.zoom-control input').value==='${zoom}'${mode?`&&document.querySelector('[aria-label=页面适配]').value==='${mode}'`:''}`;
   async function choose(win:BrowserWindow,mode:string|undefined,zoom:number){
     if(mode)await c.evaluate(win,`(()=>{const fit=document.querySelector('[aria-label=页面适配]');fit.value='${mode}';fit.dispatchEvent(new Event('change',{bubbles:true}));})()`);
@@ -65,6 +65,7 @@ const suite: Suite = async (c) => {
   win.webContents.sendInputEvent({type:'keyDown',keyCode:'Escape'});win.webContents.sendInputEvent({type:'keyUp',keyCode:'Escape'});
   await c.check(win,'leaving PDF presentation restores the selected reading mode and zoom',"!document.querySelector('.pdf-presentation')&&!document.documentElement.classList.contains('immersive')&&"+state('original',137));
   c.close(win);
+  if(pdfOnly)return;
   for (const [name, expression] of [
     [
       "document.docx",
@@ -101,4 +102,5 @@ const suite: Suite = async (c) => {
     try{await roundTrip(preview,name,undefined,137);}finally{c.close(preview);}
   }
 };
+export const pdfImmersive:Suite=c=>suite(c,true);
 export default suite;
