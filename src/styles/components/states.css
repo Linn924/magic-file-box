@@ -24,8 +24,7 @@
 }
 
 .loading small { color: var(--muted); font-size: 12px; font-weight: 400; }
-.loading-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
-.preview-cancel-load, .preview-retry {
+.preview-retry {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -34,7 +33,6 @@
   padding: 6px 16px;
   min-height: 30px;
 }
-.preview-cancelled { margin: auto; }
 .loading.loading-password {
   top: 12px;
   right: 12px;

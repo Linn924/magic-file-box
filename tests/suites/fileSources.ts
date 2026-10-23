@@ -5,6 +5,7 @@ import {createHash} from 'node:crypto';
 import type {Suite} from '../context';
 import {sourceFixtures} from '../sourceFixtures';
 import {fixtureInScope} from '../scope';
+import {holdSourceResponses,releaseSourceResponses} from '../previewLoadDriver';
 const hash=async(file:string)=>{const value=createHash('sha256');for await(const data of createReadStream(file))value.update(data);return value.digest('hex');};
 const suite:Suite=async c=>{
   const fixtures=await sourceFixtures();
@@ -32,13 +33,17 @@ const suite:Suite=async c=>{
         await c.check(win,'previous records restore start',"document.querySelector('[data-source-row]')?.dataset.sourceRow==='0'&&!document.querySelector('.source-loading')");
         await c.evaluate(win,"(()=>{const input=document.querySelector('[aria-label=大文件起始位置]');input.value='1001';input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));})()");
         await c.check(win,'jump reaches requested logical record',"document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'&&!document.querySelector('.source-loading')");
+        holdSourceResponses();
         await c.evaluate(win,"(()=>{const input=document.querySelector('[aria-label=大文件查找]');input.value='not-present-local-test';input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));})()");
-        await c.check(win,'background scan is cancellable',"!!document.querySelector('.source-loading .preview-cancel-load')");
         await c.check(win,'record loading uses the simple loading message',"document.querySelector('.source-loading > span:not(.loading-spinner)')?.textContent==='正在加载…'");
-        await c.click(win,'.source-loading .preview-cancel-load');
-        await c.check(win,'cancel retains already displayed records',"!document.querySelector('.source-loading')&&document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'");
+        await c.check(win,'record loading has no early or cancel action',"!document.querySelector('.source-loading button')&&!document.querySelector('.preview-cancel-load')");
+        await c.check(win,'slow records expose reload after ten seconds',"Number(document.querySelector('.source-loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=10&&!!document.querySelector('.source-loading .preview-retry')");
+        await c.click(win,'.source-loading .preview-retry');
+        await c.check(win,'record reload resets its timer and retains displayed content',"!document.querySelector('.source-loading button,.source-loading small')&&document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'");
+        releaseSourceResponses();
+        await c.check(win,'late scan cannot replace reloaded records',"!document.querySelector('.source-loading')&&document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'&&![...document.querySelectorAll('.notice')].some(el=>el.textContent.includes('后续内容未找到'))");
         await c.click(win,'.source-footer button','下一段');
-        await c.check(win,'reading resumes after cancelling scan',"Number(document.querySelector('[data-source-row]')?.dataset.sourceRow)>1000&&!document.querySelector('.source-loading')");
+        await c.check(win,'reading continues after reloading the slow scan',"Number(document.querySelector('[data-source-row]')?.dataset.sourceRow)>1000&&!document.querySelector('.source-loading')");
       }
       if(name==='xlsx')await c.check(win,'large XLSX displays source values',"document.querySelector('.source-table').textContent.includes('87.5')||document.querySelector('.source-table').textContent.includes('0.875')");
       if(name==='docx'||name==='pptx')await c.check(win,'large Office has extracted readable text',"document.querySelector('.source-document')?.textContent.trim().length>10");
@@ -56,7 +61,7 @@ const suite:Suite=async c=>{
       }
       await c.snapshot(win,'source-'+name);
       assert.equal(await hash(file),before,'source SHA256 unchanged');
-    }finally{clearInterval(sample);if(measurements.at(-1)?.name===name)measurements.at(-1)!.peakWorkingSetMiB=peakMemory;c.close(win);}
+    }finally{releaseSourceResponses();clearInterval(sample);if(measurements.at(-1)?.name===name)measurements.at(-1)!.peakWorkingSetMiB=peakMemory;c.close(win);}
     for(let i=0;i<100&&c.program.previewResourceStats().sourceSessions;i++)await c.pause(50);
     const stats=c.program.previewResourceStats();assert.equal(stats.sourceSessions,0,name+' sessions released');assert.equal(stats.sourceHandles,0,name+' handles released');
   }

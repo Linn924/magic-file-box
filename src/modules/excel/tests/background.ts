@@ -12,19 +12,22 @@ const suite: Suite = async c => {
   writeFileSync(csv, Array.from({length:100000},(_,r)=>[r,'"quoted, value"','"two\nlines"',r+1,r+2,r+3,r+4,r+5].join(',')).join('\n'));
   for (const file of [xlsx,csv]) {
     const digest = () => createHash('sha256').update(readFileSync(file)).digest('hex'), before = digest();
-    const win = await c.program.openPath(file);
+    let win = await c.program.openPath(file);
     await c.check(win, 'background preview mounted', "!!document.querySelector('.preview-body')");
     await c.evaluate(win, `(()=>{window.__beats={ticks:0,last:performance.now(),maxGap:0};window.__beatTimer=setInterval(()=>{const b=window.__beats,now=performance.now();if(['parsing','rendering'].includes(document.querySelector('.preview-body')?.dataset.loadPhase)){b.ticks++;b.maxGap=Math.max(b.maxGap,now-b.last);}b.last=now;},16);})()`);
     await c.check(win, 'real table parses in a responsive renderer', "document.querySelector('.preview-body').dataset.loadPhase==='parsing'&&window.__beats.ticks>=3");
-    await c.click(win, '.preview-cancel-load');
-    await c.check(win, 'active workbook worker cancels without showing late rows', "!!document.querySelector('.preview-cancelled')&&!document.querySelector('.spreadsheet')");
+    const firstBeats=await c.evaluate<{ticks:number;maxGap:number}>(win,'window.__beats');
+    await c.click(win, '.tab-close');
     await c.pause(250);
+    if(!win.isDestroyed())throw Error('Active workbook loading tab did not close');
     if (c.program.previewResourceStats().parsers) throw Error('Cancelled workbook worker still holds a parser lease');
-    await c.click(win, '.preview-retry');
+    win=await c.program.openPath(file);
+    await c.check(win,'reopened workbook preview mounted',"!!document.querySelector('.preview-body')");
+    await c.evaluate(win, `(()=>{window.__beats={ticks:0,last:performance.now(),maxGap:0};window.__beatTimer=setInterval(()=>{const b=window.__beats,now=performance.now();if(['parsing','rendering'].includes(document.querySelector('.preview-body')?.dataset.loadPhase)){b.ticks++;b.maxGap=Math.max(b.maxGap,now-b.last);}b.last=now;},16);})()`);
     await c.check(win, 'workbook retry renders actual data', "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'&&!!document.querySelector('td[data-address=A1]')");
     const beats = await c.evaluate<{ticks:number;maxGap:number}>(win, 'window.__beats');
     await c.evaluate(win, 'clearInterval(window.__beatTimer)');
-    if (beats.ticks < 3 || beats.maxGap >= 600) throw Error('Background parse blocked UI heartbeat: '+JSON.stringify(beats));
+    if (firstBeats.ticks < 3 || firstBeats.maxGap >= 600 || beats.ticks < 3 || beats.maxGap >= 600) throw Error('Background parse blocked UI heartbeat: '+JSON.stringify({firstBeats,beats}));
     c.pass(path.extname(file)+' worker heartbeat '+JSON.stringify(beats));
     if (file === csv) await c.check(win, 'CSV worker preserves quoted commas and multiline values', "document.querySelector('td[data-address=B1]').textContent.includes('quoted, value')&&document.querySelector('td[data-address=C1]').textContent.includes('two\\nlines')");
     const last=file===xlsx?'L50000':'H100000',expected=file===xlsx?'599999':'100004';

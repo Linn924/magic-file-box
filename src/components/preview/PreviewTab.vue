@@ -35,7 +35,7 @@ function saveViewState() {
   }));
 }
 
-const { preview, phase, error, busy, label, elapsed, cancel, retry } = usePreviewLoad(props, loaded);
+const { preview, phase, error, busy, label, elapsed, retry } = usePreviewLoad(props, loaded);
 watch(() => props.active, active => { if (!active && preview.value) saveViewState(); }, { flush: 'sync' });
 onBeforeUnmount(()=>{
  saveViewState();
@@ -135,18 +135,11 @@ async function loaded() {
         <p>{{ error }}</p>
         <button v-if="!file.error" class="preview-retry" @click="retry">重新加载</button>
       </div>
-      <div v-else-if="phase === 'cancelled'" class="empty preview-cancelled" role="status">
-        <p>已取消加载</p>
-        <button class="preview-retry" @click="retry">重新加载</button>
-      </div>
       <div v-if="active && busy" class="loading" :class="{ 'loading-password': phase === 'password' }" role="status" aria-live="polite">
         <span v-if="phase !== 'password'" class="loading-spinner" aria-hidden="true"></span>
         <span>{{ label }}</span>
         <small v-if="elapsed >= 3 && phase !== 'password'" aria-live="off">已用 {{ elapsed }} 秒</small>
-        <div class="loading-actions">
-          <button v-if="elapsed >= 3 && phase !== 'password'" class="preview-retry" @click="retry">重新加载</button>
-          <button class="preview-cancel-load" @click="cancel">取消加载</button>
-        </div>
+        <button v-if="elapsed >= 10 && phase !== 'password'" class="preview-retry" @click="retry">重新加载</button>
       </div>
       <component
         v-if="preview"

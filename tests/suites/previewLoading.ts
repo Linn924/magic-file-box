@@ -5,33 +5,34 @@ import {fixtureInScope} from '../scope';
 const suite: Suite = async c => {
   for (const name of ['text.txt', 'data.json', 'document.docx', 'styled.xlsx', 'presentation.pptx', 'document.pdf', 'vector.svg'].filter(name=>fixtureInScope(c,name))) {
     holdPreviewResponses();
-    const win = await c.program.openPath(c.fixture(name));
+    let win = await c.program.openPath(c.fixture(name));
     try {
       await c.check(win, name + ' reports reading', "document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
       await c.check(win, name + ' shows a simple loading message without internal stages', "document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载…'&&!document.querySelector('.loading small,.loading .preview-retry')");
-      await c.check(win, 'loading cancel is visible and clickable in content center', `(()=>{
-        const body=document.querySelector('.preview-body').getBoundingClientRect(),card=document.querySelector('.loading').getBoundingClientRect(),button=document.querySelector('.preview-cancel-load'),b=button.getBoundingClientRect();
-        return Math.abs(card.left+card.width/2-body.left-body.width/2)<1&&Math.abs(card.top+card.height/2-body.top-body.height/2)<1&&button.contains(document.elementFromPoint(b.left+b.width/2,b.top+b.height/2));
+      await c.check(win, 'loading is centered without a cancel action', `(()=>{
+        const body=document.querySelector('.preview-body').getBoundingClientRect(),card=document.querySelector('.loading').getBoundingClientRect();
+        return Math.abs(card.left+card.width/2-body.left-body.width/2)<1&&Math.abs(card.top+card.height/2-body.top-body.height/2)<1&&!document.querySelector('.preview-cancel-load');
       })()`);
-      await c.check(win, 'loading button text is centered horizontally and vertically', "(()=>{const s=getComputedStyle(document.querySelector('.preview-cancel-load'));return /flex/.test(s.display)&&s.alignItems==='center'&&s.justifyContent==='center'&&s.textAlign==='center'})()");
       if (name === 'text.txt') {
-        await c.check(win, 'slow loading shows elapsed time and a direct reload action', "Number(document.querySelector('.loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=3&&!!document.querySelector('.loading .preview-retry')");
+        c.program.updateSettings({theme:'dark'});win.unmaximize();win.setContentSize(560,420);win.webContents.setZoomFactor(1.5);
+        await c.check(win, 'loading shows elapsed time after three seconds without actions', "Number(document.querySelector('.loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=3&&!document.querySelector('.loading button')");
+        await c.check(win, 'nine-second loading still has no reload action', "Number(document.querySelector('.loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])===9&&!document.querySelector('.loading button')");
+        await c.check(win, 'ten-second narrow loading shows only a reachable reload action', "(()=>{const el=document.querySelector('.loading .preview-retry');if(!el)return false;const b=el.getBoundingClientRect();return Number(document.querySelector('.loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=10&&document.querySelectorAll('.loading button').length===1&&document.documentElement.dataset.theme==='dark'&&b.top>=0&&b.bottom<=innerHeight&&el.contains(document.elementFromPoint(b.left+b.width/2,b.top+b.height/2))})()");
+        await c.check(win, 'reload button text stays centered', "(()=>{const s=getComputedStyle(document.querySelector('.preview-retry'));return /flex/.test(s.display)&&s.alignItems==='center'&&s.justifyContent==='center'&&s.textAlign==='center'})()");
+        await c.snapshot(win, 'preview-loading-reload-dark');
         await c.click(win, '.loading .preview-retry');
         await c.check(win, 'reloading an in-flight attempt resets its timer and keeps loading', "document.querySelector('.preview-body')?.dataset.loadPhase==='reading'&&!document.querySelector('.loading small,.loading .preview-retry')&&document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载…'");
-        c.program.updateSettings({theme:'dark'});win.unmaximize();win.setContentSize(560,420);win.webContents.setZoomFactor(1.5);
-        await c.check(win, 'narrow dark loading keeps cancel reachable', "(()=>{const el=document.querySelector('.preview-cancel-load'),b=el.getBoundingClientRect();return innerWidth<=560&&innerHeight<=420&&document.documentElement.dataset.theme==='dark'&&b.top>=0&&b.bottom<=innerHeight&&el.contains(document.elementFromPoint(b.left+b.width/2,b.top+b.height/2))})()");
-        await c.check(win, 'slow narrow loading keeps reload and cancel reachable together', "!!document.querySelector('.loading small,.loading .preview-retry')&&[...document.querySelectorAll('.loading button')].length===2&&[...document.querySelectorAll('.loading button')].every(el=>{const b=el.getBoundingClientRect();return b.top>=0&&b.bottom<=innerHeight&&el.contains(document.elementFromPoint(b.left+b.width/2,b.top+b.height/2))})");
-        await c.snapshot(win, 'preview-loading-cancel-dark');
         win.webContents.setZoomFactor(1);win.setContentSize(1000,700);c.program.updateSettings({theme:'light'});
+      }else{
+        await c.click(win,'.tab-close');
+        await c.pause(150);
+        if(!win.isDestroyed())throw Error('Closing the last loading tab did not close its window');
+        c.pass(name+' loading tab closes directly');
+        win=await c.program.openPath(c.fixture(name));
+        await c.check(win,name+' reopens with a fresh loading attempt',"document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
       }
-      await c.click(win, '.preview-cancel-load');
-      await c.check(win, name + ' cancellation keeps tab with retry', "!!document.querySelector('.tab')&&!!document.querySelector('.preview-cancelled .preview-retry')&&!document.querySelector('.loading')");
-      await c.check(win, 'retry button text stays centered', "(()=>{const s=getComputedStyle(document.querySelector('.preview-retry'));return /flex/.test(s.display)&&s.alignItems==='center'&&s.justifyContent==='center'&&s.textAlign==='center'})()");
-      releasePreviewResponses();
-      await c.pause(150);
-      await c.check(win, name + ' late bytes do not remount cancelled preview', "document.querySelector('.preview-body').dataset.loadPhase==='cancelled'&&!document.querySelector('.preview-content')");
       await c.evaluate(win, `(()=>{window.__loadPhases=[];window.__loadLabels=[];const body=document.querySelector('.preview-body');window.__loadObserver=new MutationObserver(()=>{window.__loadPhases.push(body.dataset.loadPhase);const text=body.querySelector('.loading > span:not(.loading-spinner)')?.textContent;if(text)window.__loadLabels.push(text);});window.__loadObserver.observe(body,{attributes:true,attributeFilter:['data-load-phase'],subtree:true,childList:true,characterData:true});})()`);
-      await c.click(win, '.preview-retry');
+      releasePreviewResponses();
       await c.check(win, name + ' retry reaches ready', "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'&&!document.querySelector('.loading,.error')");
       await c.check(win, name + ' reports parsing and rendering', "window.__loadPhases.includes('parsing')&&window.__loadPhases.includes('rendering')");
       await c.check(win, name + ' keeps one user-facing message through parsing and display', "window.__loadLabels.length>0&&window.__loadLabels.every(label=>label==='正在加载…')");
@@ -41,12 +42,20 @@ const suite: Suite = async c => {
   holdPreviewResponses();
   const tabs=(await c.program.openPaths([c.fixture('text.txt'),c.fixture('data.json')],'tabs'))[0];
   await c.check(tabs,'active tab starts reading',"document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
-  await c.click(tabs,'.tab .tab-name','data.json');
+  await c.click(tabs,'.tab.active .tab-close');
+  await c.check(tabs,'closing a loading tab leaves the other tab available',"document.querySelectorAll('.tab').length===1&&document.querySelector('.tab-name').textContent==='data.json'");
   releasePreviewResponses();
-  await c.check(tabs,'switching tabs cancels hidden load and finishes active file',"document.querySelector('[data-file-id]:not([style*=none]) .preview-body')?.dataset.loadPhase==='ready'");
-  await c.click(tabs,'.tab .tab-name','text.txt');
-  await c.check(tabs,'returning to an interrupted tab starts a fresh load',"[...document.querySelectorAll('.preview-tab')].find(t=>t.getClientRects().length)?.querySelector('.preview-body').dataset.loadPhase==='ready'");
+  await c.check(tabs,'late response cannot resurrect the closed tab',"document.querySelector('.preview-body')?.dataset.loadPhase==='ready'&&document.querySelectorAll('.preview-tab').length===1&&!document.body.textContent.includes('text.txt')");
   c.close(tabs);
+  holdPreviewResponses();
+  const switching=(await c.program.openPaths([c.fixture('text.txt'),c.fixture('data.json')],'tabs'))[0];
+  await c.check(switching,'switching fixture starts reading',"document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
+  await c.click(switching,'.tab .tab-name','data.json');
+  releasePreviewResponses();
+  await c.check(switching,'switching tabs cancels hidden load and finishes active file',"document.querySelector('[data-file-id]:not([style*=none]) .preview-body')?.dataset.loadPhase==='ready'");
+  await c.click(switching,'.tab .tab-name','text.txt');
+  await c.check(switching,'returning to an interrupted tab starts a fresh load',"[...document.querySelectorAll('.preview-tab')].find(t=>t.getClientRects().length)?.querySelector('.preview-body').dataset.loadPhase==='ready'");
+  c.close(switching);
   holdPreviewResponses();
   const closing=await c.program.openPath(c.fixture('text.txt'));
   await c.check(closing,'close during reading starts with a task',"!!document.querySelector('.loading')");
@@ -60,13 +69,16 @@ const suite: Suite = async c => {
   const fileId = await c.evaluate<string>(owner, "document.querySelector('.preview-tab').dataset.fileId");
   await c.evaluate(owner, `window.__parserLease=window.localPreview.acquirePreviewParser(${JSON.stringify(fileId)},'held-parser')`);
   const queuedFile='styled.xlsx';
-  const queued = await c.program.openPath(c.fixture(queuedFile));
+  let queued = await c.program.openPath(c.fixture(queuedFile));
   await c.check(queued, 'global parser slot queues another window', "document.querySelector('.preview-body')?.dataset.loadPhase==='queued'");
   await c.check(queued, 'queued work uses the same loading message', "document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载…'");
-  await c.click(queued, '.preview-cancel-load');
+  await c.click(queued, '.tab-close');
+  await c.pause(150);
+  if(c.program.previewResourceStats().parsers!==1)throw Error('Closed queued tab retained its parser registration');
+  queued=await c.program.openPath(c.fixture(queuedFile));
+  await c.check(queued,'closed queued file can be reopened',"document.querySelector('.preview-body')?.dataset.loadPhase==='queued'");
   await c.evaluate(owner, "window.localPreview.releasePreviewParser('held-parser')");
-  await c.click(queued, '.preview-retry');
-  await c.check(queued, 'queued cancellation releases its place and retry works', "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'");
+  await c.check(queued, 'closing queued tab releases its place and reopening works', "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'");
   c.close(queued);
   await c.evaluate(owner, `window.__parserLease=window.localPreview.acquirePreviewParser(${JSON.stringify(fileId)},'closed-owner')`);
   const next = await c.program.openPath(c.fixture(fixtureInScope(c,'table.csv')?'table.csv':'presentation.pptx'));

@@ -1,4 +1,4 @@
-import {ref,shallowRef,onMounted,onBeforeUnmount,nextTick} from 'vue';
+import {ref,shallowRef,onMounted,onBeforeUnmount,nextTick,watch} from 'vue';
 import type {PreviewFile} from '@shared/files';
 import type {SourceInfo,SourcePage,SourceRequest} from '@shared/fileSource';
 import {openFileSource,fileSourceError} from '@/services/fileSource';
@@ -8,10 +8,12 @@ export function useSourceRecords(file:PreviewFile,emit:(event:'ready'|'error',me
   const task=usePreviewTask(),info=shallowRef<SourceInfo>(),page=shallowRef<SourcePage>();
   const busy=ref(false),error=ref(''),query=ref(''),queryNotice=ref(''),start=ref(file.view?.source?.start??0),column=ref(file.view?.source?.column??0),sheet=ref(file.view?.source?.sheet??''),encoding=ref(file.view?.source?.encoding??'');
   const ready=ref(false);
+  const elapsed=ref(0);let clock:ReturnType<typeof setInterval>|undefined;
+  watch(busy,loading=>{clearInterval(clock);clock=undefined;elapsed.value=0;if(loading){const started=performance.now();clock=setInterval(()=>{elapsed.value=Math.floor((performance.now()-started)/1000);},1000);}},{flush:'sync'});
   let controller:AbortController|undefined,session:Awaited<ReturnType<typeof openFileSource>>|undefined,revision=0,disposed=false,lastQuery='';
   const previousStarts:number[]=[];
   const stop=()=>{revision++;controller?.abort();controller=undefined;void session?.close();session=undefined;busy.value=false;};
-  const cancel=()=>{stop();queryNotice.value='已停止读取，可继续查看当前内容或重新加载。';};
+  const retry=()=>{stop();void load();};
   const lifetime=()=>stop();task.signal.addEventListener('abort',lifetime,{once:true});
   async function load(request:Partial<SourceRequest>={}){
     if(busy.value||disposed)return;const current=++revision;busy.value=true;error.value='';queryNotice.value='';
@@ -37,6 +39,6 @@ export function useSourceRecords(file:PreviewFile,emit:(event:'ready'|'error',me
   function changeColumn(delta:number){column.value=Math.max(0,Math.min(16360,column.value+delta));void load();}
   function changeEncoding(){stop();start.value=0;previousStarts.length=0;lastQuery='';void load({start:0});}
   onMounted(()=>{void load();});
-  onBeforeUnmount(()=>{disposed=true;stop();task.signal.removeEventListener('abort',lifetime);});
-  return {info,page,busy,ready,error,query,queryNotice,start,column,sheet,encoding,load,cancel,next,previous,find,changeSheet,changeColumn,changeEncoding};
+  onBeforeUnmount(()=>{disposed=true;stop();clearInterval(clock);task.signal.removeEventListener('abort',lifetime);});
+  return {info,page,busy,ready,elapsed,error,query,queryNotice,start,column,sheet,encoding,load,retry,next,previous,find,changeSheet,changeColumn,changeEncoding};
 }

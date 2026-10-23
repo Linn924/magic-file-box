@@ -6,7 +6,7 @@ import SourceAsset from './SourceAsset.vue';
 const props=withDefaults(defineProps<PreviewProps&{layout:'text'|'table'|'document';notice:string;search?:boolean}>(),{search:true});
 const emit=defineEmits<{ready:[];error:[message:string]}>();
 const state=useSourceRecords(props.file,(event,message)=>event==='ready'?emit('ready'):emit('error',message!));
-const {info,page,busy,ready,error,query,queryNotice,start,column,sheet,encoding}=state;
+const {info,page,busy,ready,elapsed,error,query,queryNotice,start,column,sheet,encoding}=state;
 const jump=ref((props.file.view?.source?.start??0)+1),scroll=ref<HTMLElement>();
 const columns=computed(()=>Array.from({length:Math.min(40,Math.max(1,(page.value?.columns??1)-column.value))},(_,i)=>column.value+i));
 function colName(index:number){let text='';for(let n=index+1;n;n=Math.floor((n-1)/26))text=String.fromCharCode(65+(n-1)%26)+text;return text;}
@@ -51,7 +51,7 @@ async function load(){await state.load({start:Math.max(0,Math.floor(Number(jump.
         <table v-if="layout==='table'" class="source-table preview-content"><thead><tr><th>行</th><th v-for="col in columns" :key="col">{{colName(col)}}</th></tr></thead><tbody><tr v-for="row in rendered" :key="row.index" :data-source-row="row.index"><th>{{row.index+1}}</th><td v-for="(parts,index) in row.marked" :key="index"><template v-for="(part,n) in parts" :key="n"><mark v-if="part.hit">{{part.text}}</mark><template v-else>{{part.text}}</template></template></td></tr></tbody></table>
         <div v-else class="source-document preview-content"><div v-for="row in rendered" :key="row.index" class="source-record" :data-source-row="row.index" :class="{'source-heading':row.level}" :style="row.level?{fontSize:(1.8-Math.min(row.level,6)*.12)+'em',fontWeight:600}:undefined"><small v-if="layout==='text'" class="source-line">{{row.continued?'↳':row.line??row.index+1}}</small><span class="source-record-text"><template v-for="(part,n) in row.marked[0]" :key="n"><mark v-if="part.hit">{{part.text}}</mark><template v-else>{{part.text}}</template></template></span><small v-if="row.assetWarning" class="source-asset-warning" role="status">{{row.assetWarning}}</small><SourceAsset v-for="url in row.assets" :key="url" :url="url" :file-id="file.id" /></div></div>
       </div>
-      <div v-if="busy && ready" class="loading source-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span><span>正在加载…</span><button class="preview-cancel-load" @click="state.cancel">取消加载</button></div>
+      <div v-if="busy && ready" class="loading source-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span><span>正在加载…</span><small v-if="elapsed >= 3" aria-live="off">已用 {{elapsed}} 秒</small><button v-if="elapsed >= 10" class="preview-retry" @click="state.retry">重新加载</button></div>
     </div>
     <footer class="source-controls source-footer">
       <button :disabled="busy||start===0" @click="state.previous">上一段</button><button :disabled="busy||!page?.more" @click="state.next">下一段</button>

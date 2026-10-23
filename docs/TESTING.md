@@ -62,7 +62,7 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 
 记录首屏耗时、主进程实际范围读取量以及应用进程 working set 之和（50 ms 采样），结果存 outputs/verification/source-measurements.json；未清空文件系统缓存，只进行合成样例测量，工作集之和可能重复统计共享页。断言非图片首屏读取少于 16 MiB、最大单次范围 1 MiB、同时实际读取不超过 8、记录 DOM 最多 100 行，另核对实际 CSV 字段、PDF 画布、图片像素及所有源文件 SHA256。
 
-`sourcelifecycle` 复用或生成大文本和最小样例，检查闲置卸载后恢复、跨窗口移交的逻辑位置、跨显示分段搜索高亮、内嵌图片实际绘制、大图片排队取消/重试和旋转比例、外部修改后拒绝读取、跨窗口 token/图片 URL 隔离、关闭后 URL 撤销、非法范围与超像素拒绝、重载后的会话和句柄释放。此专项结束必须确认 sourceSessions/sourceHandles/sourceReads 为零。
+`sourcelifecycle` 复用或生成大文本和最小样例，检查闲置卸载后恢复、跨窗口移交的逻辑位置、跨显示分段搜索高亮、内嵌图片实际绘制、大图片排队时关闭标签/重新打开和旋转比例、外部修改后拒绝读取、跨窗口 token/图片 URL 隔离、关闭后 URL 撤销、非法范围与超像素拒绝、重载后的会话和句柄释放。此专项结束必须确认 sourceSessions/sourceHandles/sourceReads 为零。
 
 相关回归：core、loading、word、ppt、pdf、text、image、immersive、excel、excelbackground；共享读取/输出链路补 printing、nonpdfprinting、pdfchain。编辑逻辑未变时不机械扩大到所有编辑专项。本次验证不包含真实安装、实体打印或所有 Office 复杂排版。
 
@@ -103,15 +103,15 @@ openHomeAction 覆盖缺省及旧配置回退为 ask、tray/keep 合法值、非
 
 系统模态选择框在测试中替换返回值，以便自动化；真实对话框文案、按钮位置、托盘菜单操作还应按下方手工流程检查。
 
-### loading：统一加载、取消与重试
+### loading：统一加载、关闭与重试
 
-文件：`tests/suites/previewLoading.ts`、`tests/previewLoadDriver.ts`。测试执行器在单独测试偏好下暂缓已完成的读取响应，验证各格式内部阶段继续流转但只显示“正在加载…”，超过 3 秒显示耗时与重新加载入口，在途重载重置计时并隔离迟到响应；检查居中提示、取消按钮可命中及文字居中、窄窗口/深色/150% 缩放时重载和取消同时可达、取消保留标签、旧响应不重挂载、重试和错误重试、标签切换及读取中关闭。读取本身的真实中止、共享消费者保留和取消后新读取由 tests/unit.ts 验证，延迟响应不能代替这些断言。跨窗口检查单解析名额、排队取消、关闭持有者后的队列推进和外部文件身份拒绝；结束检查任务登记归零。PDF 密码取消及共享文档取消分别由 pdfchain 与 optimization.ts 覆盖。
+文件：`tests/suites/previewLoading.ts`、`tests/previewLoadDriver.ts`。测试执行器在单独测试偏好下暂缓已完成的读取响应，验证各格式内部阶段继续流转但只显示“正在加载…”，超过 3 秒显示耗时、第 9 秒仍无操作、第 10 秒出现唯一的重新加载按钮；在途重载重置计时并隔离迟到响应。检查居中提示、窄窗口/深色/150% 缩放时重载可达和文字居中、加载中直接关闭标签、迟到响应不重挂载、重新打开和错误重试、标签切换。读取本身的真实中止、共享消费者保留和取消后新读取由 tests/unit.ts 验证，延迟响应不能代替这些断言。跨窗口检查单解析名额、关闭排队标签、关闭持有者后的队列推进和外部文件身份拒绝；结束检查任务登记归零。PDF 密码等待中关闭及共享文档取消分别由 pdfchain 与 optimization.ts 覆盖。
 
-仅修改加载提示文案/布局时运行 loading；记录分段或按需图片的提示另以 sources 限定 text,image 验证。加载状态机、读取和模块生命周期实际改变时，再按影响补充上方 core 所述的格式与输出专项。
+仅修改加载提示文案/布局时运行 loading；记录分段的耗时/重载以 sources 限定 text,image 验证（暂缓 source:page 已完成响应，检查 10 秒入口、重载保留当前内容及迟到查询隔离）。移除取消入口时补 excelbackground、pdfchain、sourcelifecycle，分别验证在途 Worker、密码及大图片通过关闭标签释放并可重开。加载状态机、读取和模块生命周期实际改变时，再按影响补充上方 core 所述的格式与输出专项。
 
 ### excelbackground：后台表格解析
 
-文件：`src/modules/excel/tests/background.ts`。生成 50000×12 XLSX 与含引号逗号/跨行字段的 100000 行 CSV，验证真实解析期间界面计时器持续运行、取消在途 Worker、释放队列名额并重试至实际单元格。记录解析/准备显示阶段的计时器最大间隔（低于 600 ms），不将该测量称为总打开耗时或所有文件性能保证。生成样例前后核对 SHA256；现有 excel 与 exceledit 检查样式、图片、富文本、行列、工作表、编辑与另存行为。loadWorkbookUnit.ts 另核对可克隆显示模型中的空白样式、隐藏行列、图片锚点及样式降级。
+文件：`src/modules/excel/tests/background.ts`。生成 50000×12 XLSX 与含引号逗号/跨行字段的 100000 行 CSV，验证真实解析期间界面计时器持续运行、关闭加载标签中止在途 Worker、释放队列名额并重新打开至实际单元格。记录解析/准备显示阶段的计时器最大间隔（低于 600 ms），不将该测量称为总打开耗时或所有文件性能保证。生成样例前后核对 SHA256；现有 excel 与 exceledit 检查样式、图片、富文本、行列、工作表、编辑与另存行为。loadWorkbookUnit.ts 另核对可克隆显示模型中的空白样式、隐藏行列、图片锚点及样式降级。
 
 `src/modules/excel/tests/editingContext.ts` 为编辑专项共用的历史操作等待入口：撤销/重做可能通过后台重新安装工作簿，必须等到编辑保存门禁恢复后再执行下一步，原有数据、样式、选择与副本断言继续执行，不能用固定暂停代替事务完成。
 

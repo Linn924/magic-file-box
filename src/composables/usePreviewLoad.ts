@@ -93,11 +93,6 @@ export function usePreviewLoad(props: Props, restoreView: () => void) {
       if (current(run)) fail(run, previewError(cause, '文件'));
     }
   }
-  function cancel() {
-    if (!busy.value) return;
-    stop(); cacheDrop(props.file.id);
-    phase.value = 'cancelled';
-  }
   function retry() {
     stop(); cacheDrop(props.file.id); phase.value = 'idle';
     void load();
@@ -125,5 +120,5 @@ export function usePreviewLoad(props: Props, restoreView: () => void) {
     }
   });
   onBeforeUnmount(() => { disposed = true; clearTimeout(idleTimer); stop(); cacheDrop(props.file.id); });
-  return { preview, phase, error, busy, label, elapsed, cancel, retry };
+  return { preview, phase, error, busy, label, elapsed, retry };
 }

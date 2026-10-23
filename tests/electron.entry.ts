@@ -72,7 +72,7 @@ const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
 const formatIndex=process.argv.indexOf('--formats'),formats=formatIndex<0?undefined:new Set((process.argv[formatIndex+1]||'').split(','));
 if(formats&&[...formats].some(value=>!testFormats.includes(value as typeof testFormats[number])))throw Error('未知文件类型筛选。');
 if(requested==='all'||requested.split(',').includes('updates'))installUpdateTestDriver();
-if(requested==='all'||requested.split(',').includes('loading'))installPreviewLoadDriver();
+if(requested==='all'||requested.split(',').some(name=>['loading','sources'].includes(name)))installPreviewLoadDriver();
 const program =
   require("../electron-dist/main.cjs") as typeof import("../electron/main");
 const results: string[] = [];
