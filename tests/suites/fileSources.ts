@@ -34,6 +34,7 @@ const suite:Suite=async c=>{
         await c.check(win,'jump reaches requested logical record',"document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'&&!document.querySelector('.source-loading')");
         await c.evaluate(win,"(()=>{const input=document.querySelector('[aria-label=大文件查找]');input.value='not-present-local-test';input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));})()");
         await c.check(win,'background scan is cancellable',"!!document.querySelector('.source-loading .preview-cancel-load')");
+        await c.check(win,'record loading uses the simple loading message',"document.querySelector('.source-loading > span:not(.loading-spinner)')?.textContent==='正在加载…'");
         await c.click(win,'.source-loading .preview-cancel-load');
         await c.check(win,'cancel retains already displayed records',"!document.querySelector('.source-loading')&&document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'");
         await c.click(win,'.source-footer button','下一段');

@@ -8,14 +8,19 @@ const suite: Suite = async c => {
     const win = await c.program.openPath(c.fixture(name));
     try {
       await c.check(win, name + ' reports reading', "document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
+      await c.check(win, name + ' shows a simple loading message without internal stages', "document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载…'&&!document.querySelector('.loading small,.loading .preview-retry')");
       await c.check(win, 'loading cancel is visible and clickable in content center', `(()=>{
         const body=document.querySelector('.preview-body').getBoundingClientRect(),card=document.querySelector('.loading').getBoundingClientRect(),button=document.querySelector('.preview-cancel-load'),b=button.getBoundingClientRect();
         return Math.abs(card.left+card.width/2-body.left-body.width/2)<1&&Math.abs(card.top+card.height/2-body.top-body.height/2)<1&&button.contains(document.elementFromPoint(b.left+b.width/2,b.top+b.height/2));
       })()`);
       await c.check(win, 'loading button text is centered horizontally and vertically', "(()=>{const s=getComputedStyle(document.querySelector('.preview-cancel-load'));return /flex/.test(s.display)&&s.alignItems==='center'&&s.justifyContent==='center'&&s.textAlign==='center'})()");
       if (name === 'text.txt') {
+        await c.check(win, 'slow loading shows elapsed time and a direct reload action', "Number(document.querySelector('.loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=3&&!!document.querySelector('.loading .preview-retry')");
+        await c.click(win, '.loading .preview-retry');
+        await c.check(win, 'reloading an in-flight attempt resets its timer and keeps loading', "document.querySelector('.preview-body')?.dataset.loadPhase==='reading'&&!document.querySelector('.loading small,.loading .preview-retry')&&document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载…'");
         c.program.updateSettings({theme:'dark'});win.unmaximize();win.setContentSize(560,420);win.webContents.setZoomFactor(1.5);
         await c.check(win, 'narrow dark loading keeps cancel reachable', "(()=>{const el=document.querySelector('.preview-cancel-load'),b=el.getBoundingClientRect();return innerWidth<=560&&innerHeight<=420&&document.documentElement.dataset.theme==='dark'&&b.top>=0&&b.bottom<=innerHeight&&el.contains(document.elementFromPoint(b.left+b.width/2,b.top+b.height/2))})()");
+        await c.check(win, 'slow narrow loading keeps reload and cancel reachable together', "!!document.querySelector('.loading small,.loading .preview-retry')&&[...document.querySelectorAll('.loading button')].length===2&&[...document.querySelectorAll('.loading button')].every(el=>{const b=el.getBoundingClientRect();return b.top>=0&&b.bottom<=innerHeight&&el.contains(document.elementFromPoint(b.left+b.width/2,b.top+b.height/2))})");
         await c.snapshot(win, 'preview-loading-cancel-dark');
         win.webContents.setZoomFactor(1);win.setContentSize(1000,700);c.program.updateSettings({theme:'light'});
       }
@@ -25,10 +30,11 @@ const suite: Suite = async c => {
       releasePreviewResponses();
       await c.pause(150);
       await c.check(win, name + ' late bytes do not remount cancelled preview', "document.querySelector('.preview-body').dataset.loadPhase==='cancelled'&&!document.querySelector('.preview-content')");
-      await c.evaluate(win, `(()=>{window.__loadPhases=[];const body=document.querySelector('.preview-body');window.__loadObserver=new MutationObserver(()=>window.__loadPhases.push(body.dataset.loadPhase));window.__loadObserver.observe(body,{attributes:true,attributeFilter:['data-load-phase']});})()`);
+      await c.evaluate(win, `(()=>{window.__loadPhases=[];window.__loadLabels=[];const body=document.querySelector('.preview-body');window.__loadObserver=new MutationObserver(()=>{window.__loadPhases.push(body.dataset.loadPhase);const text=body.querySelector('.loading > span:not(.loading-spinner)')?.textContent;if(text)window.__loadLabels.push(text);});window.__loadObserver.observe(body,{attributes:true,attributeFilter:['data-load-phase'],subtree:true,childList:true,characterData:true});})()`);
       await c.click(win, '.preview-retry');
       await c.check(win, name + ' retry reaches ready', "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'&&!document.querySelector('.loading,.error')");
       await c.check(win, name + ' reports parsing and rendering', "window.__loadPhases.includes('parsing')&&window.__loadPhases.includes('rendering')");
+      await c.check(win, name + ' keeps one user-facing message through parsing and display', "window.__loadLabels.length>0&&window.__loadLabels.every(label=>label==='正在加载…')");
       await c.evaluate(win, 'window.__loadObserver.disconnect()');
     } finally { releasePreviewResponses(); c.close(win); }
   }
@@ -56,6 +62,7 @@ const suite: Suite = async c => {
   const queuedFile='styled.xlsx';
   const queued = await c.program.openPath(c.fixture(queuedFile));
   await c.check(queued, 'global parser slot queues another window', "document.querySelector('.preview-body')?.dataset.loadPhase==='queued'");
+  await c.check(queued, 'queued work uses the same loading message', "document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载…'");
   await c.click(queued, '.preview-cancel-load');
   await c.evaluate(owner, "window.localPreview.releasePreviewParser('held-parser')");
   await c.click(queued, '.preview-retry');

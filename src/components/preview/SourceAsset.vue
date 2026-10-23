@@ -8,7 +8,7 @@ const root=ref<HTMLElement>(),canvas=ref<HTMLCanvasElement>(),status=ref('图片
 const task=usePreviewTask();let observer:IntersectionObserver|undefined,visible=false,disposed=false,serial=0,image:HTMLImageElement|undefined,rejectImage:((error:Error)=>void)|undefined,lease:string|undefined,reservation:ReturnType<typeof reserveSourcePixels>|undefined;
 function clear(){serial++;rejectImage?.(new DOMException('已取消图片读取。','AbortError'));rejectImage=undefined;if(image){image.onload=null;image.onerror=null;image.src='';image=undefined;}if(lease){void window.localPreview.releasePreviewParser(lease).catch(()=>{});lease=undefined;}reservation?.release();reservation=undefined;if(canvas.value){canvas.value.width=1;canvas.value.height=1;}}
 async function load(){
-  if(disposed||!visible)return;clear();const generation=serial,token=crypto.randomUUID();lease=token;status.value='正在读取图片…';
+  if(disposed||!visible)return;clear();const generation=serial,token=crypto.randomUUID();lease=token;status.value='正在加载…';
   try{
     task.signal.throwIfAborted();
     if(!await window.localPreview.acquirePreviewParser(props.fileId,token))return;

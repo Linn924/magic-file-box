@@ -143,7 +143,10 @@ async function loaded() {
         <span v-if="phase !== 'password'" class="loading-spinner" aria-hidden="true"></span>
         <span>{{ label }}</span>
         <small v-if="elapsed >= 3 && phase !== 'password'" aria-live="off">已用 {{ elapsed }} 秒</small>
-        <button class="preview-cancel-load" @click="cancel">取消加载</button>
+        <div class="loading-actions">
+          <button v-if="elapsed >= 3 && phase !== 'password'" class="preview-retry" @click="retry">重新加载</button>
+          <button class="preview-cancel-load" @click="cancel">取消加载</button>
+        </div>
       </div>
       <component
         v-if="preview"

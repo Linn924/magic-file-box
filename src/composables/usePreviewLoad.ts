@@ -1,6 +1,6 @@
 import { computed, nextTick, onBeforeUnmount, onErrorCaptured, onMounted, provide, ref, shallowRef, watch } from 'vue';
 import type { PreviewFile } from '@shared/files';
-import type { PreviewLoadPhase, PreviewLoadStage } from '@shared/previewLoading';
+import type { PreviewLoadPhase } from '@shared/previewLoading';
 import { previewError } from '@shared/previewError';
 import { cacheDrop, cacheGet, cachePut } from '@/services/fileContentCache';
 import { waitForFileEdits } from '@/services/pendingEdits';
@@ -24,11 +24,7 @@ export function usePreviewLoad(props: Props, restoreView: () => void) {
   let clock: ReturnType<typeof setInterval> | undefined;
   let visibility = 0;
   const busy = computed(() => ['reading', 'queued', 'parsing', 'rendering', 'password'].includes(phase.value));
-  const labels: Record<PreviewLoadStage, string> = {
-    reading: '正在读取文件…', queued: '等待其他文件解析…', parsing: '正在解析文件…',
-    rendering: '正在准备显示…', password: '等待输入密码',
-  };
-  const label = computed(() => busy.value ? labels[phase.value as PreviewLoadStage] : '');
+  const label = computed(() => busy.value ? phase.value === 'password' ? '等待输入密码' : '正在加载…' : '');
   function current(run: Attempt) { return !disposed && attempt === run && !run.controller.signal.aborted; }
   provide(previewTaskKey, () => {
     const run = attempt;
@@ -103,7 +99,6 @@ export function usePreviewLoad(props: Props, restoreView: () => void) {
     phase.value = 'cancelled';
   }
   function retry() {
-    if (busy.value) return;
     stop(); cacheDrop(props.file.id); phase.value = 'idle';
     void load();
   }

@@ -24,6 +24,7 @@
 }
 
 .loading small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.loading-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
 .preview-cancel-load, .preview-retry {
   display: inline-flex;
   align-items: center;
