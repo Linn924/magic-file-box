@@ -256,10 +256,6 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
     <footer class="sheet-footer">
       <span v-if="editor.editing.value" class="excel-selection-summary" aria-live="polite">{{grid.rangeLabel.value}}</span><nav class="sheets" aria-label="工作表"><button v-for="name in visibleSheets" :key="name" :class="{active:name===sheetName}" :title="name" :disabled="editor.saving.value" @pointerdown="sheetPointer($event,name)" @click="selectSheet(name)">{{name}}</button></nav>
       <SheetTools v-if="editor.editing.value" :file-id="file.id" :book="book" :sheet="sheetName" :disabled="editor.saving.value" :prepare="prepareSheets" :apply="editor.manageSheet" :message="editor.error.value"/>
-      <span
-        >{{ rowCount.toLocaleString() }} 行 ·
-        {{ colCount.toLocaleString() }} 列</span
-      >
       <div v-if="colCount > pageCols">
         <button :disabled="colPage === 0" @click="colPage--">
           前 {{ pageCols }} 列</button
@@ -269,6 +265,7 @@ watch([editor.address,editor.selectedSheet],()=>{locateRef.value=editor.address.
         </button>
       </div>
     </footer>
+    <Teleport :to="`[data-file-id='${file.id}'] .file-details`" defer><span class="sheet-dimensions" :title="rowCount.toLocaleString()+' 行 · '+colCount.toLocaleString()+' 列'">{{rowCount.toLocaleString()}} 行 · {{colCount.toLocaleString()}} 列</span></Teleport>
     <div v-if="grid.menu.value" class="excel-context-menu" role="menu" aria-label="单元格操作" :style="{left:grid.menu.value.x+'px',top:grid.menu.value.y+'px'}" @keydown="menuKey">
       <button role="menuitem" data-action="edit" title="编辑单元格（F2）" @click="grid.select(editor.address.value,true)"><ExcelIcon name="edit" />编辑单元格 <small>F2</small></button>
       <button role="menuitem" data-action="cut" title="剪切（Ctrl+X）" @click="grid.copy(true)"><ExcelIcon name="cut" />剪切 <small>Ctrl+X</small></button>

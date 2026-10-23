@@ -1,6 +1,7 @@
 import {defaultCodeAppearance,normalizeCodeAppearance,type CodeAppearance} from './codeAppearance';
 export type Theme = "light" | "dark" | "system";
 export type PrintEntry = "all" | "current" | "none";
+export type NotificationDuration = 'always'|'5s';
 export interface Settings {
   theme: Theme;
   closeAction: "ask" | "quit" | "tray";
@@ -10,6 +11,7 @@ export interface Settings {
   maximizePreview: boolean;
   printEntry: PrintEntry;
   checkUpdatesOnStart:boolean;
+  notificationDuration:NotificationDuration;
   codeAppearance:CodeAppearance;
 }
 export const defaults: Settings = {
@@ -21,6 +23,7 @@ export const defaults: Settings = {
   maximizePreview: true,
   printEntry: "all",
   checkUpdatesOnStart:true,
+  notificationDuration:'always',
   codeAppearance:defaultCodeAppearance(),
 };
 export function normalizeSettings(
@@ -53,6 +56,7 @@ export function normalizeSettings(
       ? input.printEntry!
       : base.printEntry,
     checkUpdatesOnStart:typeof input.checkUpdatesOnStart==='boolean'?input.checkUpdatesOnStart:base.checkUpdatesOnStart,
+    notificationDuration:['always','5s'].includes(input.notificationDuration??'')?input.notificationDuration!:base.notificationDuration,
     codeAppearance:normalizeCodeAppearance(input.codeAppearance,base.codeAppearance),
   };
 }

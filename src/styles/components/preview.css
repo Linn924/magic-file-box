@@ -91,6 +91,12 @@
   color: var(--muted);
 }
 
+.badge:has(.file-format-label)>.file-extension{display:none}
+.file-details{display:flex;align-items:center;gap:12px;min-width:0;max-width:50%;font-size:11px;color:var(--muted)}
+.file-details:empty,.file-details>:empty{display:none}
+.file-details>*{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.file-details>.syntax-status{margin:0;font-size:inherit}
+
 .zoom-control {
   flex-shrink:0;
   display: flex;

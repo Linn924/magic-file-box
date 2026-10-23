@@ -6,9 +6,11 @@ import PreviewTab from '@/components/preview/PreviewTab.vue';
 import SettingsPanel from '@/components/settings';
 import UpdateCenter from '@/components/updates';
 import NotificationStack from '@/components/ui/NotificationStack.vue';
+import {provideNotificationPolicy} from '@/composables/useNotificationTimeout';
 const {effect} = useExclusive();
 const {isPreview, immersive, files, active, updateLocked, settings, showSettings, error, dragging, tabStrip,
   select, openFiles, enter, leave, drop, startDrag, endDrag, dropTab, closeTab, selectTab, onTabsWheel, save} = useApplication();
+provideNotificationPolicy(()=>settings.value.notificationDuration,()=>showSettings.value||immersive.value||updateLocked.value);
 </script>
 <template>
   <main

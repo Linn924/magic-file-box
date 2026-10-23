@@ -50,9 +50,9 @@ const suite: Suite = async c => {
       await c.check(win, 'all settings load together', "!!document.querySelector('.appearance-open') && !!document.querySelector('.exclusive-status') && !!document.querySelector('.update-check')");
       assert.deepEqual(await c.evaluate(win, "[...document.querySelectorAll('.settings-nav button')].map(b=>b.getAttribute('aria-controls'))"), groups.map(id => 'settings-' + id));
       assert.deepEqual(await c.evaluate(win, "[...document.querySelectorAll('.settings-content > .settings-group')].map(s=>s.id)"), groups.map(id => 'settings-' + id));
-      const fieldGroups = await c.evaluate(win, "Object.fromEntries(['theme','open-home-action','close-action','multi-mode','default-zoom','maximize','print-entry','check-updates','exclusive-key'].map(id=>[id,document.getElementById(id).closest('.settings-group').id]))");
+      const fieldGroups = await c.evaluate(win, "Object.fromEntries(['theme','notification-duration','open-home-action','close-action','multi-mode','default-zoom','maximize','print-entry','check-updates','exclusive-key'].map(id=>[id,document.getElementById(id).closest('.settings-group').id]))");
       assert.deepEqual(fieldGroups, {
-        theme: 'settings-appearance', 'open-home-action': 'settings-windows', 'close-action': 'settings-windows',
+        theme: 'settings-appearance', 'notification-duration':'settings-appearance', 'open-home-action': 'settings-windows', 'close-action': 'settings-windows',
         'multi-mode': 'settings-windows', 'default-zoom': 'settings-windows', maximize: 'settings-windows',
         'print-entry': 'settings-printing', 'check-updates': 'settings-updates', 'exclusive-key': 'settings-exclusive',
       });

@@ -35,7 +35,7 @@ const suite:Suite=async c=>{
        win.setContentSize(720,640);await c.pause(100);await c.check(win,`${name}: resized query stays within preview bounds`,"(()=>{const a=document.querySelector('.preview-floating-panel').getBoundingClientRect(),b=document.querySelector('.floating-tools').getBoundingClientRect();return a.left>=b.left&&a.right<=b.right+1&&a.top>=b.top&&a.bottom<=b.bottom+1})()");win.setContentSize(960,640);await c.pause(80);
       }
      }
-     if(name==='vector.svg')await c.check(win,'image status is displayed once in footer',"!document.querySelector('.actbar .image-fit-label')&&document.querySelectorAll('.image-fit-label').length===1");
+     if(name==='vector.svg')await c.check(win,'image status is displayed once in the file information header',"!document.querySelector('.actbar .image-fit-label,.image-pane .pane-footer')&&document.querySelectorAll('.idbar .image-fit-label').length===1");
     }
     if(name==='document.pdf')await c.click(win,'.pdf-search-toggle');
     if(name==='data.json')await c.click(win,'.text-search-toggle');

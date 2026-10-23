@@ -254,6 +254,12 @@ PreviewPanel 将浮窗挂到所属标签的 floating-tools 层，位置与查询
 
 手动关闭按提示键与文字记录在 PreviewFile.view.dismissedPreviewNotices 中，最多 64 项，只在内存会话保留；切换、压力淘汰与移交沿用，重新打开文件产生新会话。不同新提示可再次显示，条件消失后移除对应信息。关闭按钮获得过焦点时返回当前 preview-body，preventScroll 保持阅读位置。预览与更新通知共享排列容器，窄窗口可滚动，避免两个独立 fixed 卡片重叠；设置、沉浸、重启准备及 PDF 演示期间隐藏，不写偏好或路径历史。
 
+Settings.notificationDuration 仅接受 always/5s，缺省与旧配置回退为 always，沿用设置白名单、磁盘保存和窗口广播。App 提供通知策略，[useNotificationTimeout](../src/composables/useNotificationTimeout.ts) 供预览及浮动更新通知复用；设置面板内的更新中心不定时关闭。5s 模式在通知可见且无悬停/键盘焦点时计时，设置/沉浸隐藏和页面不可见暂停，恢复后重新给予 5 秒；模式或消息内容变化重建计时，组件销毁清理计时器和可见性监听。关闭仅调用消息的关闭回调，不调用任务取消或更新安装接口。
+
+两类通知复用 [NotificationCloseButton](../src/components/ui/NotificationCloseButton.vue)：28×28 按钮与居中 16×16 SVG，避免文字乘号的字体基线偏移。NotificationStack 与预览目标层显式透明，外围 16 px 内边距容纳卡片阴影，只有卡片接收指针，间距可点击到阅读内容。
+
+PreviewTab 的 idbar 提供 badge 和 file-details 目标；格式组件通过既有 Teleport 机制报告语言、统计或尺寸，语言标签替代扩展名的可见回退。文本/图片原底部状态栏移除，Excel 行列数移至顶部，保留底部页码、工作表和分段导航。顶部信息保持单行，宽度受限时省略并保留悬停文字，不把格式分支放进 App。
+
 PreviewTab 进入沉浸全屏时保存阅读状态，保持当前显示模式和倍率；退出时恢复进入前的模式、倍率及滚动位置。PDF 的自动单双页继续按可用宽度和页面尺寸判断，演示模式仍由 PDF 模块独立强制单页整页适配。
 
 ## 构建、产物与验证入口

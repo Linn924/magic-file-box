@@ -52,9 +52,6 @@ const {
       />
       </div>
     </div>
-    <div class="pane-footer">
-      {{ dimensions }}
-      <span class="image-fit-label">{{ fitLabel }}</span>
-    </div>
+    <Teleport :to="`[data-file-id='${file.id}'] .file-details`" defer><span class="image-dimensions" :title="dimensions">{{dimensions}}</span><span class="image-fit-label" :title="fitLabel">{{fitLabel}}</span></Teleport>
   </section>
 </template>

@@ -37,6 +37,6 @@ onBeforeUnmount(()=>{disposed=true;resize?.disconnect();void source.value?.close
     <Teleport :to="`[data-file-id='${file.id}'] .module-tools`" defer><ToolButton class="large-image-rotate" icon="rotate" title="旋转图片" @click="rotate"/></Teleport>
     <ImageTools :file="file" :rotation="rotation" target=".large-image-preview canvas" :size="dimensions" :header="header" preview-pixels/>
     <div ref="area" class="image"><div class="image-frame" :style="{width:geometry.frameWidth+'px',height:geometry.frameHeight+'px'}"><SourceAsset v-if="source?.info.url" class="large-image-preview preview-content" :url="source.info.url" :file-id="file.id" :max-pixels="6_000_000" eager :style="{position:'absolute',left:'50%',top:'50%',width:geometry.width+'px',height:geometry.height+'px',minHeight:'0',maxWidth:'none',margin:0,transform:`translate(-50%, -50%) rotate(${rotation}deg)`}" @rendered="rendered" @error="emit('error',$event)"/></div></div>
-    <footer class="pane-footer">{{dimensions.width}} × {{dimensions.height}} · 缩小图预览</footer>
+    <Teleport :to="`[data-file-id='${file.id}'] .file-details`" defer><span class="image-dimensions">{{dimensions.width}} × {{dimensions.height}} · 缩小图预览</span></Teleport>
   </section>
 </template>

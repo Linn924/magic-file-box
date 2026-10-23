@@ -11,6 +11,8 @@ const selected = (index < 0 ? "all" : args[index + 1] || "").split(",");
 const names = [
   "core",
   "notices",
+  "notificationprefs",
+  "headerinfo",
   "exitresources",
   "loading",
   "tablifecycle",

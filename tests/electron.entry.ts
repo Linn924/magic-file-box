@@ -57,6 +57,8 @@ import pdfchain from '@/modules/pdf/tests/chain';
 import updates from './suites/updates';
 import {installUpdateTestDriver} from './updateDriver';
 import notices from './suites/previewNotices';
+import notificationprefs from './suites/notificationPreferences';
+import headerinfo from './suites/headerInformation';
 const profile = path.resolve("work/test-profiles/" + process.pid);
 mkdirSync(profile, { recursive: true });
 app.setPath("userData", profile);
@@ -73,12 +75,14 @@ app.on("browser-window-created", (_event, win) => {
 const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
 const formatIndex=process.argv.indexOf('--formats'),formats=formatIndex<0?undefined:new Set((process.argv[formatIndex+1]||'').split(','));
 if(formats&&[...formats].some(value=>!testFormats.includes(value as typeof testFormats[number])))throw Error('未知文件类型筛选。');
-if(requested==='all'||requested.split(',').some(name=>['updates','notices'].includes(name)))installUpdateTestDriver();
+if(requested==='all'||requested.split(',').some(name=>['updates','notices','notificationprefs'].includes(name)))installUpdateTestDriver();
 if(requested==='all'||requested.split(',').some(name=>['loading','sources','sourcelifecycle','tablifecycle'].includes(name)))installPreviewLoadDriver();
 const program =
   require("../electron-dist/main.cjs") as typeof import("../electron/main");
 const results: string[] = [];
 const suites: Record<string, Suite> = {
+  notificationprefs,
+  headerinfo,
   notices,
   tablifecycle,
   core,

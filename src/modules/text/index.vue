@@ -298,6 +298,7 @@ watch(syntax.data,()=>void nextTick().then(updateVirtual));
       </div>
     </div>
     </div>
-    <footer class="pane-footer text-footer"><span>{{raw.length.toLocaleString()}} 字 · {{lines.length.toLocaleString()}} 行</span><span v-if="syntax.lang" :title="syntax.status.value" class="syntax-status">{{languageNames[syntax.lang]}}<span v-if="syntax.status.value"> · {{syntax.status.value}}</span></span></footer>
+    <Teleport v-if="syntax.lang" :to="`[data-file-id='${file.id}'] .badge`" defer><span class="file-format-label">{{languageNames[syntax.lang]}}</span></Teleport>
+    <Teleport :to="`[data-file-id='${file.id}'] .file-details`" defer><span class="text-counts" :title="raw.length.toLocaleString()+' 字 · '+lines.length.toLocaleString()+' 行'">{{raw.length.toLocaleString()}} 字 · {{lines.length.toLocaleString()}} 行</span><span :title="syntax.status.value" class="syntax-status">{{syntax.status.value}}</span></Teleport>
   </section>
 </template>

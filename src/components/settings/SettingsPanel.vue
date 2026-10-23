@@ -90,6 +90,15 @@ onBeforeUnmount(() => resizeObserver?.disconnect());
               </select>
             </div>
             <CodeAppearanceSettings :value="settings.codeAppearance"/>
+            <div class="setting-row">
+              <label for="notification-duration">消息通知</label>
+              <select id="notification-duration" :value="settings.notificationDuration" aria-describedby="notification-duration-help"
+                @change="emit('change',{notificationDuration:($event.target as HTMLSelectElement).value as Settings['notificationDuration']})">
+                <option value="always">一直显示</option>
+                <option value="5s">5 秒后自动关闭</option>
+              </select>
+            </div>
+            <p id="notification-duration-help" class="settings-help">控制右下角消息的停留时间，两种方式均可点击通知右上角关闭。</p>
           </section>
           <section id="settings-windows" class="settings-group" aria-labelledby="settings-windows-title">
             <h3 id="settings-windows-title">窗口与文件</h3>

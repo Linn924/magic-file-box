@@ -64,6 +64,14 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 
 本专项安装测试更新驱动，更新状态通过真实接口和通知事件交付，绝不下载或安装更新。通知容器/更新样式变更补 updates；文本动态说明和 Word 警告接入补 texttools、word。提示位置改变不重复执行无关编辑、打印、性能或全量套件。运行资源变化先重建；仅补测试断言时可 skip-build。
 
+通知叠放补几何断言：两个关闭 SVG 的中心与按钮中心差小于 0.5 CSS px、零 padding；通知容器和预览目标层背景透明、阴影外围留白至少 16 px，卡片间隔不截获阅读区指针。明暗主题与小窗口截图复核。
+
+### notificationprefs / headerinfo：通知行为与文件信息栏
+
+`notificationPreferences.ts` 以真实计时验证默认一直显示、5 秒自动关闭、两种模式均可手动关闭、旧卡片计时器不会关闭新会话、预览和更新通知采用相同策略。设置通过真实 UI 保存并用新的 SettingsStore 读回，已有另一窗口接收实时变更；从自动改为一直显示会中止旧计时。鼠标/键盘交互和设置遮挡暂停，恢复获得新 5 秒。更新提示关闭后状态仍 available，未触发下载或安装。用例最后恢复独立测试配置；unit.ts 另检查缺省、旧值和非法枚举回退。
+
+`headerInformation.ts` 核对 CJS 显示 JavaScript、JSON/Office/图片格式位于顶部；文本统计、图片尺寸/适配和表格行列数移入 idbar，无重复底部状态栏，页码和工作表导航保留。720 px 窗口/150% 缩放验证信息不横向溢出，标签切换及压力淘汰重挂载不重复。设置行归属和小窗口操作继续由 settingslayout 检查；影响原状态位置的断言随 visual、image、syntax 更新，保留原功能判断。
+
 ### sources / sourcelifecycle：大文件按需读取
 
 `sources` 运行文本记录与 Office/ZIP 单测，再通过真实 Electron 验证文本、CSV、JSON、XLSX、DOCX、PPTX、PDF 和图片入口。样例由 tests/sourceFixtures.ts 生成在 work/large-source-fixtures：约 300 MiB 的文本/CSV/JSON，含大型未选择嵌入数据的 Office ZIP 和 PDF，以及 9000×7000、240 MiB 的真实 BMP 像素数据。Office/PDF 样例证明未选择条目/范围不整份读取，不能当作所有复杂正文的性能证据。

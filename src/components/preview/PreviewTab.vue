@@ -118,10 +118,11 @@ async function loaded() {
   <section class="preview-tab" :data-file-id="file.id">
     <!-- Plan B: identity strip (type · name · size) -->
     <div class="filebar idbar">
-      <span class="badge">{{ file.ext.toUpperCase() }}</span>
+      <span class="badge" aria-label="文件格式"><span class="file-extension">{{ file.ext.toUpperCase() }}</span></span>
       <div class="filename">
         <strong :title="file.name">{{ file.name }}</strong>
       </div>
+      <span class="file-details" :data-details-for="file.id"></span>
       <small class="filesize">{{ fileSize(file.size) }}</small>
     </div>
     <!-- Plan B: action strip -->
