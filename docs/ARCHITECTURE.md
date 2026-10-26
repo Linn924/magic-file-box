@@ -258,6 +258,8 @@ PreviewPanel 将浮窗挂到所属标签的 floating-tools 层，位置与查询
 
 PDF 目录自动揭示选中项时只调整条目滚动区域，并在上下边缘保留 4 CSS px，避免非整数缩放的像素舍入裁掉选中行或连带滚动父区域；nextTick 后复核选中键，放弃过时定位。
 
+缩略图主动选择通过 activateThumb 记录本次目标页，current 同步收到相同目标时不再滚动侧栏；下一次不同的正文导航仍按需揭示当前项，仅调整被遮挡的边缘，过高卡片对齐顶部。鼠标按下阻止默认聚焦滚动，激活时用 preventScroll 聚焦；Enter 和 Space 复用同一入口，不取消正文跳页或缩略图绘制。
+
 [usePreviewNotice](../src/composables/usePreviewNotice.ts) 在 PreviewTab 提供按文件隔离的提示登记：格式模块只报告具名文本，模块卸载按所有者撤销，重复文字合并。当前且已就绪的文件通过 Teleport 将 [PreviewNotices](../src/components/preview/PreviewNotices.vue) 放到 App 的右下角 [NotificationStack](../src/components/ui/NotificationStack.vue)，不参与工具栏和正文排版。Word/Excel 版式警告、RecordPreview 大文件模式、缩小图片说明、JSON 降级/部分高亮和 PDF 打印限制使用该入口；操作错误、密码、查询反馈和 XLS 另存风险确认保留原位置。
 
 手动关闭按提示键与文字记录在 PreviewFile.view.dismissedPreviewNotices 中，最多 64 项，只在内存会话保留；切换、压力淘汰与移交沿用，重新打开文件产生新会话。不同新提示可再次显示，条件消失后移除对应信息。关闭按钮获得过焦点时返回当前 preview-body，preventScroll 保持阅读位置。预览与更新通知共享排列容器，窄窗口可滚动，避免两个独立 fixed 卡片重叠；设置、沉浸、重启准备及 PDF 演示期间隐藏，不写偏好或路径历史。

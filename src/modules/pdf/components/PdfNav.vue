@@ -60,6 +60,12 @@ let paintController=new AbortController();
 const lifetime=new AbortController();
 const sizeJobs=new Map<number,Promise<void>>();
 const sized=new Set<number>();
+let clickedThumb:number|undefined;
+function activateThumb(page:number,event:Event){
+  (event.currentTarget as HTMLElement).focus({preventScroll:true});
+  clickedThumb=page!==props.current?page:undefined;
+  emit('jump',page);
+}
 
 async function loadOutline() {
   outline.value = [];
@@ -411,7 +417,9 @@ function schedulePaint() {
 watch(
   () => props.current,
   () => {
+    const clicked=clickedThumb;clickedThumb=undefined;
     if (tab.value !== "thumbs" || !thumbHost.value) return;
+    if(clicked===props.current)return;
     const idx = props.current - 1;
     if (idx < 0) return;
     const top = THUMB_TOP + (offsets.value[idx] || 0);
@@ -420,7 +428,8 @@ watch(
     const viewTop = host.scrollTop;
     const viewBottom = viewTop + host.clientHeight;
     if (top < viewTop + 8 || top + h > viewBottom - 8) {
-      host.scrollTop = Math.max(0, top - host.clientHeight / 3);
+      // Reveal only the obscured edge; oversized cards align their top once.
+      host.scrollTop = Math.max(0,top<viewTop+8||h>host.clientHeight-16?top-8:top+h-host.clientHeight+8);
       schedulePaint();
     }
   },
@@ -584,8 +593,10 @@ const hasOutline = computed(() => outline.value.length > 0);
         tabindex="0"
         :aria-label="'第 ' + (i + 1) + ' 页缩略图'"
         :style="{ height: heights[i] + THUMB_CHROME + 'px' }"
-        @click="emit('jump', i + 1)"
-        @keydown.enter="emit('jump', i + 1)"
+        @mousedown.prevent
+        @click="activateThumb(i + 1,$event)"
+        @keydown.enter.prevent="activateThumb(i + 1,$event)"
+        @keydown.space.prevent="activateThumb(i + 1,$event)"
       >
         <canvas
           :style="{ width: thumbCssW + 'px', height: heights[i] + 'px' }"

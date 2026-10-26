@@ -214,6 +214,8 @@ npm test -- --skip-build --suite pdfimmersive,pdfsources,pdflinks,printing
 
 `npm test -- --suite pdfthumbs`；文件 `src/modules/pdf/tests/thumbnails.ts`，使用本地生成的 80 页横竖混排 thumbs-mixed.pdf 和短文本 document.pdf。检查首项实际蓝色/文字像素（不以 canvas 默认非零尺寸判断成功）、虚拟占位包含完整卡片高度、画布实际显示高度不被压缩、跳到第 40 页再滚回首项重绘、点击第一页跳页及渲染进程计时器响应、尺寸切换、目录往返，以及初次绘制期间点击首项。原样例 SHA256 不变，并留存首项截图供检查。
 
+补充侧栏滚动断言：部分露出的缩略图点击跳页后 scrollTop 不变；真实鼠标按下/释放聚焦不触发浏览器自动滚动，Space 与连续点击不累积侧栏位移。随后从页码输入跳到远页，验证正常阅读导航仍会揭示并绘制当前缩略图。
+
 此专项只覆盖缩略图及其跳页影响范围，不代表已复现所有 PDF 的卡死；用户原文件、异常字体/扫描页、超宽页面和高内存压力仍需具体样例验证。不重复运行打印、批注、安装或其他格式套件。
 
 文件：`src/modules/pdf/tests/e2e.ts`；两页样例 `document.pdf`。

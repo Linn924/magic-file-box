@@ -1,4 +1,5 @@
 import type {Suite} from '../../../../tests/context';
+import assert from 'node:assert/strict';
 import {longFixture} from './longFixture';
 
 const suite:Suite = async c => {
@@ -11,6 +12,26 @@ const suite:Suite = async c => {
   await c.check(win,'first thumbnail has real document pixels',firstPainted);
   await c.check(win,'virtual thumbnail spacer includes full row height',`(()=>{const host=document.querySelector('.pdf-thumbs'),rows=[...host.querySelectorAll('.thumb')],last=Number(rows.at(-1)?.dataset.page),pad=host.lastElementChild;return pad?.classList.contains('thumb-pad')&&Math.abs(parseFloat(pad.style.height)-(80-last)*(Math.round(112*1.32)+42))<2})()`);
   await c.check(win,'thumbnail canvas is not squashed by its card',`[...document.querySelectorAll('.thumb.thumb-painted canvas')].every(canvas=>Math.abs(canvas.getBoundingClientRect().height-parseFloat(canvas.style.height))<1)`);
+  await c.evaluate(win,"(()=>{const host=document.querySelector('.pdf-thumbs'),row=host.querySelector('.thumb[data-page=\"3\"]');host.scrollTop+=row.getBoundingClientRect().top-host.getBoundingClientRect().bottom+40})()");
+  await c.pause(400);
+  const beforeClick=await c.evaluate<number>(win,"document.querySelector('.pdf-thumbs').scrollTop");
+  await c.click(win,'.thumb[data-page="3"]');
+  await c.check(win,'partially visible thumbnail selects its PDF page',"document.querySelector('.page-nav input').value==='3'");
+  await c.pause(500);
+  assert.ok(Math.abs(await c.evaluate<number>(win,"document.querySelector('.pdf-thumbs').scrollTop")-beforeClick)<1,'clicking a visible thumbnail must not reposition its list');
+  c.pass('clicking an edge thumbnail keeps the sidebar scroll position');
+  win.show();win.focus();win.webContents.debugger.attach('1.3');
+  try{
+    const point=await c.evaluate<{x:number;y:number;top:number}>(win,"(()=>{const host=document.querySelector('.pdf-thumbs'),row=host.querySelector('.thumb[data-page=\"2\"]'),r=row.getBoundingClientRect(),h=host.getBoundingClientRect();return {x:r.left+r.width/2,y:(Math.max(r.top,h.top)+Math.min(r.bottom,h.bottom))/2,top:host.scrollTop}})()");
+    await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,x:point.x,y:point.y});
+    await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:point.x,y:point.y});
+    await c.check(win,'native thumbnail click selects and focuses without browser autoscroll',"document.querySelector('.page-nav input').value==='2'&&document.activeElement?.dataset.page==='2'");
+    await c.pause(400);assert.ok(Math.abs(await c.evaluate<number>(win,"document.querySelector('.pdf-thumbs').scrollTop")-point.top)<1,'native pointer focus must not scroll the sidebar');
+    await c.evaluate(win,"document.querySelector('.thumb[data-page=\"3\"]').dispatchEvent(new KeyboardEvent('keydown',{key:' ',bubbles:true,cancelable:true}))");
+    await c.check(win,'Space selects a thumbnail without scrolling its list',`document.querySelector('.page-nav input').value==='3'&&Math.abs(document.querySelector('.pdf-thumbs').scrollTop-${point.top})<1`);
+    await c.click(win,'.thumb[data-page="2"]');await c.click(win,'.thumb[data-page="3"]');
+    await c.pause(300);assert.ok(Math.abs(await c.evaluate<number>(win,"document.querySelector('.pdf-thumbs').scrollTop")-point.top)<1,'repeated thumbnail clicks must not accumulate sidebar scrolling');
+  }finally{win.webContents.debugger.detach();}
   await c.evaluate(win,"(()=>{const p=document.querySelector('.page-nav input');p.value='40';p.dispatchEvent(new Event('change',{bubbles:true}))})()");
   await c.check(win,'distant current thumbnail is painted',"document.querySelector('.thumb[data-page=\"40\"].thumb-painted canvas')?.width>0");
   await c.evaluate(win,"document.querySelector('.pdf-thumbs').scrollTop=0");
