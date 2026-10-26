@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Linn924/magic-file-box/releases/tag/v1.0.18">下载 1.0.18</a> ·
+  <a href="https://github.com/Linn924/magic-file-box/releases/tag/v1.0.19">下载 1.0.19</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
   <a href="docs/CHANGELOG.md">更新记录</a> ·
@@ -34,7 +34,7 @@ magic file box 是一个 Windows 本地文件预览工具。把 PDF、Word、Exc
 
 安装包来自当前仓库的公开 Release；Windows 安装版可通过设置中的更新入口检查后续版本。
 
-1. **安装。** 从 [1.0.18 Release](https://github.com/Linn924/magic-file-box/releases/tag/v1.0.18) 下载 `MagicFileBox-Setup-1.0.18-x64.exe` 并安装。无需 Office 或其他预览软件。
+1. **安装。** 从 [1.0.19 Release](https://github.com/Linn924/magic-file-box/releases/tag/v1.0.19) 下载 `MagicFileBox-Setup-1.0.19-x64.exe` 并安装。无需 Office 或其他预览软件。
 2. **打开文件。** 拖入文件、点击打开入口，或按 `Ctrl+O`。安装后也可在资源管理器的“打开方式”中选择 magic file box；是否设为默认程序由你决定。
 3. **开始阅读。** 多文件打开时选择标签或独立窗口。悬停图标可查看用途；查询使用独立浮窗，放大、适配和全屏操作留在阅读工具栏。
 
