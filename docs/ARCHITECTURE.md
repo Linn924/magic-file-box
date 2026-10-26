@@ -135,6 +135,8 @@ DOCX 通过 docx-preview 的 parseAsync/renderDocument 流程渲染。[core/outl
 
 PDF 的 [PdfNav.vue](../src/modules/pdf/components/PdfNav.vue) 独立管理目录和缩略图。目录搜索栏位于独立条目滚动区域之外，自动章节定位以该区域为可见边界。展开控件使用无边框的右向/下向三角箭头及 aria-expanded；有无子级均预留相同宽度，避免通用图标按钮尺寸造成同级标题错位。目录项固定单行，标题在可收缩的独立文字区域显示省略号，页码不收缩；按钮 title 保留完整标题用于悬停提示，筛选和跳页仍使用原始标题与目的地。缩略图虚拟偏移包含画布高度、卡片装饰/页码与项间距，并计入顶部页数说明；画布不参与 Flex 压缩。列表关闭浏览器滚动锚定，避免占位高度变化反向移动视口。异步取页后再次检查节点是否仍挂载，任务结束时释放未成功交付当前节点的画布，防止失效绘制占用共享像素预算。
 
+缩略图宽度改变前记录视口顶部所在页与卡片内相对位置，按缓存的原始宽高比同步重算全部高度及虚拟占位，nextTick 后恢复锚点并重新绘制。拖动过程中逐步应用同一入口，异步取得页面尺寸时也保留锚点；尺寸重置只释放位图，不丢失已取得的宽高比。卸载或离开缩略图页签后不再恢复滚动。
+
 ## 文件与状态生命周期
 
 ### 精确导航与阅读工具
@@ -229,6 +231,8 @@ PDF 的 [fileRange.ts](../src/modules/pdf/core/fileRange.ts) 适配 PDFDataRange
 客户端只包含 shared/exclusiveKey.ts 中的公钥。npm run exclusive:key -- init 为签发工具初始化本机 Windows 保护的私钥，默认存放于当前账户 AppData 的 MagicFileBoxIssuer 目录，不在仓库内；issue --subject user-id --out file.txt 签发 KEY。私钥不进入 Git 或安装包，Windows 保护的私钥文件依赖当前账户和机器，迁移或重装前需要保留可恢复的签发环境。当前方案离线、不绑定设备，KEY 可以转发，没有在线撤销机制；它用于确认签发来源，不能保证客户端无法被修改。
 
 ## 设置、更新与安全
+
+托盘右键“设置”恢复并聚焦主页（必要时创建），发送 settings:open 单向事件。preload 的 onOpenSettings 提供订阅与解绑，useApplication 在初始化偏好前登记监听，卸载时释放；沿用原设置组件和保存流程，不恢复其他隐藏/最小化的预览窗口。
 
 [settings/index.ts](../electron/settings/index.ts) 持久化白名单设置，[shared/settings.ts](../shared/settings.ts) 提供默认值和归一化。主进程广播设置变化，渲染端订阅应用；文件路径、密码、查询和编辑草稿不在设置中。
 

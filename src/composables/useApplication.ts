@@ -198,6 +198,7 @@ export function useApplication() {
   }
   onMounted(async () => {
     window.addEventListener("keydown", key);
+    cleanups.push(window.localPreview.onOpenSettings(()=>{showSettings.value=true;}));
     await initializeSettings();
     cleanups.push(window.localPreview.onRemove(id=>{void closeTab(id,true);}));
     cleanups.push(window.localPreview.onPreviewIncoming(file=>{if(!files.value.some(f=>f.id===file.id))files.value=[...files.value,file];active.value=file.id;tabAlignMode='center';void alignActiveTab('center');}));

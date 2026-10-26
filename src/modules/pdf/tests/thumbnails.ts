@@ -34,6 +34,24 @@ const suite:Suite = async c => {
   }finally{win.webContents.debugger.detach();}
   await c.evaluate(win,"(()=>{const p=document.querySelector('.page-nav input');p.value='40';p.dispatchEvent(new Event('change',{bubbles:true}))})()");
   await c.check(win,'distant current thumbnail is painted',"document.querySelector('.thumb[data-page=\"40\"].thumb-painted canvas')?.width>0");
+  const anchor=await c.evaluate<{page:number;fraction:number}>(win,"(()=>{const host=document.querySelector('.pdf-thumbs'),top=host.getBoundingClientRect().top,row=[...host.querySelectorAll('.thumb')].find(row=>row.getBoundingClientRect().bottom>top);const r=row.getBoundingClientRect();return {page:Number(row.dataset.page),fraction:(top-r.top)/r.height}})()");
+  await c.evaluate(win,"(()=>{const s=document.querySelector('.thumb-size-select');s.value='272';s.dispatchEvent(new Event('change',{bubbles:true}))})()");
+  await c.pause(500);
+  await c.check(win,'widening thumbnails retains the page at the sidebar scroll anchor',`(()=>{const row=document.querySelector('.thumb[data-page="${anchor.page}"]');if(!row)return false;const r=row.getBoundingClientRect(),top=document.querySelector('.pdf-thumbs').getBoundingClientRect().top;return Math.abs((top-r.top)/r.height-${anchor.fraction})<.03})()`);
+  win.show();win.focus();win.webContents.debugger.attach('1.3');
+  try{
+    const point=await c.evaluate<{x:number;y:number}>(win,"(()=>{const r=document.querySelector('.pdf-nav-resizer').getBoundingClientRect();return {x:r.left+r.width/2,y:r.top+r.height/2}})()");
+    await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...point});
+    for(const delta of [16,32,48]){
+      await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:point.x+delta,y:point.y});
+      await c.check(win,'dragging sidebar preserves its visible thumbnail anchor '+delta,`(()=>{const row=document.querySelector('.thumb[data-page="${anchor.page}"]');if(!row)return false;const r=row.getBoundingClientRect(),host=document.querySelector('.pdf-thumbs'),top=host.getBoundingClientRect().top;return Math.abs((top-r.top)/r.height-${anchor.fraction})<.03&&host.scrollWidth<=host.clientWidth+1})()`);
+    }
+    await win.webContents.debugger.sendCommand('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:point.x+48,y:point.y});
+    await c.check(win,'dragged sidebar reaches its full width',"parseFloat(document.querySelector('.pdf-nav').style.width)===320");
+  }finally{win.webContents.debugger.detach();}
+  await c.evaluate(win,"(()=>{const s=document.querySelector('.thumb-size-select');s.value='168';s.dispatchEvent(new Event('change',{bubbles:true}))})()");
+  await c.pause(300);
+  await c.check(win,'narrowing thumbnails restores the same sidebar anchor',`(()=>{const row=document.querySelector('.thumb[data-page="${anchor.page}"]');if(!row)return false;const r=row.getBoundingClientRect(),top=document.querySelector('.pdf-thumbs').getBoundingClientRect().top;return Math.abs((top-r.top)/r.height-${anchor.fraction})<.03})()`);
   await c.evaluate(win,"document.querySelector('.pdf-thumbs').scrollTop=0");
   await c.check(win,'first thumbnail repaints after returning to top',firstPainted);
   await c.click(win,'.thumb[data-page="1"]');

@@ -101,6 +101,11 @@ const bridge: DesktopBridge = {
   close: () => ipcRenderer.send("preview:close"),
   getSettings: () => ipcRenderer.invoke("settings:get"),
   setSettings: (settings) => ipcRenderer.invoke("settings:set", settings),
+  onOpenSettings: (handler) => {
+    const listener=()=>handler();
+    ipcRenderer.on('settings:open',listener);
+    return ()=>ipcRenderer.removeListener('settings:open',listener);
+  },
   onSettings: (handler) => {
     const listener = (_event: Electron.IpcRendererEvent, settings: Settings) =>
       handler(settings);

@@ -4,6 +4,7 @@ import path from "node:path";
 import type { Suite } from "../context";
 import {checkTabbarLayout} from '../tabbarLayout';
 import {SettingsStore} from '../../electron/settings';
+import {trayMenu} from '../trayMenuDriver';
 const suite: Suite = async (c) => {
   const cleanHome = "document.documentElement.dataset.exclusive==='false'&&!document.querySelector('.home-credit,.home-intro,.home-intro-title,.home-intro-canvas')";
   await c.check(c.home, "main home uses the standard entry", cleanHome);
@@ -292,6 +293,18 @@ const suite: Suite = async (c) => {
   if(!retained.isVisible()||!retainedOther.isVisible()||retained.isDestroyed()||retainedOther.isDestroyed())throw Error('Remembered tray choice must hide only home');
   c.home.showInactive();
   c.pass("close-to-tray remembered without exiting");
+  const traySettings=trayMenu()?.items.find(item=>item.label==='设置');
+  if(!traySettings)throw Error('Tray menu must contain settings');
+  retainedOther.hide();c.home.hide();
+  traySettings.click(undefined as never,undefined as never,undefined as never);
+  await c.check(c.home,'tray settings restores home and opens the real settings panel',"!!document.querySelector('.settings-panel')");
+  if(!c.home.isVisible()||retainedOther.isVisible()||!retained.isVisible())throw Error('Tray settings must preserve other window visibility');
+  traySettings.click(undefined as never,undefined as never,undefined as never);
+  await c.check(c.home,'repeated tray settings uses the same panel',"document.querySelectorAll('.settings-panel').length===1");
+  await c.evaluate(c.home,"(()=>{const select=document.querySelector('#theme');select.value='dark';select.dispatchEvent(new Event('change',{bubbles:true}))})()");
+  await c.check(retained,'tray-opened settings still broadcast to previews',"document.documentElement.dataset.theme==='dark'");
+  await c.click(c.home,'button[aria-label="关闭设置"]');
+  c.program.updateSettings({theme:'light'});retainedOther.showInactive();
   c.pass('remembered home close retains both preview windows');
   c.close(retained);c.close(retainedOther);
   dialog.showMessageBox = real;

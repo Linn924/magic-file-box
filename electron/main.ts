@@ -108,6 +108,7 @@ function hideToTray(win:BrowserWindow) {
     tray.setContextMenu(
       Menu.buildFromTemplate([
         { label: "显示窗口", click: showWindows },
+        { label: "设置", click: () => { void openTraySettings(); } },
         {
           label: "退出软件",
           click: () => {
@@ -121,6 +122,13 @@ function hideToTray(win:BrowserWindow) {
     tray.on("click", showWindows);
   }
   if(!win.isDestroyed())win.hide();
+}
+async function openTraySettings(){
+  const win=home&&!home.isDestroyed()?home:await createHome();
+  if(win.isDestroyed()||quitting)return;
+  if(win.isMinimized())win.restore();
+  win.show();win.focus();
+  win.webContents.send('settings:open');
 }
 async function requestClose(win: BrowserWindow) {
   if (closePrompt) return;

@@ -65,4 +65,5 @@ export interface DesktopBridge {
   getSettings(): Promise<Settings>;
   setSettings(settings: Partial<Settings>): Promise<Settings>;
   onSettings(handler: (settings: Settings) => void): () => void;
+  onOpenSettings(handler:()=>void):()=>void;
 }

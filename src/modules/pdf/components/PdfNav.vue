@@ -60,6 +60,20 @@ let paintController=new AbortController();
 const lifetime=new AbortController();
 const sizeJobs=new Map<number,Promise<void>>();
 const sized=new Set<number>();
+const thumbRatios=new Map<number,number>();
+let pendingThumbAnchor:{host:HTMLElement;page:number;fraction:number}|undefined;
+function preserveThumbAnchor(){
+ const host=thumbHost.value;
+ if(pendingThumbAnchor||!host||tab.value!=='thumbs'||!pageCount.value)return;
+ const page=indexAt(Math.max(0,host.scrollTop-THUMB_TOP));
+ pendingThumbAnchor={host,page,fraction:(host.scrollTop-THUMB_TOP-offsets.value[page])/(heights.value[page]+THUMB_CHROME+THUMB_GAP)};
+ void nextTick(()=>{
+  const anchor=pendingThumbAnchor;pendingThumbAnchor=undefined;
+  if(disposed||!anchor||anchor.host!==thumbHost.value||tab.value!=='thumbs')return;
+  anchor.host.scrollTop=Math.max(0,THUMB_TOP+offsets.value[anchor.page]+anchor.fraction*(heights.value[anchor.page]+THUMB_CHROME+THUMB_GAP));
+  updateVirtual();schedulePaint();
+ });
+}
 let clickedThumb:number|undefined;
 function activateThumb(page:number,event:Event){
   (event.currentTarget as HTMLElement).focus({preventScroll:true});
@@ -208,7 +222,7 @@ function resetThumbs(){
  for(const task of tasks.values())task.cancel();
  for(const canvas of paintedPages.values())releasePdfCanvas(canvas);
  paintedPages.clear();sized.clear();
- heights.value=Array.from({length:pageCount.value},()=>estimateHeight.value);
+ heights.value=Array.from({length:pageCount.value},(_,i)=>Math.round(thumbCssW.value*(thumbRatios.get(i)??1.32)));
  thumbHost.value?.querySelectorAll<HTMLElement>('.thumb').forEach(node=>{
   node.classList.remove('thumb-painted');
   const canvas=node.querySelector('canvas');if(canvas)releasePdfCanvas(canvas);
@@ -219,6 +233,7 @@ function resetThumbs(){
 function setNavWidth(value:number){
  const next=Math.max(168,Math.min(320,Math.round(value)));
  if(next===navWidth.value)return;
+ preserveThumbAnchor();
  navWidth.value=next;
  resetThumbs();
 }
@@ -228,8 +243,8 @@ function beginResize(event:PointerEvent){
  const handle=event.currentTarget as HTMLElement;
  const startX=event.clientX,startWidth=navWidth.value;
  handle.setPointerCapture(event.pointerId);
- const move=(e:PointerEvent)=>{navWidth.value=Math.max(168,Math.min(320,startWidth+e.clientX-startX));};
- const end=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',end);handle.removeEventListener('pointercancel',end);resetThumbs();};
+ const move=(e:PointerEvent)=>{setNavWidth(startWidth+e.clientX-startX);};
+ const end=()=>{handle.removeEventListener('pointermove',move);handle.removeEventListener('pointerup',end);handle.removeEventListener('pointercancel',end);};
  handle.addEventListener('pointermove',move);
  handle.addEventListener('pointerup',end);
  handle.addEventListener('pointercancel',end);
@@ -254,6 +269,8 @@ async function readSize(index: number) {
     const v = await pageSize(doc,index+1,3,lifetime.signal);
     if(disposed||doc!==props.pdf||generation!==thumbGeneration)return;
     const h = Math.round((v.height / (v.width || 1)) * thumbCssW.value) || estimateHeight.value;
+    if(heights.value[index]!==h)preserveThumbAnchor();
+    thumbRatios.set(index,v.height/(v.width||1));
     heights.value[index] = h;
     sized.add(index);
   } catch {
@@ -318,7 +335,7 @@ function canvasLooksBlank(canvas: HTMLCanvasElement) {
   return !canvas.width || !canvas.height;
 }
 
-async function paintOne(node: HTMLElement, pageNumber: number) {
+function paintOne(node: HTMLElement, pageNumber: number) {
   if (disposed || !props.pdf) return;
   const canvas = node.querySelector("canvas");
   if (!canvas) return;
@@ -341,6 +358,8 @@ async function paintOne(node: HTMLElement, pageNumber: number) {
         Math.round((base.height / (base.width || 1)) * cssW) ||
         canvas.clientHeight ||
         estimateHeight.value;
+      if(heights.value[pageNumber]!==cssH)preserveThumbAnchor();
+      thumbRatios.set(pageNumber,base.height/(base.width||1));
       heights.value[pageNumber] = cssH;
       sized.add(pageNumber);
       const allowance=availablePdfPixels(canvas);
