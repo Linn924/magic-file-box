@@ -212,6 +212,12 @@ npm test -- --skip-build --suite pdfimmersive,pdfsources,pdflinks,printing
 
 修改 external:open 主进程/预加载桥接时补 core，保留可信 IPC 来源、网络拦截、沙箱与窗口生命周期检查；其当前格式调用方只有 PDF，不扩大到无关格式解析。PDF 压力检查另选 pdfperf 的六个合成场景，使用单独 FILE_PREVIEW_PERF_PHASE 保留本次结果；print-10 单独进程运行，不能把当前环境的功能测量当作跨环境性能改进。
 
+### pdfsearchisolation：独立分批搜索与失败保留
+
+`npm test -- --suite pdfsearchisolation` 执行 searchMemory 单元及真实 Electron 专项。searchIsolation.ts 生成 24 页、每页约 6 MiB 内容流的 144 MiB 本地 PDF，实际读取超过旧 128 MiB 会话上限并找到全部 24 处，确认多个来源批次及每批原生 Worker 终止；不是仅用未读取附件撑大文件。测试驱动对 IPC 仅观察/延迟或对搜索新建 token 的指定范围注入错误，不改变阅读 token。
+
+失败在第四页注入，断言前三页的全部命中保留、计数标明未完成、下一处仍高亮，随后正文能读新页，并检查新页实际文字层和非白像素，防止只保留空白画布或被旧命中拉回。复验阻塞读取时清空、重新查询、关闭文件及加密 PDF 已解锁密码沿用；独立 Worker、sourceSessions/sourceHandles/sourceReads 释放，源样例 SHA256 不变。故障注入只由测试执行器登记，产品无测试开关。本专项不承诺全部复杂字体/扫描文档性能，未执行安装或实体打印。相关回归选择 pdfsources、pdfenhancements、pdfchain、pdfspread，不运行非 PDF 或打印全量。
+
 ### pdfthumbs：缩略图绘制与首项跳页
 
 `npm test -- --suite pdfthumbs`；文件 `src/modules/pdf/tests/thumbnails.ts`，使用本地生成的 80 页横竖混排 thumbs-mixed.pdf 和短文本 document.pdf。检查首项实际蓝色/文字像素（不以 canvas 默认非零尺寸判断成功）、虚拟占位包含完整卡片高度、画布实际显示高度不被压缩、跳到第 40 页再滚回首项重绘、点击第一页跳页及渲染进程计时器响应、尺寸切换、目录往返，以及初次绘制期间点击首项。原样例 SHA256 不变，并留存首项截图供检查。

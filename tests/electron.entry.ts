@@ -41,6 +41,8 @@ import pdfthumbs from '@/modules/pdf/tests/thumbnails';
 import pdfoutline from '@/modules/pdf/tests/outlineLayout';
 import pdfdest from '@/modules/pdf/tests/destinations';
 import pdfsources from '@/modules/pdf/tests/sources';
+import pdfsearchisolation from '@/modules/pdf/tests/searchIsolation';
+import {installPdfSearchDriver} from './pdfSearchDriver';
 import pdflinks from '@/modules/pdf/tests/links';
 import texttools from '@/modules/text/tests/readingTools';
 import imagetools from '@/modules/image/tests/tools';
@@ -74,6 +76,7 @@ app.on("browser-window-created", (_event, win) => {
   });
 });
 const requested = process.argv[process.argv.indexOf("--suite") + 1] || "all";
+if(requested==='all'||requested.split(',').includes('pdfsearchisolation'))installPdfSearchDriver();
 const formatIndex=process.argv.indexOf('--formats'),formats=formatIndex<0?undefined:new Set((process.argv[formatIndex+1]||'').split(','));
 if(formats&&[...formats].some(value=>!testFormats.includes(value as typeof testFormats[number])))throw Error('未知文件类型筛选。');
 if(requested==='all'||requested.split(',').some(name=>['updates','notices','notificationprefs','controls'].includes(name)))installUpdateTestDriver();
@@ -122,6 +125,7 @@ const suites: Record<string, Suite> = {
   pdfoutline,
   pdfdest,
   pdfsources,
+  pdfsearchisolation,
   pdflinks,
   pdfimmersive:pdfImmersive,
   texttools,
@@ -164,6 +168,7 @@ const evaluate = <T = unknown>(
 ): Promise<T> => win.webContents.executeJavaScript(expression);
 async function settleSurfaces(win:BrowserWindow){
   for(let attempt=0;attempt<40;attempt++){
+    if(win.isDestroyed()||win.webContents.isDestroyed())return;
     if(!await evaluate(win,"!!document.querySelector('[class*=popup-tv-][class*=-active],[class*=notification-slide-][class*=-active]')"))return;
     await pause(25);
   }

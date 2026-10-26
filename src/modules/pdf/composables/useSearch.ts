@@ -3,6 +3,7 @@ import type { PDFDocumentProxy } from "pdfjs-dist";
 import { pageTextContent, canonicalPdfText, textCacheLimits } from "../core/textCache";
 import { findPdfMatches, MAX_SEARCH_HITS, searchPattern, type SearchMode } from '../core/searchIndex';
 import { PatternSearch } from '../core/patternSearch';
+import type {PdfSearchReader} from '../core/searchSession';
 
 export interface SearchHit {
   /** 1-based page */
@@ -12,7 +13,7 @@ export interface SearchHit {
   length: number;
 }
 
-export function usePdfSearch(pdf: Ref<PDFDocumentProxy | undefined>) {
+export function usePdfSearch(pdf: Ref<PDFDocumentProxy | undefined>,openReader?:(signal:AbortSignal)=>Promise<PdfSearchReader>) {
   const query = ref("");
   const searching = ref(false);
   const hits = shallowRef<SearchHit[]>([]);
@@ -26,7 +27,7 @@ export function usePdfSearch(pdf: Ref<PDFDocumentProxy | undefined>) {
   let controller = new AbortController();
   let searchRevision = 0;
 
-  async function pageText(n: number,signal?:AbortSignal) {
+  async function pageText(n: number,signal?:AbortSignal,reader?:PdfSearchReader) {
     let text = cache.get(n);
     if (text !== undefined) {
       cache.delete(n);
@@ -35,9 +36,10 @@ export function usePdfSearch(pdf: Ref<PDFDocumentProxy | undefined>) {
     }
     const doc = pdf.value;
     if (!doc) return "";
-    const content = await pageTextContent(doc, n, 3,signal);
+    text=reader?await reader.text(n):canonicalPdfText(await pageTextContent(doc,n,3,signal));
     if (pdf.value !== doc) return "";
-    text = canonicalPdfText(content);
+    signal?.throwIfAborted();
+    if(text.length*2>textCacheLimits(doc.numPages).bytes)return text;
     cacheBytes-=(cache.get(n)?.length||0)*2;
     cache.set(n, text);
     cacheBytes+=text.length*2;
@@ -64,25 +66,27 @@ export function usePdfSearch(pdf: Ref<PDFDocumentProxy | undefined>) {
     const options={caseSensitive:caseSensitive.value,mode:mode.value};
     const patterns=new PatternSearch();
     let characters=0;
+    let reader:PdfSearchReader|undefined;
+    const found: SearchHit[] = [];
     try {
       if(options.mode!=='plain')new RegExp(searchPattern(q,options.mode),options.caseSensitive?'gu':'giu');
-      const found: SearchHit[] = [];
+      if(openReader)reader=await openReader(signal);
 
-      let lastPublish = performance.now();
+      let lastPublish = performance.now(),published=0;
       for (let n = 1; n <= doc.numPages; n++) {
         if (rev !== searchRevision) return;
-        const text = await pageText(n,signal);
+        const text = await pageText(n,signal,reader);
         if (rev !== searchRevision) return;
         characters+=text.trim().length;
         const matches=options.mode==='plain'?findPdfMatches(text,q,options,MAX_SEARCH_HITS-found.length):await patterns.matches(text,q,options,MAX_SEARCH_HITS-found.length,signal);
         if(rev!==searchRevision)return;
         for(const match of matches)found.push({page:n,...match});
-        if(found.length!==hits.value.length &&
+        if(found.length!==published &&
           (active.value === -1 || performance.now() - lastPublish >= 100 || n === doc.numPages)){
-          // Append only new hits; avoid re-copying the whole result list every tick.
-          const prev = hits.value.length;
-          for(let i=prev;i<found.length;i++)hits.value.push(found[i]);
+          // Publish the same compact hit list without duplicating it every tick.
+          hits.value=found;
           triggerRef(hits);
+          published=found.length;
           lastPublish = performance.now();
           if(active.value===-1)active.value=0;
         }
@@ -90,13 +94,13 @@ export function usePdfSearch(pdf: Ref<PDFDocumentProxy | undefined>) {
         if (n % 8 === 0) await new Promise<void>(resolve => setTimeout(resolve, 0));
       }
       if(rev===searchRevision&&!characters)notice.value='当前文档未包含可提取文字层（疑似扫描件），不支持文字检索。';
-      if (rev === searchRevision) { for(let i=hits.value.length;i<found.length;i++)hits.value.push(found[i]);triggerRef(hits); }
     } catch (e) {
-      if (rev === searchRevision)
-        error.value = e instanceof Error ? e.message : String(e);
+      if (rev === searchRevision&&!signal.aborted)
+        error.value = `搜索未完成，已保留 ${found.length} 处结果，可继续正常阅读。${e instanceof Error ? e.message : String(e)}`;
     } finally {
       patterns.close();
-      if (rev === searchRevision) searching.value = false;
+      try{await reader?.close();}catch{/* A failed parser's teardown must not discard results. */}
+      if (rev === searchRevision) {hits.value=found;triggerRef(hits);if(found.length&&active.value<0)active.value=0;searching.value = false;}
     }
   }
 

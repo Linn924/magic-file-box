@@ -49,3 +49,16 @@ const adaptive={numPages:500,getPage:async()=>({getTextContent:async()=>{adaptiv
 for(let n=1;n<=70;n++)await pageTextContent(adaptive,n);await pageTextContent(adaptive,1);
 assert.equal(adaptiveReads,70,'adaptive cache retains more than the previous fixed 32 pages');
 console.log('PASS PDF adaptive extraction reuse and mixed scanned/text search classification');
+
+let closed=0;
+const failing=usePdfSearch(shallowRef({numPages:4} as PDFDocumentProxy),async()=>({
+  async text(page){if(page===3)throw Error('搜索读取预算测试');return 'needle needle';},
+  async close(){closed++;},
+}));
+await failing.run('needle');
+assert.equal(failing.hits.value.length,4,'failure must flush unpublished hits');
+assert.ok(failing.error.value.includes('已保留 4 处结果')&&failing.error.value.includes('搜索读取预算测试'));
+assert.equal(failing.searching.value,false);assert.equal(closed,1);
+failing.next();assert.equal(failing.active.value,1);failing.prev();assert.equal(failing.active.value,0);
+assert.ok(failing.hits.value.every(hit=>hit.page<3));
+console.log('PASS PDF partial search retains all matches and navigation and closes its isolated reader');

@@ -9,7 +9,7 @@ export function createPdfFileRange(id:string,size:number,onFailure:(error:Error)
   let failed=false,rejectFailure!:(error:Error)=>void;
   const failure=new Promise<never>((_,reject)=>{rejectFailure=reject;});
   const received=new Set<number>();
-  const close=()=>{controller.abort();void session.then(source=>source.close(),()=>{});received.clear();};
+  const close=()=>{controller.abort();return session.then(source=>source.close(),()=>{}).finally(()=>received.clear());};
   function fail(cause:unknown){if(failed||controller.signal.aborted)return;failed=true;const error=new Error(fileSourceError(cause));rejectFailure(error);onFailure(error);close();}
   void session.catch(fail);
   range.requestDataRange=(begin,end)=>{void(async()=>{
@@ -23,5 +23,5 @@ export function createPdfFileRange(id:string,size:number,onFailure:(error:Error)
     if(!controller.signal.aborted)range.onDataRange(begin,bytes);
   })().catch(fail);};
   range.abort=close;
-  return {range,failure,close};
+  return {range,failure,close,bytesRead:()=>received.size*65536};
 }

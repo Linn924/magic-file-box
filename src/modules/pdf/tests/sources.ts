@@ -46,7 +46,7 @@ const suite:Suite=async c=>{
     await c.check(win,'range PDF rotation rebuilds its text layer',"document.querySelector('.pdf-rotate').title.includes('90°')&&!!document.querySelector('.pdf-page[data-page=\"3\"] .pdf-text-layer[data-built=\"1\"] span')");
     target=await c.open('document.pdf');
     await c.evaluate(target,`(()=>{const data=new DataTransfer();data.setData('application/x-file-preview-tab',${JSON.stringify(id)});document.querySelector('main').dispatchEvent(new DragEvent('drop',{dataTransfer:data,bubbles:true,cancelable:true}));})()`);
-    await c.check(target,'range PDF transfer restores page and rotation with a new owner',"document.querySelector('.page-nav input')?.value==='4'&&document.querySelector('.pdf-rotate').title.includes('90°')&&document.querySelector('.pdf-page[data-page=\"3\"] canvas')?.width>0");
+    await c.check(target,'range PDF transfer restores page and rotation with a new owner',`(()=>{const tab=document.querySelector('[data-file-id="${id}"]');return tab&&getComputedStyle(tab).display!=='none'&&tab.querySelector('.page-nav input')?.value==='4'&&tab.querySelector('.pdf-rotate').title.includes('90°')&&tab.querySelector('.pdf-page[data-page="3"] canvas')?.width>0})()`);
     target.webContents.reload();await c.pause(200);
     await c.check(target,'renderer reload releases the one-time preview and requests reopening',"document.body.textContent.includes('预览已释放，请重新打开文件')&&!document.querySelector('.pdf-pane,.loading')");
   }finally{

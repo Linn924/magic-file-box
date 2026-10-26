@@ -93,16 +93,16 @@ const suite:Suite=async c=>{
   const save=dialog.showSaveDialog;const output=path.resolve('outputs/verification/annotated-page.png');
   try{
     dialog.showSaveDialog=(async()=>({canceled:true,filePath:''})) as typeof save;
-    await c.click(notes,'.pdf-export-notes');await c.check(notes,'cancelled save does not report export success',"document.querySelector('.pdf-export-status').textContent.includes('已取消')");
+    await c.click(notes,'.pdf-export-notes');await c.check(notes,'cancelled save does not report export success',"document.querySelector('.pdf-export-status')?.textContent.includes('已取消')");
     dialog.showSaveDialog=(async()=>({canceled:false,filePath:output})) as typeof save;
-    await c.click(notes,'.pdf-export-notes');await c.check(notes,'explicit annotation PNG save succeeds',"document.querySelector('.pdf-export-status').textContent.includes('已保存')");
+    await c.click(notes,'.pdf-export-notes');await c.check(notes,'explicit annotation PNG save succeeds',"document.querySelector('.pdf-export-status')?.textContent.includes('已保存')");
     if(!existsSync(output))throw Error('PNG not saved');const image=nativeImage.createFromBuffer(readFileSync(output)),size=image.getSize();if(image.isEmpty()||size.width*size.height>6000000)throw Error('Invalid annotated PNG');
     c.pass('annotation export is a bounded valid PNG');
     const imageSource=await c.open('image.png');
     dialog.showSaveDialog=(async()=>({canceled:false,filePath:c.fixture('image.png')})) as typeof save;
-    await c.click(notes,'.pdf-export-notes');await c.check(notes,'export cannot overwrite another open image source',"document.querySelector('.pdf-export-status').textContent.includes('不能覆盖')");c.close(imageSource);
+    await c.click(notes,'.pdf-export-notes');await c.check(notes,'export cannot overwrite another open image source',"document.querySelector('.pdf-export-status')?.textContent.includes('不能覆盖')");c.close(imageSource);
     dialog.showSaveDialog=(async()=>({canceled:false,filePath:c.fixture('document.pdf')})) as typeof save;
-    await c.click(notes,'.pdf-export-notes');await c.check(notes,'export rejects source path and non-PNG target',"document.querySelector('.pdf-export-status').textContent.includes('不能覆盖')");
+    await c.click(notes,'.pdf-export-notes');await c.check(notes,'export rejects source path and non-PNG target',"document.querySelector('.pdf-export-status')?.textContent.includes('不能覆盖')");
   }finally{dialog.showSaveDialog=save;c.close(notes);}
   longFixture(c.fixture('enhancement-long.pdf'),160);
   const long=await c.open('enhancement-long.pdf');await c.check(long,'preheated long document remains virtualized',"Number(document.querySelector('.page-nav input').max)===160&&document.querySelectorAll('.pdf-page').length<20");c.close(long);

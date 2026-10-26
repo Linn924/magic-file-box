@@ -15,6 +15,7 @@ import { pageTextContent, mappedPdfText } from './core/textCache';
 import { Util } from 'pdfjs-dist';
 import {resolvePdfDestination} from './core/destination';
 import {usePreviewNotice} from '@/composables/usePreviewNotice';
+import {createPdfSearchReader} from './core/searchSession';
 const props = defineProps<PreviewProps>();
 const presentation=ref(false);
 const navOpen = ref(false);
@@ -22,7 +23,9 @@ let priorFullscreen=false;
 let fullscreenCleanup:(()=>void)|undefined;
 let readingRestore:ReturnType<typeof setTimeout>|undefined;
 let readingInteraction=0;
-function cancelReadingRestore(){readingInteraction++;clearTimeout(readingRestore);}
+let searchNavigation:SearchHit|undefined;
+function cancelReadingRestore(){readingInteraction++;clearTimeout(readingRestore);searchNavigation=undefined;}
+function readingJump(page:number){cancelReadingRestore();jump(page);}
 function selectReadingPage(index:number){cancelReadingRestore();focusPage(index);}
 const emit = defineEmits<{
   ready: [];
@@ -51,7 +54,7 @@ const {
   allowPrint,
 } = usePreview(props, emit,(allowed,password)=>publishPrintPermission?.(allowed,password),presentation,navOpen);
 usePreviewNotice('pdf-print-permission',()=>allowPrint.value?'':'此文档不允许打印');
-const search = usePdfSearch(pdf);
+const search = usePdfSearch(pdf,signal=>createPdfSearchReader(props.file,signal));
 const publishPrintPermission=inject<(allowed:boolean,password?:string)=>void>('pdf:set-print-permission');
 watch(allowPrint,value=>publishPrintPermission?.(value),{immediate:true});
 const searchOpen = ref(false);
@@ -109,6 +112,7 @@ watch(
   () => {
     const hit = activeHit.value;
     if (hit) {
+      searchNavigation=hit;
       jump(hit.page);
       highlightActiveHit();
     } else clearHitMarks();
@@ -178,12 +182,13 @@ function highlightActiveHit() {
       const mark =
         layer.querySelector<HTMLElement>(".pdf-hit.is-active") ||
         layer.querySelector<HTMLElement>(".pdf-hit");
-      if (mark) {
+      if (mark&&searchNavigation===hit) {
+        searchNavigation=undefined;
         mark.scrollIntoView({ block: "center", behavior: "smooth" });
         return;
       }
     }
-    pageEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    if(searchNavigation===hit)pageEl.scrollIntoView({ block: "nearest", behavior: "smooth" });
   });
 }
 
@@ -467,10 +472,10 @@ onBeforeUnmount(() => {
         :pdf="pdf"
         :current="current"
         :position="readingPosition"
-        @jump="jump"
-        @destination="jumpDestination"
+        @jump="readingJump"
+        @destination="target=>{cancelReadingRestore();void jumpDestination(target)}"
       />
-      <PdfNotes v-if="notesOpen && !presentation" :notes="annotations.notes.value" :can-export="!!pdf && !!annotations.onPage(current).length" :exporting="exporting" :export-status="exportStatus" @export="exportNotes" @jump="jump" @remove="annotations.remove"/>
+      <PdfNotes v-if="notesOpen && !presentation" :notes="annotations.notes.value" :can-export="!!pdf && !!annotations.onPage(current).length" :exporting="exporting" :export-status="exportStatus" @export="exportNotes" @jump="readingJump" @remove="annotations.remove"/>
       <div
         ref="scroll"
         class="pdf-scroll"
@@ -478,7 +483,7 @@ onBeforeUnmount(() => {
         :class="{'is-panning':panning}"
         tabindex="0"
         @scroll.passive="readingScroll"
-        @pointerdown="cancelDestination"
+        @pointerdown="cancelDestination();cancelReadingRestore()"
         @wheel="onWheel"
         @click="presentationClick"
         @contextmenu="presentationBack"
@@ -511,7 +516,7 @@ onBeforeUnmount(() => {
       :current="current"
       :total="pages.length"
       label="PDF"
-      @jump="jump"
+      @jump="readingJump"
     />
   </section>
 </template>
