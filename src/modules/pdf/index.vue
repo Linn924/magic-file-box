@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import "./styles/index.css";
 import { computed, nextTick, onBeforeUnmount, onMounted, inject, ref, watch } from "vue";
 import type { PreviewProps } from "@/modules/types";
 import { usePreview } from "./composables/usePreview";

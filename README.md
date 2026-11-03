@@ -32,6 +32,8 @@ magic file box 是一个 Windows 本地文件预览工具。把 PDF、Word、Exc
 
 ## 快速开始
 
+首页可先显示，应用配置仍在读取时会提示「正在加载配置…」。
+
 安装包来自当前仓库的公开 Release；Windows 安装版可通过设置中的更新入口检查后续版本。
 
 1. **安装。** 从 [最新发布页](https://github.com/Linn924/magic-file-box/releases/latest) 下载 Windows x64 安装包 并安装。无需 Office 或其他预览软件。

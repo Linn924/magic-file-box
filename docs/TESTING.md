@@ -21,6 +21,8 @@ npm run test:fixtures
 
 公共套件可用 `--formats word,ppt,text,image` 限定文件矩阵，省略时保留原完整覆盖。当前覆盖 loading、immersive、visual、updates、sources、sourcelifecycle 的相关格式分支；PDF 与 Excel 专属场景在这组筛选中不运行。通用 open 会拒绝范围外的样例，视觉测量按筛选另存。Excel 不参与时，loading 直接通过两个普通文本窗口验证同一解析队列的等待/取消/重试/关闭/重载及所有权，不伪造其他格式的排队 UI。
 
+首次显示性能可用独立测试配置和本地小 TXT 采样。记录进程启动到主页 ready-to-show，以及文件选择返回到预览 ready-to-show，并分别记录配置初始化、文件准备和窗口创建时间。文件选择框模拟返回时，计时范围从返回开始。
+
 ## 独立编译运行资源
 
 默认 build 含类型检查。需要仅编译运行资源时，可分别执行以下命令，再按实际影响选择专项；示例套件不是每次必跑清单：
