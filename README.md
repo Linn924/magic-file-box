@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/Linn924/magic-file-box/releases/tag/v1.0.21">下载 1.0.21</a> ·
+  <a href="https://github.com/Linn924/magic-file-box/releases/latest">下载最新版</a> ·
   <a href="#快速开始">快速开始</a> ·
   <a href="#功能">功能</a> ·
   <a href="docs/CHANGELOG.md">更新记录</a> ·
@@ -34,7 +34,7 @@ magic file box 是一个 Windows 本地文件预览工具。把 PDF、Word、Exc
 
 安装包来自当前仓库的公开 Release；Windows 安装版可通过设置中的更新入口检查后续版本。
 
-1. **安装。** 从 [1.0.21 Release](https://github.com/Linn924/magic-file-box/releases/tag/v1.0.21) 下载 `MagicFileBox-Setup-1.0.21-x64.exe` 并安装。无需 Office 或其他预览软件。
+1. **安装。** 从 [最新发布页](https://github.com/Linn924/magic-file-box/releases/latest) 下载 Windows x64 安装包 并安装。无需 Office 或其他预览软件。
 2. **打开文件。** 拖入文件、点击打开入口，或按 `Ctrl+O`。安装后也可在资源管理器的“打开方式”中选择 magic file box；是否设为默认程序由你决定。
 3. **开始阅读。** 多文件打开时选择标签或独立窗口。悬停图标可查看用途；查询使用独立浮窗，放大、适配和全屏操作留在阅读工具栏。
 
@@ -327,7 +327,7 @@ PowerPoint 可连续查看幻灯片，按页码跳转。文字与图片等静态
 | 入口 | 内容 |
 | --- | --- |
 | [发布与下载](https://github.com/Linn924/magic-file-box/releases) | main 版本安装包、更新说明与校验附件 |
-| [更新记录](docs/CHANGELOG.md) | 按版本查看新增、优化与修复的功能 |
+| [更新记录](docs/CHANGELOG.md) | 按日期查看新增、优化与修复的功能 |
 | [开发规范](docs/DEVELOPMENT.md) | 每个需求必须遵守的开发规则 |
 | [架构说明](docs/ARCHITECTURE.md) | 模块职责、生命周期与实现边界 |
 | [测试指南](docs/TESTING.md) | 测试选择、样例、构建与验收方法 |
