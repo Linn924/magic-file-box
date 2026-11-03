@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import "./styles/index.css";
 import { previewError } from '@shared/previewError';
 import { usePreviewTask, previewFrame } from '@/composables/usePreviewTask';
 import { fitScale } from "@/utils/fit";

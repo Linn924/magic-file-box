@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import ToolbarIcon from '@/components/ui/ToolbarIcon.vue';
-defineProps<{loadingSettings: boolean}>();
 const emit = defineEmits<{open: []; settings: []}>();
 </script>
 <template>
@@ -25,7 +24,6 @@ const emit = defineEmits<{open: []; settings: []}>();
         <strong>打开文件</strong>
         <span class="drop-hint">或将文件拖到此处</span>
       </button>
-      <p v-if="loadingSettings" role="status">正在加载配置…</p>
       <div class="formats">
         <span>Word</span><span>Excel</span><span>PowerPoint</span
         ><span>PDF</span><span>图片</span><span>文本</span>

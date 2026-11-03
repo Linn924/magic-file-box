@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import "./styles/index.css";
 import PageNavigation from "@/components/preview/PageNavigation.vue";
 import type { PreviewProps } from "@/modules/types";
 import { usePreview } from "./composables/usePreview";

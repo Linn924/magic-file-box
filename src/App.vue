@@ -3,14 +3,13 @@ import {useExclusive} from '@/composables/useExclusive';
 import {useApplication} from '@/composables/useApplication';
 import {HomeView, TabStrip} from '@/components/app';
 import PreviewTab from '@/components/preview/PreviewTab.vue';
-import {defineAsyncComponent} from 'vue';
+import SettingsPanel from '@/components/settings';
 import UpdateCenter from '@/components/updates';
 import NotificationStack from '@/components/ui/NotificationStack.vue';
 import PopupTransition from '@/components/ui/PopupTransition.vue';
 import {provideNotificationPolicy} from '@/composables/useNotificationTimeout';
-const SettingsPanel = defineAsyncComponent(() => import('@/components/settings'));
 const {effect} = useExclusive();
-const {isPreview, immersive, files, active, updateLocked, settings, loadingSettings, showSettings, error, dragging, tabStrip,
+const {isPreview, immersive, files, active, updateLocked, settings, showSettings, error, dragging, tabStrip,
   select, openFiles, enter, leave, drop, startDrag, endDrag, dropTab, closeTab, selectTab, onTabsWheel, save} = useApplication();
 provideNotificationPolicy(()=>settings.value.notificationDuration,()=>showSettings.value||immersive.value||updateLocked.value);
 </script>
@@ -22,7 +21,7 @@ provideNotificationPolicy(()=>settings.value.notificationDuration,()=>showSettin
     @dragover.prevent
     @drop.prevent="drop"
   >
-    <HomeView v-if="!isPreview" :loading-settings="loadingSettings" @open="select" @settings="showSettings = true">
+    <HomeView v-if="!isPreview" @open="select" @settings="showSettings = true">
       <component :is="effect" v-if="effect" />
     </HomeView>
     <template v-else

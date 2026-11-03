@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import "../styles/index.css";
 import {ref,shallowRef,computed,onMounted,onBeforeUnmount} from 'vue';
 import type {PreviewProps} from '@/modules/types';
 import {openFileSource,fileSourceError} from '@/services/fileSource';

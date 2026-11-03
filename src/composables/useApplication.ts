@@ -20,7 +20,7 @@ export function useApplication() {
   const tabMime = "application/x-file-preview-tab";
   const cleanups: Array<() => void> = [];
   const tabStrip = ref<TabStripHandle>();
-  const {settings, loadingSettings, save, initializeSettings} = useAppSettings(error);
+  const {settings, save, initializeSettings} = useAppSettings(error);
   /** Next active-tab scroll policy: center for wheel, nearest for click/close. */
   let tabAlignMode: "center" | "nearest" = "nearest";
   provide("previewFiles", files);
@@ -243,6 +243,6 @@ export function useApplication() {
   });
 
   function endDrag() { draggedTab = ""; }
-  return {isPreview, immersive, files, active, updateLocked, settings, loadingSettings, showSettings, error, dragging, tabStrip, select, openFiles, enter, leave, drop, startDrag, endDrag, dropTab, closeTab, selectTab, onTabsWheel, save};
+  return {isPreview, immersive, files, active, updateLocked, settings, showSettings, error, dragging, tabStrip, select, openFiles, enter, leave, drop, startDrag, endDrag, dropTab, closeTab, selectTab, onTabsWheel, save};
 
 }

@@ -281,7 +281,7 @@ UpdateCenter 通过 [releaseNotes.ts](../src/components/updates/releaseNotes.ts)
 
 ## 样式与交互组织
 
-[styles/index.css](../src/styles/index.css) 是全局样式顺序入口：reset → tokens → base → 应用/组件样式。tokens 定义明暗主题变量，app 管理首页、标签及沉浸布局，components 管理公共操作栏、预览、状态与设置。文本样式随文本注册入口加载，其他格式样式由对应的异步预览组件引入。普通预览和按需预览在加载组件时取得所需样式。设置面板在打开时加载。首页使用默认配置先渲染，配置读取期间显示加载状态，读取失败时保留默认值并提示。
+[styles/index.css](../src/styles/index.css) 是全局样式顺序入口：reset → tokens → base → 应用/组件样式。tokens 定义明暗主题变量，app 管理首页、标签及沉浸布局，components 管理公共操作栏、预览、状态与设置。格式样式由各模块 index.ts 引入 styles/index.css，组件自身也可使用局部样式。
 
 文件迁移保留了原级联顺序。Word/PPT 内容隔离于应用主题；表格已有样式和图片本身颜色不由全局暗色主题改写。字体、CSS 和尺寸改变可能影响虚拟行高与阅读锚点，相关处理仍属于各模块。
 

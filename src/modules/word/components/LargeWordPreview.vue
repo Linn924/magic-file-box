@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import "../styles/index.css";
 import type {PreviewProps} from '@/modules/types';
 import RecordPreview from '@/components/preview/RecordPreview.vue';
 defineProps<PreviewProps>();const emit=defineEmits<{ready:[];error:[message:string]}>();

@@ -3,7 +3,6 @@ import {defaults, type Settings} from '@shared/settings';
 
 export function useAppSettings(error: Ref<string>) {
   const settings = ref<Settings>({...defaults});
-  const loadingSettings = ref(true);
   let unsubscribe: (() => void) | undefined;
   const media = matchMedia('(prefers-color-scheme: dark)');
   function applyTheme() {
@@ -22,23 +21,16 @@ export function useAppSettings(error: Ref<string>) {
 
   async function initializeSettings() {
     media.addEventListener('change', applyTheme);
+    settings.value = await window.localPreview.getSettings();
     applyTheme();
-    try {
-      settings.value = await window.localPreview.getSettings();
+    unsubscribe = window.localPreview.onSettings((value) => {
+      settings.value = value;
       applyTheme();
-      unsubscribe = window.localPreview.onSettings((value) => {
-        settings.value = value;
-        applyTheme();
-      });
-    } catch {
-      error.value = '配置加载失败，已使用默认设置。';
-    } finally {
-      loadingSettings.value = false;
-    }
+    });
   }
   onBeforeUnmount(() => {
     media.removeEventListener('change', applyTheme);
     unsubscribe?.();
   });
-  return {settings, loadingSettings, save, initializeSettings};
+  return {settings, save, initializeSettings};
 }

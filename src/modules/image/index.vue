@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import "./styles/index.css";
 import type { PreviewProps } from "@/modules/types";
 import { usePreview } from "./composables/usePreview";
 import ToolButton from '@/components/ui/ToolButton.vue';
