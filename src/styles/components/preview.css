@@ -17,6 +17,11 @@
   min-height: 0;
 }
 
+.preview-content-pending {
+  opacity: 0;
+  pointer-events: none;
+}
+
 .filebar {
   flex-shrink: 0;
   display: flex;

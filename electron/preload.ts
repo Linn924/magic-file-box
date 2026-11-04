@@ -1,6 +1,10 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopBridge, Settings } from "@shared/contracts";
 
+let pendingOpenSettings = false;
+const rememberOpenSettings = () => { pendingOpenSettings = true; };
+ipcRenderer.on('settings:open', rememberOpenSettings);
+
 const bridge: DesktopBridge = {
   getExclusiveState:()=>ipcRenderer.invoke('exclusive:get'),
   activateExclusiveKey:key=>ipcRenderer.invoke('exclusive:activate',key),
@@ -103,7 +107,12 @@ const bridge: DesktopBridge = {
   setSettings: (settings) => ipcRenderer.invoke("settings:set", settings),
   onOpenSettings: (handler) => {
     const listener=()=>handler();
-    ipcRenderer.on('settings:open',listener);
+    ipcRenderer.removeListener('settings:open', rememberOpenSettings);
+    ipcRenderer.on('settings:open', listener);
+    if (pendingOpenSettings) {
+      pendingOpenSettings = false;
+      handler();
+    }
     return ()=>ipcRenderer.removeListener('settings:open',listener);
   },
   onSettings: (handler) => {

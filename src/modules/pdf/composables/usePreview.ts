@@ -515,7 +515,8 @@ export function usePreview(props: PreviewProps, emit: PreviewEmit, publishPermis
       virtualEnd.value = Math.min(positions.rows.length, 3);
       await nextTick();
       if(savedReading)restoreAnchor({page:savedReading.page-1,fraction:savedReading.fraction});else updateVirtualWindow();
-      await render(current.value-1);
+      const firstRow = positions.rows[positions.rowForPage(current.value - 1)];
+      await Promise.all((firstRow?.pages ?? [current.value - 1]).map(render));
       if(scroll.value)scroll.value.dataset.pdfStage='bootstrap-ready';
       if (disposed) return;
       observe();

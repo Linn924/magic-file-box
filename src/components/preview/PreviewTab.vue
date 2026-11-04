@@ -155,6 +155,8 @@ async function loaded() {
       <component
         v-if="preview"
         :key="preview.key"
+        :class="{ 'preview-content-pending': phase !== 'ready' && phase !== 'password' }"
+        :inert="phase !== 'ready' && phase !== 'password'"
         :is="preview.file.source && module?.sourceComponent ? module.sourceComponent : module?.component"
         :file="preview.file"
         :zoom="zoom"

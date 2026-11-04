@@ -64,6 +64,7 @@ for (const flag of [
 ])
   app.commandLine.appendSwitch(flag);
 export const payloads = new Map<number, PreviewFile[]>();
+const pendingPayloads = new Map<number, Promise<void>>();
 let local: Session;
 export let settings: SettingsStore;
 let tray: Tray | undefined;
@@ -201,6 +202,7 @@ function createWindow(preview: boolean) {
     }
   });
   win.on("closed", () => {
+    pendingPayloads.delete(id);
     payloads.delete(id);
     releaseWindow(id);
     forceClose.delete(win.id);
@@ -239,13 +241,34 @@ export async function openPaths(paths: string[], mode?: "tabs" | "windows",view?
   const created: BrowserWindow[] = [];
   let hasOpenableFiles = false;
   for (const group of groups) {
-    const files: PreviewFile[] = [];
-    for (const name of group){const file=await preparePreviewFile(name);if(view)file.view=view;files.push(file);}
     const win = createWindow(true);
-    registerFiles(win.webContents.id, files);
-    payloads.set(win.webContents.id, files);
-    try { await win.loadURL("preview://local/index.html?preview=1"); }
-    catch(error) { if(!win.isDestroyed())win.destroy();throw error; }
+    const id = win.webContents.id;
+    const files: PreviewFile[] = [];
+    const prepared = (async () => {
+      for (const name of group) {
+        if (win.isDestroyed()) break;
+        const file = await preparePreviewFile(name);
+        if (view) file.view = view;
+        files.push(file);
+      }
+      if (win.isDestroyed()) {
+        discardUnownedFiles(files);
+        return;
+      }
+      registerFiles(id, files);
+      payloads.set(id, files);
+    })();
+    pendingPayloads.set(id, prepared);
+    try {
+      await Promise.all([win.loadURL("preview://local/index.html?preview=1"), prepared]);
+    } catch (error) {
+      discardUnownedFiles(files);
+      if (!win.isDestroyed()) {
+        win.destroy();
+        throw error;
+      }
+    }
+    if (win.isDestroyed()) continue;
     created.push(win);
     if (files.some((file) => !file.error)) hasOpenableFiles = true;
   }
@@ -362,9 +385,13 @@ export const ready = owner
           throw new Error("请选择有效的本机文件。");
         await enqueue(paths);
       });
-      ipcMain.handle("preview:consume", (event) => {
+      ipcMain.handle("preview:consume", async (event) => {
         trusted(event);
-        const value = payloads.get(event.sender.id) || [];
+        const id = event.sender.id;
+        await pendingPayloads.get(id);
+        if (event.sender.isDestroyed()) return [];
+        pendingPayloads.delete(id);
+        const value = payloads.get(id) || [];
         registerFiles(event.sender.id, value);
         payloads.delete(event.sender.id);
         return value;
@@ -404,4 +431,5 @@ app.on("window-all-closed", () => {
 app.on("will-quit", () => {
   tray?.destroy();
   payloads.clear();
+  pendingPayloads.clear();
 });
