@@ -92,6 +92,7 @@ function broadcast(value: Settings) {
 }
 export function updateSettings(value: Partial<Settings>) {
   const next = settings.update(value);
+  nativeTheme.themeSource = next.theme;
   syncWindowBackgrounds();
   broadcast(next);
   return next;
@@ -316,6 +317,8 @@ export const ready = owner
       settings = new SettingsStore(
         path.join(app.getPath("userData"), "preferences.json"),
       );
+      // 原生窗口边框、标题栏和首帧背景先按已保存的软件配色设置，避免跟随系统主题闪烁。
+      nativeTheme.themeSource = settings.get().theme;
       ipcMain.on('window:theme',event=>{
         try{
           trusted(event as Electron.IpcMainInvokeEvent);
