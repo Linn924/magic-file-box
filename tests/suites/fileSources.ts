@@ -35,7 +35,7 @@ const suite:Suite=async c=>{
         await c.check(win,'jump reaches requested logical record',"document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'&&!document.querySelector('.source-loading')");
         holdSourceResponses();
         await c.evaluate(win,"(()=>{const input=document.querySelector('[aria-label=大文件查找]');input.value='not-present-local-test';input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));})()");
-        await c.check(win,'record loading uses the simple loading message',"document.querySelector('.source-loading > span:not(.loading-spinner)')?.textContent==='正在加载…'");
+        await c.check(win,'record loading uses the simple loading message',"document.querySelector('.source-loading > span:not(.loading-spinner)')?.textContent==='正在加载资源…'");
         await c.check(win,'record loading has no early or cancel action',"!document.querySelector('.source-loading button')&&!document.querySelector('.preview-cancel-load')");
         await c.check(win,'slow records expose reload after ten seconds',"Number(document.querySelector('.source-loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=10&&!!document.querySelector('.source-loading .preview-retry')");
         await c.click(win,'.source-loading .preview-retry');
