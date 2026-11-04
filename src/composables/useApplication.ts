@@ -3,6 +3,7 @@ import {useImmersive} from './useImmersive';
 import {useUpdateRestart} from './useUpdateRestart';
 import {useAppSettings} from './useAppSettings';
 import {waitForFileEdits} from '@/services/pendingEdits';
+import {finishStartup} from '@/services/startup';
 import type {PreviewFile} from '@shared/files';
 import type {TabStripHandle} from '@/components/app/types';
 
@@ -236,6 +237,7 @@ export function useApplication() {
       void alignActiveTab("nearest");
       if (!files.value.length) error.value = "预览已释放，请重新打开文件。";
     }
+    void finishStartup();
   });
   onBeforeUnmount(() => {
     window.removeEventListener("keydown", key);

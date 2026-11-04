@@ -5,6 +5,7 @@ import type { Suite } from "../context";
 import {checkTabbarLayout} from '../tabbarLayout';
 import {SettingsStore} from '../../electron/settings';
 import {trayMenu} from '../trayMenuDriver';
+import {checkStartupTheme} from '../startupTheme';
 const suite: Suite = async (c) => {
   const cleanHome = "document.documentElement.dataset.exclusive==='false'&&!document.querySelector('.home-credit,.home-intro,.home-intro-title,.home-intro-canvas')";
   await c.check(c.home, "main home uses the standard entry", cleanHome);
@@ -25,6 +26,7 @@ const suite: Suite = async (c) => {
   await c.check(c.home, 'open-home default is ask', "document.querySelector('#open-home-action')?.value==='ask'");
   await c.evaluate(c.home, "(()=>{const s=document.querySelector('#open-home-action');s.value='keep';s.dispatchEvent(new Event('change',{bubbles:true}))})()");
   await c.check(c.home, 'open-home setting saves via UI', "document.querySelector('#open-home-action')?.value==='keep'");
+  await checkStartupTheme(c);
   let shownBeforePaint = false;
   const created = (_event: Electron.Event, win: BrowserWindow) => {
     let painted = false;

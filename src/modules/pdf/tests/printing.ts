@@ -358,7 +358,7 @@ const suite: Suite = async (c) => {
     await c.check(
       reopened,
       "print list can recreate preview",
-      "document.querySelector('.filename').textContent.includes('document.pdf')",
+      "document.querySelector('.filename')?.textContent.includes('document.pdf')",
     );
     c.close(reopened);
     dialog.showOpenDialog = (async () => ({canceled:false,filePaths:Array(60).fill(c.fixture('document.pdf'))})) as typeof dialog.showOpenDialog;

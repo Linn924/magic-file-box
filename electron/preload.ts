@@ -1,6 +1,20 @@
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type { DesktopBridge, Settings } from "@shared/contracts";
 
+// Apply the saved theme before the document's first paint.
+// The main process returns only its current in-memory theme, including on reload.
+const startupTheme=ipcRenderer.sendSync('window:theme');
+function applyStartupTheme(){
+  if(!document.documentElement)return false;
+  document.documentElement.dataset.theme=startupTheme==='dark'?'dark':'light';
+  return true;
+}
+if(!applyStartupTheme()){
+  const observer=new MutationObserver(()=>{if(applyStartupTheme())observer.disconnect();});
+  observer.observe(document,{childList:true});
+  window.addEventListener('unload',()=>observer.disconnect(),{once:true});
+}
+
 let pendingOpenSettings = false;
 const rememberOpenSettings = () => { pendingOpenSettings = true; };
 ipcRenderer.on('settings:open', rememberOpenSettings);

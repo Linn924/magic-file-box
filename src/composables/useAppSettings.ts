@@ -21,8 +21,12 @@ export function useAppSettings(error: Ref<string>) {
 
   async function initializeSettings() {
     media.addEventListener('change', applyTheme);
-    settings.value = await window.localPreview.getSettings();
-    applyTheme();
+    try{
+      settings.value = await window.localPreview.getSettings();
+      applyTheme();
+    }catch{
+      error.value='配置读取失败，当前使用默认设置。';
+    }
     unsubscribe = window.localPreview.onSettings((value) => {
       settings.value = value;
       applyTheme();

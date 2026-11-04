@@ -1,5 +1,6 @@
 const mode = new URLSearchParams(location.search);
 const status = document.querySelector<HTMLElement>('#startup-status');
+if(mode.has('print'))status?.remove();
 
 const painted = mode.has('print') || mode.has('print-panel')
   ? Promise.resolve()

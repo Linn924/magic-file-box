@@ -21,10 +21,12 @@ import {
   protocol,
   Tray,
   nativeImage,
+  nativeTheme,
   type Session,
 } from "electron";
 import path from "node:path";
 import {DISPLAY_NAME} from '@shared/branding';
+import {windowTheme} from '@shared/windowTheme';
 import {applicationProfile} from './settings/profile';
 import {createHomeOnOpen} from './windows/homeOnOpen';
 import {setupExclusive} from './exclusive';
@@ -90,8 +92,15 @@ function broadcast(value: Settings) {
 }
 export function updateSettings(value: Partial<Settings>) {
   const next = settings.update(value);
+  syncWindowBackgrounds();
   broadcast(next);
   return next;
+}
+function syncWindowBackgrounds(){
+  const theme=windowTheme(settings.get().theme,nativeTheme.shouldUseDarkColors);
+  for(const win of BrowserWindow.getAllWindows()){
+    if(!win.isDestroyed())win.setBackgroundColor(theme.background);
+  }
 }
 function showWindows() {
   const windows = BrowserWindow.getAllWindows();
@@ -162,6 +171,7 @@ async function requestClose(win: BrowserWindow) {
   }
 }
 function createWindow(preview: boolean) {
+  const theme=windowTheme(settings.get().theme,nativeTheme.shouldUseDarkColors);
   const win = new BrowserWindow({
     width: preview ? 1200 : 960,
     height: preview ? 850 : 700,
@@ -170,7 +180,7 @@ function createWindow(preview: boolean) {
     show: false,
     title: DISPLAY_NAME,
     icon,
-    backgroundColor: settings.get().theme === "dark" ? "#151b25" : "#f5f6f8",
+    backgroundColor: theme.background,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
@@ -306,7 +316,14 @@ export const ready = owner
       settings = new SettingsStore(
         path.join(app.getPath("userData"), "preferences.json"),
       );
+      ipcMain.on('window:theme',event=>{
+        try{
+          trusted(event as Electron.IpcMainInvokeEvent);
+          event.returnValue=windowTheme(settings.get().theme,nativeTheme.shouldUseDarkColors).name;
+        }catch{event.returnValue='light';}
+      });
       setupExclusive();
+      nativeTheme.on('updated',syncWindowBackgrounds);
       Menu.setApplicationMenu(null);
       setupTransfers();
       setupModifiedFiles();setupExcelCopy();
@@ -423,6 +440,7 @@ app.on("window-all-closed", () => {
   if (!tray) app.quit();
 });
 app.on("will-quit", () => {
+  nativeTheme.removeListener('updated',syncWindowBackgrounds);
   tray?.destroy();
   payloads.clear();
   pendingPayloads.clear();
