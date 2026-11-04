@@ -25,6 +25,22 @@ const suite: Suite = async (c) => {
   await c.check(c.home, 'open-home default is ask', "document.querySelector('#open-home-action')?.value==='ask'");
   await c.evaluate(c.home, "(()=>{const s=document.querySelector('#open-home-action');s.value='keep';s.dispatchEvent(new Event('change',{bubbles:true}))})()");
   await c.check(c.home, 'open-home setting saves via UI', "document.querySelector('#open-home-action')?.value==='keep'");
+  let shownBeforePaint = false;
+  const created = (_event: Electron.Event, win: BrowserWindow) => {
+    let painted = false;
+    win.once('ready-to-show', () => { painted = true; });
+    win.once('show', () => { shownBeforePaint = !painted; });
+  };
+  app.once('browser-window-created', created);
+  const early = await c.program.openPath(c.fixture('text.txt'));
+  try {
+    if (!shownBeforePaint) throw Error('Preview window waited for its first paint');
+    await c.check(early, 'early visible window reaches usable preview',
+      "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'");
+  } finally {
+    app.removeListener('browser-window-created', created);
+    c.close(early);
+  }
   await c.evaluate(
     c.home,
     "(()=>{const s=document.querySelector('#theme');s.value='dark';s.dispatchEvent(new Event('change',{bubbles:true}))})()",

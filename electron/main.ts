@@ -185,12 +185,6 @@ function createWindow(preview: boolean) {
   const id = win.webContents.id;
   protectWindow(win);
   if (preview) trackFullscreen(win);
-  win.once("ready-to-show", () => {
-    if (!win.isDestroyed()) {
-      if (preview && settings.get().maximizePreview) win.maximize();
-      win.show();
-    }
-  });
   win.on("close", (event) => {
     if(preview&&!quitting&&!forceClose.has(win.id)&&hasModified(id)){
       if(!confirmModified(win,id)){event.preventDefault();return;}
@@ -207,13 +201,13 @@ function createWindow(preview: boolean) {
     releaseWindow(id);
     forceClose.delete(win.id);
   });
+  if (preview && settings.get().maximizePreview) win.maximize();
+  win.show();
   return win;
 }
 async function createHome() {
   home = createWindow(false);
-  const shown = new Promise<void>((resolve) => home!.once('show', () => resolve()));
   await home.loadURL("preview://local/index.html");
-  await shown;
   return home;
 }
 export async function openPaths(paths: string[], mode?: "tabs" | "windows",view?:PreviewFile['view']) {
