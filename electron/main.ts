@@ -323,6 +323,14 @@ export const ready = owner
         }catch{event.returnValue='light';}
       });
       setupExclusive();
+      ipcMain.handle("settings:get", (event) => {
+        trusted(event);
+        return settings.get();
+      });
+      ipcMain.handle("settings:set", (event, value: Partial<Settings>) => {
+        trusted(event);
+        return updateSettings(value && typeof value === "object" ? value : {});
+      });
       nativeTheme.on('updated',syncWindowBackgrounds);
       Menu.setApplicationMenu(null);
       setupTransfers();
@@ -338,10 +346,14 @@ export const ready = owner
       });
       setupFullscreen();
       local = await createLocalSession(path.resolve(__dirname, "../dist"),fileSourceRouter);
+      let printBusy:()=>boolean=()=>false;
+      updates=setupUpdates(()=>settings.get().checkUpdatesOnStart,()=>opening>0||hasActiveOutputs()||hasActivePrintJobs()||printBusy()||hasPendingTransfers());
+      // 先把首页窗口显示出来并开始加载，其余只注册事件的服务在页面加载期间继续准备。
+      const homeLoading = createHome();
       setupPrinting(local);
       setupPdfExport();
       setupPdfResources();
-      const printBusy=setupPrintWindow(local, async (files) => {
+      printBusy=setupPrintWindow(local, async (files) => {
         const win = createWindow(true);
         registerFiles(win.webContents.id, files);
         payloads.set(win.webContents.id, files);
@@ -349,7 +361,6 @@ export const ready = owner
         catch(error) { if(!win.isDestroyed())win.destroy();throw error; }
         return win;
       });
-      updates=setupUpdates(()=>settings.get().checkUpdatesOnStart,()=>opening>0||hasActiveOutputs()||hasActivePrintJobs()||printBusy()||hasPendingTransfers());
       ipcMain.handle("preview:select", async (event) => {
         trusted(event);
         const win = BrowserWindow.fromWebContents(event.sender);
@@ -414,15 +425,7 @@ export const ready = owner
         const win = BrowserWindow.fromWebContents(event.sender);
         if (win) win.close();
       });
-      ipcMain.handle("settings:get", (event) => {
-        trusted(event);
-        return settings.get();
-      });
-      ipcMain.handle("settings:set", (event, value: Partial<Settings>) => {
-        trusted(event);
-        return updateSettings(value && typeof value === "object" ? value : {});
-      });
-      const root = await createHome();
+      const root = await homeLoading;
       const args = fileArguments(process.argv.slice(app.isPackaged ? 1 : 2));
       if (args.length) await enqueue(args);
       return root;
