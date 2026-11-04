@@ -25,7 +25,7 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
   let clock: ReturnType<typeof setInterval> | undefined;
   let eviction:Promise<void>|undefined;
   const busy = computed(() => ['reading', 'queued', 'parsing', 'rendering', 'password'].includes(phase.value));
-  const label = computed(() => busy.value ? phase.value === 'password' ? '等待输入密码' : '正在加载文件…' : '');
+  const label = computed(() => busy.value ? phase.value === 'password' ? '等待输入密码' : '正在加载资源…' : '');
   const resident=retainPreview({
     active:()=>!!props.active,
     loading:()=>busy.value||backgroundWork.value>0,

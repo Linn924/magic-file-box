@@ -1,6 +1,5 @@
 const mode = new URLSearchParams(location.search);
 const status = document.querySelector<HTMLElement>('#startup-status');
-if (status && mode.has('preview')) status.textContent = '正在加载文件…';
 
 const painted = mode.has('print') || mode.has('print-panel')
   ? Promise.resolve()
