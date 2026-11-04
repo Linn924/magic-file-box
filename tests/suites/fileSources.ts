@@ -36,14 +36,16 @@ const suite:Suite=async c=>{
         holdSourceResponses();
         await c.evaluate(win,"(()=>{const input=document.querySelector('[aria-label=大文件查找]');input.value='not-present-local-test';input.dispatchEvent(new Event('input',{bubbles:true}));input.closest('form').dispatchEvent(new Event('submit',{bubbles:true,cancelable:true}));})()");
         await c.check(win,'record loading uses the simple loading message',"document.querySelector('.source-loading > span:not(.loading-spinner)')?.textContent==='正在加载资源…'");
-        await c.check(win,'record loading has no early or cancel action',"!document.querySelector('.source-loading button')&&!document.querySelector('.preview-cancel-load')");
-        await c.check(win,'slow records expose reload after ten seconds',"Number(document.querySelector('.source-loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=10&&!!document.querySelector('.source-loading .preview-retry')");
-        await c.click(win,'.source-loading .preview-retry');
-        await c.check(win,'record reload resets its timer and retains displayed content',"!document.querySelector('.source-loading button,.source-loading small')&&document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'");
+        await c.check(win,'record loading offers Close immediately',"document.querySelector('.source-loading button')?.textContent==='关闭'&&document.querySelectorAll('.source-loading button').length===1");
+        await c.check(win,'slow records still offer only Close after ten seconds',"Number(document.querySelector('.source-loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=10&&document.querySelector('.source-loading button')?.textContent==='关闭'&&document.querySelectorAll('.source-loading button').length===1");
+        await c.click(win,'.source-loading .source-cancel');
+        for(let i=0;i<100&&c.program.previewResourceStats().sourceSessions;i++)await c.pause(50);
+        assert.equal(c.program.previewResourceStats().sourceSessions,0,'cancel closes the source session');
+        await c.check(win,'closing the loading prompt retains displayed content',"!document.querySelector('.source-loading button,.source-loading small')&&document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'");
         releaseSourceResponses();
-        await c.check(win,'late scan cannot replace reloaded records',"!document.querySelector('.source-loading')&&document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'&&![...document.querySelectorAll('.notice')].some(el=>el.textContent.includes('后续内容未找到'))");
+        await c.check(win,'late scan cannot replace retained records',"!document.querySelector('.source-loading')&&document.querySelector('[data-source-row]')?.dataset.sourceRow==='1000'&&![...document.querySelectorAll('.notice')].some(el=>el.textContent.includes('后续内容未找到'))");
         await c.click(win,'.source-footer button','下一段');
-        await c.check(win,'reading continues after reloading the slow scan',"Number(document.querySelector('[data-source-row]')?.dataset.sourceRow)>1000&&!document.querySelector('.source-loading')");
+        await c.check(win,'reading continues after cancelling the slow scan',"Number(document.querySelector('[data-source-row]')?.dataset.sourceRow)>1000&&!document.querySelector('.source-loading')");
       }
       if(name==='xlsx')await c.check(win,'large XLSX displays source values',"document.querySelector('.source-table').textContent.includes('87.5')||document.querySelector('.source-table').textContent.includes('0.875')");
       if(name==='docx'||name==='pptx')await c.check(win,'large Office has extracted readable text',"document.querySelector('.source-document')?.textContent.trim().length>10");

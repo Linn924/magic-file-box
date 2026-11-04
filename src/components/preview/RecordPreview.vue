@@ -36,7 +36,7 @@ const rendered=computed(()=>{
   return result;
 });
 watch(page,async()=>{jump.value=start.value+1;await nextTick();scroll.value?.scrollTo(0,0);});
-async function load(){await state.load({start:Math.max(0,Math.floor(Number(jump.value)||1)-1)});await nextTick();scroll.value?.scrollTo(0,0);}
+function load(){void state.load({start:Math.max(0,Math.floor(Number(jump.value)||1)-1)});}
 </script>
 <template>
   <section class="source-preview">
@@ -45,14 +45,19 @@ async function load(){await state.load({start:Math.max(0,Math.floor(Number(jump.
       <label v-if="info?.encoding">编码<select v-model="encoding" :disabled="busy" @change="state.changeEncoding"><option value="utf-8">UTF-8</option><option value="gb18030">GB18030 / GBK</option><option value="utf-16le">UTF-16 LE</option><option value="utf-16be">UTF-16 BE</option></select></label>
       <form v-if="search!==false" role="search" class="source-search" @submit.prevent="state.find"><input v-model="query" aria-label="大文件查找" :maxlength="256" :placeholder="layout==='table'?'查找当前列组':'查找后续正文'"/><button type="submit" :disabled="busy||!query">查找下一处</button></form>
     </div>
-    <p v-if="error" class="notice" role="alert">{{error}} <button class="preview-retry" :disabled="busy" @click="state.load()">重新加载</button></p>
+    <p v-if="error" class="notice" role="alert">{{ error }}</p>
     <p v-if="queryNotice" class="notice" role="status">{{queryNotice}}</p>
     <div class="source-stage">
       <div ref="scroll" class="source-scroll" :class="layout==='table'?'table-wrap':layout==='document'?'document-scroll':'text-scroll'" :style="{fontSize:14*zoom/100+'px'}" :aria-busy="busy">
         <table v-if="layout==='table'" class="source-table preview-content"><thead><tr><th>行</th><th v-for="col in columns" :key="col">{{colName(col)}}</th></tr></thead><tbody><tr v-for="row in rendered" :key="row.index" :data-source-row="row.index"><th>{{row.index+1}}</th><td v-for="(parts,index) in row.marked" :key="index"><template v-for="(part,n) in parts" :key="n"><mark v-if="part.hit">{{part.text}}</mark><template v-else>{{part.text}}</template></template></td></tr></tbody></table>
         <div v-else class="source-document preview-content"><div v-for="row in rendered" :key="row.index" class="source-record" :data-source-row="row.index" :class="{'source-heading':row.level}" :style="row.level?{fontSize:(1.8-Math.min(row.level,6)*.12)+'em',fontWeight:600}:undefined"><small v-if="layout==='text'" class="source-line">{{row.continued?'↳':row.line??row.index+1}}</small><span class="source-record-text"><template v-for="(part,n) in row.marked[0]" :key="n"><mark v-if="part.hit">{{part.text}}</mark><template v-else>{{part.text}}</template></template></span><small v-if="row.assetWarning" class="source-asset-warning" role="status">{{row.assetWarning}}</small><SourceAsset v-for="url in row.assets" :key="url" :url="url" :file-id="file.id" /></div></div>
       </div>
-      <div v-if="busy && ready" class="loading source-loading" role="status"><span class="loading-spinner" aria-hidden="true"></span><span>正在加载资源…</span><small v-if="elapsed >= 3" aria-live="off">已用 {{elapsed}} 秒</small><button v-if="elapsed >= 10" class="preview-retry" @click="state.retry">重新加载</button></div>
+      <div v-if="busy && ready" class="loading source-loading" role="status">
+        <span class="loading-spinner" aria-hidden="true"></span>
+        <span>正在加载资源…</span>
+        <small v-if="elapsed >= 3" aria-live="off">已用 {{ elapsed }} 秒</small>
+        <button type="button" class="source-cancel" @click="state.cancel">关闭</button>
+      </div>
     </div>
     <footer class="source-controls source-footer">
       <button :disabled="busy||start===0" @click="state.previous">上一段</button><button :disabled="busy||!page?.more" @click="state.next">下一段</button>
@@ -68,6 +73,6 @@ async function load(){await state.load({start:Math.max(0,Math.floor(Number(jump.
 .source-asset-warning{display:block;color:var(--muted);font-size:12px;margin:8px 0}
 .source-controls{display:flex;align-items:center;gap:8px;padding:6px 10px;flex-wrap:wrap;background:var(--panel);border-bottom:1px solid var(--line);flex-shrink:0;font-size:12px}
 .source-controls label,.source-controls form{display:flex;align-items:center;gap:6px;min-width:0}.source-controls select{max-width:240px}.source-controls input,.source-controls select{min-height:28px;background-color:var(--field-bg);color:var(--field-text);border:1px solid var(--field-border);border-radius:4px;padding:0 6px}.source-controls input{width:140px}.source-controls .source-search input{width:180px}
-.source-controls button,.source-preview .notice button{display:inline-flex;align-items:center;justify-content:center;text-align:center;line-height:1.4;min-height:28px;padding:4px 10px}
+.source-controls button,.source-cancel{display:inline-flex;align-items:center;justify-content:center;text-align:center;line-height:1.4;min-height:28px;padding:4px 10px}
 .source-scroll{position:relative;overflow:auto;flex:1;min-height:0;background:var(--panel);padding:0}.source-document{padding:12px 16px;line-height:1.65}.source-record{white-space:pre-wrap;overflow-wrap:anywhere;min-height:1.65em}.source-record-text{white-space:pre-wrap}.source-line{display:inline-block;width:5em;max-width:25%;padding-right:12px;color:var(--muted);user-select:none}.source-heading{margin:12px 0}.source-table{border-collapse:separate;border-spacing:0;min-width:100%;font:inherit}.source-table th,.source-table td{border-right:1px solid var(--line);border-bottom:1px solid var(--line);padding:4px 8px;white-space:pre-wrap;min-width:100px;max-width:500px;overflow-wrap:anywhere}.source-table th{background:var(--well);font-weight:400}.source-table thead{position:sticky;top:0;z-index:2}.source-table th:first-child{min-width:52px}.source-footer{border-top:1px solid var(--line);border-bottom:0}.source-footer input{width:90px}.source-footer small{color:var(--muted)}.source-loading{z-index:10}mark{background:#fde68a;color:#20262e;border-radius:2px}
 </style>
