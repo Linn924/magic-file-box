@@ -55,22 +55,14 @@ Start-Process $outputFile -ArgumentList dark
 
 追加第二个参数作为截图路径时，原型会自动截图、改变窗口尺寸并在三秒后关闭。普通启动由用户关闭。截图和 EXE 保留在忽略的产物目录。
 
-### ImageView 启动层原型
+### 无图片原生启动层验证
 
-正式启动层位于 electron/windows/startupLoading.ts。copy-assets 会先生成 dist/native-loading 的明暗主题和多 DPI 帧，产品启动只读取这些帧。core 检查首帧前原生卡片已存在、首页和预览就绪后移除，loading 检查首次等待超过 10 秒仍保持原生层、窗口缩放居中、提前关闭清理以及失败后的 HTML 重试。
+scripts/build-electron.ts 会先编译 Windows Forms/GDI+ 辅助程序。验证前重建前端与主进程资源；正式启动不依赖图片帧生成。发布校验检查 resources/native-loading.exe，并拒绝携带旧 dist/native-loading 帧目录的应用归档。
 
-tests/nativeStartup.entry.ts 可通过 --dpi=1、--dpi=1.25、--dpi=1.5、--dpi=2 强制 Electron 显示比例，分别检查明暗主题、缩放、关闭期间的异常和重新打开。该测试使用独立配置，核对文本样例 SHA256，最后确认启动层与动画计时器为零。强制比例测试不能代替跨物理显示器拖动验收。
+tests/nativeStartup.entry.ts 支持 --dpi=1、--dpi=1.25、--dpi=1.5、--dpi=2，使用独立配置暂缓首页配置或文件读取，等待辅助程序实际绘制。验证窗口在截取目标卡片前临时置于前台，截图仅限卡片屏幕区域；检测主题转圈的颜色像素，避免把“对象存在”误当作“用户可见”。屏幕取样需串行执行，避免其他界面专项切换前台窗口干扰结果。覆盖首页及每个首次预览、明暗主题、720×520/960×680 居中、加载中关闭、重新打开、就绪交接和进程清理。结果存 outputs/verification/native-home-* 和 native-visible-*。跨物理显示器拖动仍需硬件验收。
 
-`scripts/prototypes/image-loading.ts` 独立运行，使用现有 index.html 的加载卡片生成动画图片帧，再在尚未加载 HTML 的窗口中显示原生 ImageView。卡片包含背景、圆角、边框、阴影、转圈和文字，图片提供 100%、125%、150%、200%、300% 的 DPI 表示。窗口按逻辑尺寸居中，原生层与 HTML 层按同一动画周期交接。
+core 覆盖主题跟随、刷新与原有窗口操作；loading 检查首次等待保持原生卡片、原生界面无重复 HTML loading、失败后的 HTML 重试；pdfchain、sourcelifecycle 和 printing 按实际影响验证密码、资源释放和模拟打印。
 
-```powershell
-npx esbuild scripts/prototypes/image-loading.ts --bundle --platform=node --format=cjs --external:electron --outfile=electron-dist/image-loading.cjs
-Start-Process node_modules/electron/dist/electron.exe -ArgumentList 'electron-dist/image-loading.cjs' -Wait
-```
-
-原型覆盖浅色、深色及跟随浅色/深色系统，窗口内容尺寸 720×520 和 960×680，加载期间提前关闭，以及交接后定时器与视图清理。result.json 写入 outputs/verification/image-loading，生成资源仅用于测试。命令行追加 --capture 可保存原生卡片与 HTML 的窗口截图；Windows 桌面抓图接口可能不可用，截图状态独立记录。DPI 表示可在当前屏幕检查，跨不同 DPI 显示器的拖动仍需硬件验收。
-
-此原型先通过独立会话的隐藏渲染窗口生成资源，再打开原生测试窗口，因此测试结果只用于验证原生显示与交接能力。正式接入时需在构建阶段预生成并随安装包携带资源，另测启动耗时。原生覆盖期间网页绘制回调可能暂停，原型以 HTML 布局就绪为交接点；仍需验证移除原生层到 HTML 实际呈现之间是否存在空档。逐帧图片模拟与 CSS 动画的调度、抗锯齿可能存在差异，静态截图不能证明全过程没有单帧闪烁。产品已通过 electron/windows/startupLoading.ts 接入原生启动卡片；原型保留用于单独对照外观。
 
 ## 影响矩阵
 

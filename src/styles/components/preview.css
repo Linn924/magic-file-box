@@ -17,6 +17,11 @@
   min-height: 0;
 }
 
+html[data-native-startup] .preview-tab,
+html[data-native-startup] .preview-body {
+  background: var(--bg);
+}
+
 .preview-content-pending {
   opacity: 0;
   pointer-events: none;

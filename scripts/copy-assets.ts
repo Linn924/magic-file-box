@@ -6,7 +6,6 @@ import {
   existsSync,
   writeFileSync,
 } from "node:fs";
-import {generateLoading} from './generate-loading';
 for (const name of ["cmaps", "standard_fonts", "wasm"]) {
   mkdirSync(`dist/pdf-assets/${name}`, { recursive: true });
   cpSync(`node_modules/pdfjs-dist/${name}`, `dist/pdf-assets/${name}`, {
@@ -54,4 +53,3 @@ for (const name of [
 ])
   collect(name);
 writeFileSync("dist/THIRD-PARTY-NOTICES.txt", notices.join("\n"));
-await generateLoading();

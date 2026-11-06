@@ -72,11 +72,15 @@
     },
     "files": [
       "dist/**/*",
-      "electron-dist/*.cjs",
+      "electron-dist/main.cjs",
+      "electron-dist/preload.cjs",
       "assets/**/*",
       "package.json"
     ],
     "asar": true,
+    "extraResources": [
+      { "from": "electron-dist/native-loading.exe", "to": "native-loading.exe" }
+    ],
     "win": {
       "target": [
         "nsis"
