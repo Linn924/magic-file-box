@@ -1,6 +1,6 @@
 {
   "name": "magic-file-box",
-  "version": "1.0.28",
+  "version": "1.0.29",
   "private": true,
   "description": "Offline, read-only file preview tool for Windows",
   "author": "magic file box",
@@ -79,7 +79,10 @@
     ],
     "asar": true,
     "extraResources": [
-      { "from": "electron-dist/native-loading.exe", "to": "native-loading.exe" }
+      {
+        "from": "electron-dist/native-loading.exe",
+        "to": "native-loading.exe"
+      }
     ],
     "win": {
       "target": [
