@@ -38,6 +38,23 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 
 上述为运行时编译和真实行为测试，不生成安装包。产品源码改变后重新编译相应资源；仅测试文件改变可继续 skip-build。
 
+
+### Windows 无图片加载原型
+
+`scripts/prototypes/native-loading.cs` 是独立 Windows Forms 绘制验证，使用 GDI+ 实时绘制卡片、文字和转圈。它不读取 HTML 或动画图片，使用系统 .NET Framework，不加入正式产品启动流程。manifest 声明 PerMonitorV2，绘制按 Graphics.DpiX 缩放，窗口改变尺寸时重新居中。原生文字抗锯齿、阴影与网页可能不同，当前只验证独立窗口，不能视为已完成与 Electron 的嵌入及交接。
+
+使用 Windows 自带的 .NET Framework C# 编译器构建，所有路径使用绝对路径：
+
+```powershell
+$sourceFile = Join-Path $PWD 'scripts/prototypes/native-loading.cs'
+$manifestFile = Join-Path $PWD 'scripts/prototypes/native-loading.manifest'
+$outputFile = Join-Path $PWD 'electron-dist/native-loading-proof.exe'
+& 'C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe' /nologo /target:winexe ("/out:" + $outputFile) /reference:System.Drawing.dll /reference:System.Windows.Forms.dll ("/win32manifest:" + $manifestFile) $sourceFile
+Start-Process $outputFile -ArgumentList dark
+```
+
+追加第二个参数作为截图路径时，原型会自动截图、改变窗口尺寸并在三秒后关闭。普通启动由用户关闭。截图和 EXE 保留在忽略的产物目录。
+
 ### ImageView 启动层原型
 
 正式启动层位于 electron/windows/startupLoading.ts。copy-assets 会先生成 dist/native-loading 的明暗主题和多 DPI 帧，产品启动只读取这些帧。core 检查首帧前原生卡片已存在、首页和预览就绪后移除，loading 检查首次等待超过 10 秒仍保持原生层、窗口缩放居中、提前关闭清理以及失败后的 HTML 重试。
