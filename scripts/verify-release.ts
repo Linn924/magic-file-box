@@ -2,6 +2,7 @@ import { readFile, stat, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import JSZip from 'jszip';
+import {extractFile} from '@electron/asar';
 
 // Read-only artifact checks; write checksums only after every check succeeds.
 // Default: installer only. Pass --zip to also require and verify the portable ZIP.
@@ -14,6 +15,21 @@ const zipName = `MagicFileBox-${version}-Windows-x64.zip`;
 const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('hex');
 const setup = await readFile(resolve(root, setupName));
 const asar = await readFile(resolve(root, 'win-unpacked/resources/app.asar'));
+const archive=resolve(root,'win-unpacked/resources/app.asar');
+const loading=JSON.parse(extractFile(archive,'dist/native-loading/manifest.json').toString('utf8'));
+if(loading.count!==48||loading.period!==800||!Array.isArray(loading.scales)||loading.scales.join(',')!=='1,1.25,1.5,2,3')
+  throw Error('原生加载资源清单无效。');
+for(const theme of ['light','dark']){
+  for(const scale of loading.scales){
+    for(let frame=0;frame<loading.count;frame++){
+      const png=extractFile(archive,`dist/native-loading/${theme}/${scale}/${frame}.png`);
+      if(png.length<24||png.toString('hex',0,8)!=='89504e470d0a1a0a'||
+        png.readUInt32BE(16)!==Math.round(loading.width*scale)||
+        png.readUInt32BE(20)!==Math.round(loading.height*scale))
+        throw Error('原生加载图片缺失或尺寸无效。');
+    }
+  }
+}
 if (setup.toString('ascii', 0, 2) !== 'MZ' || setup.length <= asar.length)
   throw Error('安装包缺失应用载荷或不是 Windows EXE，禁止交付。');
 // A final NSIS installer contains its NSIS archive header; a PE stub does not suffice.
