@@ -23,6 +23,8 @@ npm run test:fixtures
 
 ## 独立编译运行资源
 
+
+
 core 检查预览窗口 show 先于 ready-to-show，并最终进入可读状态。startupTheme 覆盖浅色、深色和跟随浅色/深色系统，核对软件配色写入 nativeTheme 后首帧文档背景、卡片式加载提示、圆形加载图标、加载层和原生窗口颜色一致，首屏完成后加载层移除，并保存截图。首次显示计时使用独立配置和本地小 TXT，分别记录窗口显示、首页打开按钮可操作、预览正文可见。模拟文件选择时从返回选中文件开始计时。
 
 默认 build 含类型检查。需要仅编译运行资源时，可分别执行以下命令，再按实际影响选择专项；示例套件不是每次必跑清单：
@@ -35,6 +37,19 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 ```
 
 上述为运行时编译和真实行为测试，不生成安装包。产品源码改变后重新编译相应资源；仅测试文件改变可继续 skip-build。
+
+### ImageView 启动层原型
+
+`scripts/prototypes/image-loading.ts` 独立运行，使用现有 index.html 的加载卡片生成动画图片帧，再在尚未加载 HTML 的窗口中显示原生 ImageView。卡片包含背景、圆角、边框、阴影、转圈和文字，图片提供 100%、125%、150%、200%、300% 的 DPI 表示。窗口按逻辑尺寸居中，原生层与 HTML 层按同一动画周期交接。
+
+```powershell
+npx esbuild scripts/prototypes/image-loading.ts --bundle --platform=node --format=cjs --external:electron --outfile=electron-dist/image-loading.cjs
+Start-Process node_modules/electron/dist/electron.exe -ArgumentList 'electron-dist/image-loading.cjs' -Wait
+```
+
+原型覆盖浅色、深色及跟随浅色/深色系统，窗口内容尺寸 720×520 和 960×680，加载期间提前关闭，以及交接后定时器与视图清理。result.json 写入 outputs/verification/image-loading，生成资源仅用于测试。命令行追加 --capture 可保存原生卡片与 HTML 的窗口截图；Windows 桌面抓图接口可能不可用，截图状态独立记录。DPI 表示可在当前屏幕检查，跨不同 DPI 显示器的拖动仍需硬件验收。
+
+此原型先通过独立会话的隐藏渲染窗口生成资源，再打开原生测试窗口，因此测试结果只用于验证原生显示与交接能力。正式接入时需在构建阶段预生成并随安装包携带资源，另测启动耗时。原生覆盖期间网页绘制回调可能暂停，原型以 HTML 布局就绪为交接点；仍需验证移除原生层到 HTML 实际呈现之间是否存在空档。逐帧图片模拟与 CSS 动画的调度、抗锯齿可能存在差异，静态截图不能证明全过程没有单帧闪烁。当前产品窗口仍沿用现有启动实现。
 
 ## 影响矩阵
 
