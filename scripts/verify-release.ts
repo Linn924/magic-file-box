@@ -1,5 +1,5 @@
 import { readFile, stat, writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { resolve,join } from 'node:path';
 import { createHash } from 'node:crypto';
 import JSZip from 'jszip';
 import {extractFile} from '@electron/asar';
@@ -16,13 +16,13 @@ const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('h
 const setup = await readFile(resolve(root, setupName));
 const asar = await readFile(resolve(root, 'win-unpacked/resources/app.asar'));
 const archive=resolve(root,'win-unpacked/resources/app.asar');
-const loading=JSON.parse(extractFile(archive,'dist/native-loading/manifest.json').toString('utf8'));
+const loading=JSON.parse(extractFile(archive,join('dist','native-loading','manifest.json')).toString('utf8'));
 if(loading.count!==48||loading.period!==800||!Array.isArray(loading.scales)||loading.scales.join(',')!=='1,1.25,1.5,2,3')
   throw Error('原生加载资源清单无效。');
 for(const theme of ['light','dark']){
   for(const scale of loading.scales){
     for(let frame=0;frame<loading.count;frame++){
-      const png=extractFile(archive,`dist/native-loading/${theme}/${scale}/${frame}.png`);
+      const png=extractFile(archive,join('dist','native-loading',theme,String(scale),frame+'.png'));
       if(png.length<24||png.toString('hex',0,8)!=='89504e470d0a1a0a'||
         png.readUInt32BE(16)!==Math.round(loading.width*scale)||
         png.readUInt32BE(20)!==Math.round(loading.height*scale))
