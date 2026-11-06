@@ -20,6 +20,7 @@ const rememberOpenSettings = () => { pendingOpenSettings = true; };
 ipcRenderer.on('settings:open', rememberOpenSettings);
 
 const bridge: DesktopBridge = {
+  finishStartup:()=>ipcRenderer.invoke('startup:ready'),
   getExclusiveState:()=>ipcRenderer.invoke('exclusive:get'),
   activateExclusiveKey:key=>ipcRenderer.invoke('exclusive:activate',key),
   clearExclusiveKey:()=>ipcRenderer.invoke('exclusive:clear'),

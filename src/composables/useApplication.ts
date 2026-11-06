@@ -237,7 +237,7 @@ export function useApplication() {
       void alignActiveTab("nearest");
       if (!files.value.length) error.value = "预览已释放，请重新打开文件。";
     }
-    void finishStartup();
+    if(!isPreview||!files.value.length)void finishStartup();
   });
   onBeforeUnmount(() => {
     window.removeEventListener("keydown", key);

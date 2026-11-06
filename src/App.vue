@@ -29,10 +29,6 @@ provideNotificationPolicy(()=>settings.value.notificationDuration,()=>showSettin
         @select="selectTab" @close="closeTab" @open="openFiles" @settings="showSettings = true"
         @start-drag="startDrag" @end-drag="endDrag" @drop-tab="dropTab" @wheel="onTabsWheel"
       />
-      <div v-if="!files.length && !error" class="loading" role="status">
-        <span class="loading-spinner" aria-hidden="true"></span>
-        <span>正在加载资源…</span>
-      </div>
       <PreviewTab
         v-for="file in files"
         v-show="file.id === active"

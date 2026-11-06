@@ -1,6 +1,7 @@
 import type {PreviewFile} from './files';
 import type {Settings} from './settings';
 export interface DesktopBridge {
+  finishStartup():Promise<void>;
   getExclusiveState(): Promise<import('./exclusive').ExclusiveState>;
   activateExclusiveKey(key: string): Promise<import('./exclusive').ExclusiveState>;
   clearExclusiveKey(): Promise<import('./exclusive').ExclusiveState>;

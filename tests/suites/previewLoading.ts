@@ -8,21 +8,13 @@ const suite: Suite = async c => {
     let win = await c.program.openPath(c.fixture(name));
     try {
       await c.check(win, name + ' reports reading', "document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
-      await c.check(win, name + ' shows a simple loading message without internal stages', "document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载资源…'&&!document.querySelector('.loading small,.loading .preview-retry')");
-      await c.check(win, 'loading is centered without a cancel action', `(()=>{
-        const body=document.querySelector('.preview-body').getBoundingClientRect(),card=document.querySelector('.loading').getBoundingClientRect();
-        return Math.abs(card.left+card.width/2-body.left-body.width/2)<1&&Math.abs(card.top+card.height/2-body.top-body.height/2)<1&&!document.querySelector('.preview-cancel-load');
-      })()`);
-      if (name === 'text.txt') {
-        c.program.updateSettings({theme:'dark'});win.unmaximize();win.setContentSize(560,420);win.webContents.setZoomFactor(1.5);
-        await c.check(win, 'loading shows elapsed time after three seconds without actions', "Number(document.querySelector('.loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=3&&!document.querySelector('.loading button')");
-        await c.check(win, 'nine-second loading still has no reload action', "Number(document.querySelector('.loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])===9&&!document.querySelector('.loading button')");
-        await c.check(win, 'ten-second narrow loading shows only a reachable reload action', "(()=>{const el=document.querySelector('.loading .preview-retry');if(!el)return false;const b=el.getBoundingClientRect();return Number(document.querySelector('.loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=10&&document.querySelectorAll('.loading button').length===1&&document.documentElement.dataset.theme==='dark'&&b.top>=0&&b.bottom<=innerHeight&&el.contains(document.elementFromPoint(b.left+b.width/2,b.top+b.height/2))})()");
-        await c.check(win, 'reload button text stays centered', "(()=>{const s=getComputedStyle(document.querySelector('.preview-retry'));return /flex/.test(s.display)&&s.alignItems==='center'&&s.justifyContent==='center'&&s.textAlign==='center'})()");
-        await c.snapshot(win, 'preview-loading-reload-dark');
-        await c.click(win, '.loading .preview-retry');
-        await c.check(win, 'reloading an in-flight attempt resets its timer and keeps loading', "document.querySelector('.preview-body')?.dataset.loadPhase==='reading'&&!document.querySelector('.loading small,.loading .preview-retry')&&document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载资源…'");
-        win.webContents.setZoomFactor(1);win.setContentSize(1000,700);c.program.updateSettings({theme:'light'});
+      if(!c.program.startupLoadingStats(win.webContents.id).bounds)throw Error('Initial native loading missing');
+      await c.check(win,'initial loading has no duplicate HTML card',"!document.querySelector('.loading')");
+      if(name==='text.txt'){
+        win.unmaximize();win.setContentSize(720,520);
+        await c.pause(10200);
+        if(!c.program.startupLoadingStats(win.webContents.id).bounds)throw Error('Native loading must not time out into HTML');
+        await c.check(win,'long initial loading stays native',"!document.querySelector('.loading,.preview-retry')");
       }else{
         await c.click(win,'.tab-close');
         await c.pause(150);
@@ -35,7 +27,7 @@ const suite: Suite = async c => {
       releasePreviewResponses();
       await c.check(win, name + ' retry reaches ready', "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'&&!document.querySelector('.loading,.error,.preview-content-pending')");
       await c.check(win, name + ' reports parsing and rendering', "window.__loadPhases.includes('parsing')&&window.__loadPhases.includes('rendering')");
-      await c.check(win, name + ' keeps one user-facing message through parsing and display', "window.__loadLabels.length>0&&window.__loadLabels.every(label=>label==='正在加载资源…')");
+      await c.check(win, name + ' uses native loading through initial parsing and display', "window.__loadLabels.length===0");
       await c.evaluate(win, 'window.__loadObserver.disconnect()');
     } finally { releasePreviewResponses(); c.close(win); }
   }
@@ -58,10 +50,31 @@ const suite: Suite = async c => {
   c.close(switching);
   holdPreviewResponses();
   const closing=await c.program.openPath(c.fixture('text.txt'));
-  await c.check(closing,'close during reading starts with a task',"!!document.querySelector('.loading')");
+  await c.check(closing,'close during reading starts with a task',"document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
+  const closingId=closing.webContents.id;
+  for(const [width,height] of [[720,520],[960,680]]){
+    closing.unmaximize();
+    closing.setContentSize(width,height);
+    await c.pause(80);
+    const bounds=c.program.startupLoadingStats(closingId).bounds;
+    if(!bounds||Math.abs(bounds.x+bounds.width/2-width/2)>1||Math.abs(bounds.y+bounds.height/2-height/2)>1){
+      throw Error('Native loading must stay centered while the first file is loading');
+    }
+  }
   c.close(closing);releasePreviewResponses();
+  for(let i=0;i<100&&c.program.startupLoadingStats(closingId).bounds;i++)await c.pause(20);
+  if(c.program.startupLoadingStats(closingId).bounds)throw Error('Closed window retained native loading');
   const broken = await c.open('broken.docx');
+  holdPreviewResponses();
   await c.click(broken, '.preview-retry');
+  await c.check(broken,'retry after failure uses HTML loading',
+    "document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载资源…'");
+  await c.check(broken,'subsequent long retry retains its reload action',
+    "Number(document.querySelector('.loading small')?.textContent.match(/已用 (\\d+) 秒/)?.[1])>=10&&!!document.querySelector('.loading .preview-retry')");
+  await c.click(broken,'.loading .preview-retry');
+  await c.check(broken,'subsequent reload resets its timer',
+    "!!document.querySelector('.loading')&&!document.querySelector('.loading small,.loading button')");
+  releasePreviewResponses();
   await c.check(broken, 'parse failure can retry and returns a clean error', "!!document.querySelector('.error .preview-retry')&&!document.querySelector('.loading')&&!document.querySelector('.word-host')");
   c.close(broken);
   if(fixtureInScope(c,'styled.xlsx')){
@@ -71,7 +84,7 @@ const suite: Suite = async c => {
   const queuedFile='styled.xlsx';
   let queued = await c.program.openPath(c.fixture(queuedFile));
   await c.check(queued, 'global parser slot queues another window', "document.querySelector('.preview-body')?.dataset.loadPhase==='queued'");
-  await c.check(queued, 'queued work uses the same loading message', "document.querySelector('.loading > span:not(.loading-spinner)')?.textContent==='正在加载资源…'");
+  await c.check(queued, 'queued work has no duplicate HTML card', "!document.querySelector('.loading')");
   await c.click(queued, '.tab-close');
   await c.pause(150);
   if(c.program.previewResourceStats().parsers!==1)throw Error('Closed queued tab retained its parser registration');

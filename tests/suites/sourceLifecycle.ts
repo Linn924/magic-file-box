@@ -61,7 +61,7 @@ const suite:Suite=async c=>{
   const imageGate=await c.open('text.txt'),gateId=await idOf(imageGate);
   await c.evaluate(imageGate,`window.localPreview.acquirePreviewParser(${JSON.stringify(gateId)},'source-image-gate')`);
   let bigImage=await c.program.openPath(path.resolve('work/large-source-fixtures/pixels.bmp'));
-  await c.check(bigImage,'large image waits without a cancel action',"!!document.querySelector('.large-image-preview')&&!!document.querySelector('.loading')&&!document.querySelector('.preview-cancel-load')");
+  await c.check(bigImage,'large image waits without a cancel action',"!!document.querySelector('.large-image-preview')&&document.querySelector('.preview-body')?.dataset.loadPhase!=='ready'&&!document.querySelector('.preview-cancel-load')");
   await c.click(bigImage,'.tab-close');await c.pause(150);
   if(!bigImage.isDestroyed())throw Error('Pending image tab did not close');
   assert.equal(c.program.previewResourceStats().parsers,1,'closed image releases queued parser registration');

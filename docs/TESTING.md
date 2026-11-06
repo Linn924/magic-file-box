@@ -40,6 +40,10 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 
 ### ImageView 启动层原型
 
+正式启动层位于 electron/windows/startupLoading.ts。copy-assets 会先生成 dist/native-loading 的明暗主题和多 DPI 帧，产品启动只读取这些帧。core 检查首帧前原生卡片已存在、首页和预览就绪后移除，loading 检查首次等待超过 10 秒仍保持原生层、窗口缩放居中、提前关闭清理以及失败后的 HTML 重试。
+
+tests/nativeStartup.entry.ts 可通过 --dpi=1、--dpi=1.25、--dpi=1.5、--dpi=2 强制 Electron 显示比例，分别检查明暗主题、缩放、关闭期间的异常和重新打开。该测试使用独立配置，核对文本样例 SHA256，最后确认启动层与动画计时器为零。强制比例测试不能代替跨物理显示器拖动验收。
+
 `scripts/prototypes/image-loading.ts` 独立运行，使用现有 index.html 的加载卡片生成动画图片帧，再在尚未加载 HTML 的窗口中显示原生 ImageView。卡片包含背景、圆角、边框、阴影、转圈和文字，图片提供 100%、125%、150%、200%、300% 的 DPI 表示。窗口按逻辑尺寸居中，原生层与 HTML 层按同一动画周期交接。
 
 ```powershell
@@ -49,7 +53,7 @@ Start-Process node_modules/electron/dist/electron.exe -ArgumentList 'electron-di
 
 原型覆盖浅色、深色及跟随浅色/深色系统，窗口内容尺寸 720×520 和 960×680，加载期间提前关闭，以及交接后定时器与视图清理。result.json 写入 outputs/verification/image-loading，生成资源仅用于测试。命令行追加 --capture 可保存原生卡片与 HTML 的窗口截图；Windows 桌面抓图接口可能不可用，截图状态独立记录。DPI 表示可在当前屏幕检查，跨不同 DPI 显示器的拖动仍需硬件验收。
 
-此原型先通过独立会话的隐藏渲染窗口生成资源，再打开原生测试窗口，因此测试结果只用于验证原生显示与交接能力。正式接入时需在构建阶段预生成并随安装包携带资源，另测启动耗时。原生覆盖期间网页绘制回调可能暂停，原型以 HTML 布局就绪为交接点；仍需验证移除原生层到 HTML 实际呈现之间是否存在空档。逐帧图片模拟与 CSS 动画的调度、抗锯齿可能存在差异，静态截图不能证明全过程没有单帧闪烁。当前产品窗口仍沿用现有启动实现。
+此原型先通过独立会话的隐藏渲染窗口生成资源，再打开原生测试窗口，因此测试结果只用于验证原生显示与交接能力。正式接入时需在构建阶段预生成并随安装包携带资源，另测启动耗时。原生覆盖期间网页绘制回调可能暂停，原型以 HTML 布局就绪为交接点；仍需验证移除原生层到 HTML 实际呈现之间是否存在空档。逐帧图片模拟与 CSS 动画的调度、抗锯齿可能存在差异，静态截图不能证明全过程没有单帧闪烁。产品已通过 electron/windows/startupLoading.ts 接入原生启动卡片；原型保留用于单独对照外观。
 
 ## 影响矩阵
 
@@ -167,7 +171,7 @@ npm test -- --suite exitresources
 
 ### loading：统一加载、关闭与重试
 
-文件：`tests/suites/previewLoading.ts`、`tests/previewLoadDriver.ts`。测试执行器在单独测试偏好下暂缓已完成的读取响应，验证各格式内部阶段继续流转但只显示“正在加载资源…”，超过 3 秒显示耗时、第 9 秒仍无操作、第 10 秒出现唯一的重新加载按钮；在途重载重置计时并隔离迟到响应。检查居中提示、窄窗口/深色/150% 缩放时重载可达和文字居中、加载中直接关闭标签、迟到响应不重挂载、重新打开和错误重试、标签切换。读取本身的真实中止、共享消费者保留和取消后新读取由 tests/unit.ts 验证，延迟响应不能代替这些断言。跨窗口检查单解析名额、关闭排队标签、关闭持有者后的队列推进和外部文件身份拒绝；结束检查任务登记归零。PDF 密码等待中关闭及共享文档取消分别由 pdfchain 与 optimization.ts 覆盖。
+文件：	ests/suites/previewLoading.ts、	ests/previewLoadDriver.ts。执行器暂缓读取响应，检查首次加载只保留原生卡片，超过 10 秒仍然等待；各格式从读取到解析、渲染就绪后撤下卡片。覆盖加载中直接关闭、窗口缩放居中、迟到响应隔离、后台标签继续完成、密码等待与错误界面。首次失败后的重试使用 HTML 提示，覆盖计时、重新加载和清理。结束时检查原生层、动画计时器和任务登记已释放。
 
 仅修改加载提示文案/布局时运行 loading；记录分段的耗时和关闭操作由 sources 验证（暂缓 source:page 已完成响应，检查关闭立即可用、持续等待仍只有关闭、取消释放读取会话、当前内容保留及迟到查询隔离）。涉及关闭加载中的标签时，按影响选择  excelbackground、pdfchain、sourcelifecycle，分别验证在途 Worker、密码及大图片通过关闭标签释放并可重开。加载状态机、读取和模块生命周期实际改变时，再按影响补充上方 core 所述的格式与输出专项。
 

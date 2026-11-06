@@ -27,6 +27,8 @@ import {
 import path from "node:path";
 import {DISPLAY_NAME} from '@shared/branding';
 import {windowTheme} from '@shared/windowTheme';
+import {attachNativeStartup,finishNativeStartup,refreshNativeStartups,startupLoadingStats,hasStartupLoading} from './windows/startupLoading';
+export {startupLoadingStats};
 import {applicationProfile} from './settings/profile';
 import {createHomeOnOpen} from './windows/homeOnOpen';
 import {setupExclusive} from './exclusive';
@@ -102,6 +104,7 @@ function syncWindowBackgrounds(){
   for(const win of BrowserWindow.getAllWindows()){
     if(!win.isDestroyed())win.setBackgroundColor(theme.background);
   }
+  refreshNativeStartups();
 }
 function showWindows() {
   const windows = BrowserWindow.getAllWindows();
@@ -211,6 +214,12 @@ function createWindow(preview: boolean) {
     payloads.delete(id);
     releaseWindow(id);
     forceClose.delete(win.id);
+  });
+  attachNativeStartup(win,()=>windowTheme(settings.get().theme,nativeTheme.shouldUseDarkColors));
+  win.webContents.on('did-start-navigation',event=>{
+    if(event.isMainFrame&&!hasStartupLoading(id)){
+      attachNativeStartup(win,()=>windowTheme(settings.get().theme,nativeTheme.shouldUseDarkColors));
+    }
   });
   if (preview && settings.get().maximizePreview) win.maximize();
   win.show();
@@ -324,6 +333,11 @@ export const ready = owner
           trusted(event as Electron.IpcMainInvokeEvent);
           event.returnValue=windowTheme(settings.get().theme,nativeTheme.shouldUseDarkColors).name;
         }catch{event.returnValue='light';}
+      });
+      ipcMain.handle('startup:ready',event=>{
+        trusted(event);
+        const win=BrowserWindow.fromWebContents(event.sender);
+        if(win)finishNativeStartup(win);
       });
       setupExclusive();
       ipcMain.handle("settings:get", (event) => {

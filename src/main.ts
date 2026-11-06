@@ -1,16 +1,8 @@
-const mode = new URLSearchParams(location.search);
-const status = document.querySelector<HTMLElement>('#startup-status');
-if(mode.has('print'))status?.remove();
-
-const painted = mode.has('print') || mode.has('print-panel')
-  ? Promise.resolve()
-  : new Promise<void>(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
-
-void painted.then(() => import('./mount')).catch(() => {
-  if (status) {
-    status.setAttribute('role', 'alert');
-    status.textContent = '界面加载失败，请关闭窗口后重试。';
-  }
+void import('./mount').catch(async() => {
+  const error=document.createElement('p');
+  error.setAttribute('role','alert');
+  error.textContent='界面加载失败，请关闭窗口后重试。';
+  document.getElementById('app')?.append(error);
+  await window.localPreview.finishStartup();
 });
-
-export {}
+export {};

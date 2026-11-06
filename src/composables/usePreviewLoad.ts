@@ -6,6 +6,7 @@ import { cacheDrop, cacheGet, cachePut } from '@/services/fileContentCache';
 import { waitForFileEdits } from '@/services/pendingEdits';
 import {previewCost,retainPreview} from '@/services/previewResidency';
 import { previewFrame, previewTaskKey } from './usePreviewTask';
+import {finishStartup} from '@/services/startup';
 
 type Props = { file: PreviewFile; active?: boolean };
 type Attempt = { token: string; controller: AbortController };
@@ -46,7 +47,12 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
     const run = attempt;
     return {
       signal: run?.controller.signal ?? AbortSignal.abort(),
-      report(stage) { if (run && current(run) && busy.value) phase.value = stage; },
+      report(stage) {
+        if(run&&current(run)&&busy.value){
+          phase.value=stage;
+          if(stage==='password'&&props.active)void finishStartup();
+        }
+      },
       hold(){
         if(!run||!current(run))return ()=>{};
         backgroundWork.value++;let released=false;
@@ -68,6 +74,7 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
     if (!current(run)) return;
     stop();
     phase.value = 'error'; error.value = message;
+    if(props.active)void finishStartup();
   }
   async function ready(run: Attempt) {
     if (!current(run) || phase.value === 'ready') return;
@@ -78,12 +85,13 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
       await previewFrame(run.controller.signal);
       if (!current(run)) return;
       phase.value = 'ready'; stopClock(); if(props.active)restoreView();resident.changed();
+      if(props.active)void finishStartup();
     } catch { /* Cancellation also settles any pending frame. */ }
   }
   async function load() {
     if (disposed || !props.active || busy.value || preview.value) return;
     error.value = '';
-    if (props.file.error) { error.value = props.file.error; phase.value = 'error'; return; }
+    if (props.file.error) { error.value = props.file.error; phase.value = 'error'; void finishStartup(); return; }
     const run: Attempt = { token: crypto.randomUUID(), controller: new AbortController() };
     attempt = run;
     phase.value = 'reading'; elapsed.value = 0;

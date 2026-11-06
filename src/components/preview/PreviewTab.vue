@@ -12,6 +12,7 @@ import { usePreviewLoad } from '@/composables/usePreviewLoad';
 import {usePreviewNoticeHost} from '@/composables/usePreviewNotice';
 import PreviewNotices from './PreviewNotices.vue';
 import PopupTransition from '@/components/ui/PopupTransition.vue';
+import {startupPending} from '@/services/startup';
 const props = defineProps<{
   file: PreviewFile;
   initialZoom: number;
@@ -146,7 +147,7 @@ async function loaded() {
         <p>{{ error }}</p>
         <button v-if="!file.error" class="preview-retry" @click="retry">重新加载</button>
       </div>
-      <div v-if="active && busy" class="loading" :class="{ 'loading-password': phase === 'password' }" role="status" aria-live="polite">
+      <div v-if="active && busy && !startupPending" class="loading" :class="{ 'loading-password': phase === 'password' }" role="status" aria-live="polite">
         <span v-if="phase !== 'password'" class="loading-spinner" aria-hidden="true"></span>
         <span>{{ label }}</span>
         <small v-if="elapsed >= 3 && phase !== 'password'" aria-live="off">已用 {{ elapsed }} 秒</small>

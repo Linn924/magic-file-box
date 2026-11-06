@@ -361,8 +361,12 @@ const suite: Suite = async (c) => {
       "document.querySelector('.filename')?.textContent.includes('document.pdf')",
     );
     c.close(reopened);
+    const selectedBeforeAdd=await c.evaluate<number>(win,
+      "Number(document.querySelector('.print-go').textContent.match(/[0-9]+/)?.[0])");
     dialog.showOpenDialog = (async () => ({canceled:false,filePaths:Array(60).fill(c.fixture('document.pdf'))})) as typeof dialog.showOpenDialog;
     await c.click(win,'.pdf-print-panel footer button','添加文件');
+    await c.check(win,'print list finishes adding files before scroll',
+      `Number(document.querySelector('.print-go').textContent.match(/[0-9]+/)?.[0])===${selectedBeforeAdd+60}`);
     await c.check(win,'print list keeps DOM bounded',"document.querySelectorAll('.print-file-card').length<=40");
     await c.evaluate(win,"(()=>{const list=document.querySelector('.print-files');list.scrollTop=list.scrollHeight;list.dispatchEvent(new Event('scroll'))})()");
     await c.check(win,'long print list loads later rows',"document.querySelectorAll('.print-file-card').length>40");

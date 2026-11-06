@@ -1,3 +1,4 @@
+import {startupCardHtml} from '../../shared/startupCard';
 import {app,BrowserWindow,ImageView,nativeTheme,desktopCapturer,protocol,nativeImage,Menu,screen} from 'electron';
 import {readFileSync,mkdirSync,writeFileSync} from 'node:fs';
 import path from 'node:path';
@@ -7,7 +8,7 @@ import {windowTheme} from '../../shared/windowTheme';
 protocol.registerSchemesAsPrivileged([{scheme:'prototype',privileges:{standard:true,secure:true}}]);
 const output=path.resolve('outputs/verification/image-loading');
 mkdirSync(output,{recursive:true});
-const html=readFileSync('index.html','utf8').replace(/<script\b[^>]*>[\s\S]*?<\/script>/g,'');
+const html=startupCardHtml;
 const pause=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 const log:Array<Record<string,unknown>>=[];
 let timers=0,overlays=0;
@@ -166,20 +167,3 @@ app.whenReady().then(async()=>{
   console.log(JSON.stringify(log));
   app.exit();
 }).catch(error=>{console.error(error);app.exit(1);});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
