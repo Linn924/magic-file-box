@@ -80,7 +80,7 @@ if(requested==='all'||requested.split(',').includes('pdfsearchisolation'))instal
 const formatIndex=process.argv.indexOf('--formats'),formats=formatIndex<0?undefined:new Set((process.argv[formatIndex+1]||'').split(','));
 if(formats&&[...formats].some(value=>!testFormats.includes(value as typeof testFormats[number])))throw Error('未知文件类型筛选。');
 if(requested==='all'||requested.split(',').some(name=>['updates','notices','notificationprefs','controls'].includes(name)))installUpdateTestDriver();
-if(requested==='all'||requested.split(',').some(name=>['loading','sources','sourcelifecycle','tablifecycle'].includes(name)))installPreviewLoadDriver();
+if(requested==='all'||requested.split(',').some(name=>['core','loading','sources','sourcelifecycle','tablifecycle'].includes(name)))installPreviewLoadDriver();
 const program =
   require("../electron-dist/main.cjs") as typeof import("../electron/main");
 const results: string[] = [];
@@ -239,7 +239,7 @@ program.ready
       },
     };
     try {
-      await check(home, "home ready", "!!document.querySelector('.dropzone')");
+      await check(home, "home ready", "!!document.querySelector('.dropzone')&&!document.querySelector('#startup-status')");
       for (const name of selected) {
         console.log("SUITE " + name);
         program.updateSettings({

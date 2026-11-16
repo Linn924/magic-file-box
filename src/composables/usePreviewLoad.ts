@@ -6,9 +6,8 @@ import { cacheDrop, cacheGet, cachePut } from '@/services/fileContentCache';
 import { waitForFileEdits } from '@/services/pendingEdits';
 import {previewCost,retainPreview} from '@/services/previewResidency';
 import { previewFrame, previewTaskKey } from './usePreviewTask';
-import {finishStartup} from '@/services/startup';
 
-type Props = { file: PreviewFile; active?: boolean };
+type Props = { file: PreviewFile; active?: boolean; openedAt?: number };
 type Attempt = { token: string; controller: AbortController };
 type MountedPreview = {
   file: PreviewFile;
@@ -19,14 +18,16 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
   const phase = ref<PreviewLoadPhase>('idle');
   const error = ref(props.file.error);
   const preview = shallowRef<MountedPreview>();
-  const elapsed = ref(0);
+  const startedAt = ref<number>();
+  let firstLoadStartedAt = props.openedAt;
   const backgroundWork=ref(0);
   let attempt: Attempt | undefined;
   let disposed = false;
-  let clock: ReturnType<typeof setInterval> | undefined;
   let eviction:Promise<void>|undefined;
   const busy = computed(() => ['reading', 'queued', 'parsing', 'rendering', 'password'].includes(phase.value));
-  const label = computed(() => busy.value ? phase.value === 'password' ? '等待输入密码' : '正在加载资源…' : '');
+  const loadingSince = computed(() => {
+    return busy.value && phase.value !== 'password' ? startedAt.value : undefined;
+  });
   const resident=retainPreview({
     active:()=>!!props.active,
     loading:()=>busy.value||backgroundWork.value>0,
@@ -50,7 +51,6 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
       report(stage) {
         if(run&&current(run)&&busy.value){
           phase.value=stage;
-          if(stage==='password'&&props.active)void finishStartup();
         }
       },
       hold(){
@@ -60,7 +60,6 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
       },
     };
   });
-  function stopClock() { clearInterval(clock); clock = undefined; }
   function stop() {
     const run = attempt;
     attempt = undefined;
@@ -68,13 +67,12 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
     if (run) void window.localPreview.cancelPreviewLoad(run.token).catch(() => {});
     preview.value = undefined;
     backgroundWork.value=0;
-    stopClock();
+    startedAt.value = undefined;
   }
   function fail(run: Attempt, message: string) {
     if (!current(run)) return;
     stop();
     phase.value = 'error'; error.value = message;
-    if(props.active)void finishStartup();
   }
   async function ready(run: Attempt) {
     if (!current(run) || phase.value === 'ready') return;
@@ -84,19 +82,18 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
       await previewFrame(run.controller.signal);
       await previewFrame(run.controller.signal);
       if (!current(run)) return;
-      phase.value = 'ready'; stopClock(); if(props.active)restoreView();resident.changed();
-      if(props.active)void finishStartup();
+      phase.value = 'ready'; if(props.active)restoreView();resident.changed();
     } catch { /* Cancellation also settles any pending frame. */ }
   }
   async function load() {
     if (disposed || !props.active || busy.value || preview.value) return;
     error.value = '';
-    if (props.file.error) { error.value = props.file.error; phase.value = 'error'; void finishStartup(); return; }
+    if (props.file.error) { error.value = props.file.error; phase.value = 'error'; return; }
     const run: Attempt = { token: crypto.randomUUID(), controller: new AbortController() };
     attempt = run;
-    phase.value = 'reading'; elapsed.value = 0;
-    const started = performance.now();
-    stopClock(); clock = setInterval(() => { elapsed.value = Math.floor((performance.now() - started) / 1000); }, 1000);
+    startedAt.value = firstLoadStartedAt ?? performance.now();
+    firstLoadStartedAt = undefined;
+    phase.value = 'reading';
     try {
       await eviction;
       if(!current(run))return;
@@ -143,5 +140,5 @@ export function usePreviewLoad(props: Props, restoreView: () => void, releaseCac
     resident.changed();
   });
   onBeforeUnmount(() => { disposed = true; resident.release(); stop(); cacheDrop(props.file.id); });
-  return { preview, phase, error, busy, label, elapsed, retry };
+  return { preview, phase, error, busy, loadingSince, retry };
 }

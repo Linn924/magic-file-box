@@ -1,6 +1,4 @@
 import { build } from "esbuild";
-import {buildNativeLoading} from './build-native-loading';
-buildNativeLoading();
 await build({
   tsconfig: 'tsconfig.electron.json',
   entryPoints: { main: "electron/main.ts", preload: "electron/preload.ts" },

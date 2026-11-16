@@ -78,12 +78,6 @@
       "package.json"
     ],
     "asar": true,
-    "extraResources": [
-      {
-        "from": "electron-dist/native-loading.exe",
-        "to": "native-loading.exe"
-      }
-    ],
     "win": {
       "target": [
         "nsis"

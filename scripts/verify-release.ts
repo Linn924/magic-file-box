@@ -1,4 +1,4 @@
-import { readFile, stat, writeFile } from 'node:fs/promises';
+import { readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import JSZip from 'jszip';
@@ -16,8 +16,8 @@ const hash = (bytes: Uint8Array) => createHash('sha256').update(bytes).digest('h
 const setup = await readFile(resolve(root, setupName));
 const asar = await readFile(resolve(root, 'win-unpacked/resources/app.asar'));
 const archive=resolve(root,'win-unpacked/resources/app.asar');
-const helper=await readFile(resolve(root,'win-unpacked/resources/native-loading.exe'));
-if(helper.toString('ascii',0,2)!=='MZ'||helper.length<4096)throw Error('原生加载辅助程序缺失或无效。');
+if ((await readdir(resolve(root, 'win-unpacked/resources'))).includes('native-loading.exe'))
+  throw Error('安装包仍含旧加载辅助程序。');
 if(listPackage(archive,{isPack:false}).some(name=>name.replaceAll('\\','/').includes('/dist/native-loading/')))
   throw Error('安装包仍含旧加载图片帧。');
 if (setup.toString('ascii', 0, 2) !== 'MZ' || setup.length <= asar.length)

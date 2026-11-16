@@ -27,8 +27,6 @@ import {
 import path from "node:path";
 import {DISPLAY_NAME} from '@shared/branding';
 import {windowTheme} from '@shared/windowTheme';
-import {attachNativeStartup,finishNativeStartup,restartNativeStartup,nativeStartupToken,refreshNativeStartups,startupLoadingStats,stopNativeStartups,captureStartupLoading} from './windows/startupLoading';
-export {startupLoadingStats,captureStartupLoading};
 import {applicationProfile} from './settings/profile';
 import {createHomeOnOpen} from './windows/homeOnOpen';
 import {setupExclusive} from './exclusive';
@@ -104,7 +102,6 @@ function syncWindowBackgrounds(){
   for(const win of BrowserWindow.getAllWindows()){
     if(!win.isDestroyed())win.setBackgroundColor(theme.background);
   }
-  refreshNativeStartups();
 }
 function showWindows() {
   const windows = BrowserWindow.getAllWindows();
@@ -214,14 +211,6 @@ function createWindow(preview: boolean) {
     payloads.delete(id);
     releaseWindow(id);
     forceClose.delete(win.id);
-  });
-  attachNativeStartup(win,()=>windowTheme(settings.get().theme,nativeTheme.shouldUseDarkColors));
-  let initialNavigation=true;
-  win.webContents.on('did-start-navigation',event=>{
-    if(event.isMainFrame&&!event.isSameDocument){
-      if(initialNavigation){initialNavigation=false;return;}
-      restartNativeStartup(win,()=>windowTheme(settings.get().theme,nativeTheme.shouldUseDarkColors));
-    }
   });
   if (preview && settings.get().maximizePreview) win.maximize();
   win.show();
@@ -335,18 +324,6 @@ export const ready = owner
           trusted(event as Electron.IpcMainInvokeEvent);
           event.returnValue=windowTheme(settings.get().theme,nativeTheme.shouldUseDarkColors).name;
         }catch{event.returnValue='light';}
-      });
-      ipcMain.on('startup:token',event=>{
-        try{trusted(event as Electron.IpcMainInvokeEvent);event.returnValue=nativeStartupToken(event.sender.id)??null;}
-        catch{event.returnValue=null;}
-      });
-      ipcMain.handle('startup:ready',(event,token:unknown)=>{
-        trusted(event);
-        const win=BrowserWindow.fromWebContents(event.sender);
-        if(win&&typeof token==='number')return finishNativeStartup(win,token);
-      });
-      ipcMain.handle('startup:active',(event,token:unknown)=>{
-        trusted(event);return typeof token==='number'&&nativeStartupToken(event.sender.id)===token;
       });
       setupExclusive();
       ipcMain.handle("settings:get", (event) => {
@@ -469,7 +446,6 @@ app.on("window-all-closed", () => {
   if (!tray) app.quit();
 });
 app.on("will-quit", () => {
-  stopNativeStartups();
   nativeTheme.removeListener('updated',syncWindowBackgrounds);
   tray?.destroy();
   payloads.clear();

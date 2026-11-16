@@ -37,9 +37,19 @@ const suite:Suite=async c=>{
     await c.click(win,'.tab .tab-name',name);const id=await c.evaluate<string>(win,"[...document.querySelectorAll('.preview-tab')].find(el=>el.querySelector('.md-outline-toggle')).dataset.fileId");receiver=await c.open('data.json');
     await c.evaluate(receiver,`(()=>{const d=new DataTransfer();d.setData('application/x-file-preview-tab',${JSON.stringify(id)});document.querySelector('main').dispatchEvent(new DragEvent('drop',{dataTransfer:d,bubbles:true,cancelable:true}))})()`);
     await c.check(receiver,'Markdown transfer retains directory mode and local image ownership',"!!document.querySelector('.md-outline')&&document.querySelector('img[alt=本地图片]')?.naturalWidth===1");
-    await c.click(receiver,'.md-source-toggle');await c.check(receiver,'Markdown transferred source switch retains original content',`[...document.querySelectorAll('.line-body')].map(n=>n.textContent).join('\\n')===${JSON.stringify(source)}`);await c.click(receiver,'.md-source-toggle');
-    await c.evaluate(receiver,"document.querySelector('.text-scroll').scrollTop=850");await c.snapshot(receiver,'markdown-enhanced-diagrams-dark');
-    receiver.unmaximize();receiver.setSize(720,700);await c.snapshot(receiver,'markdown-enhanced-narrow');await c.check(receiver,'Markdown narrow window keeps toolbar and outline usable',"[...document.querySelectorAll('.text-tools button')].every(b=>b.getBoundingClientRect().right<=innerWidth)&&document.querySelector('.text-scroll').clientWidth>300");
+    const transferred = `[data-file-id=${JSON.stringify(id)}]`;
+    const withinTransferred = (selector: string) => {
+      return JSON.stringify(`${transferred} ${selector}`);
+    };
+    await c.click(receiver,`${transferred} .md-source-toggle`);
+    await c.check(receiver,'Markdown transferred source switch retains original content',
+      `!!document.querySelector(${JSON.stringify(transferred)})?.getClientRects().length&&[...document.querySelectorAll(${withinTransferred('.line-body')})].map(n=>n.textContent).join('\\n')===${JSON.stringify(source)}`);
+    await c.click(receiver,`${transferred} .md-source-toggle`);
+    await c.evaluate(receiver,`document.querySelector(${withinTransferred('.text-scroll')}).scrollTop=850`);
+    await c.snapshot(receiver,'markdown-enhanced-diagrams-dark');
+    receiver.unmaximize();receiver.setSize(720,700);await c.snapshot(receiver,'markdown-enhanced-narrow');
+    await c.check(receiver,'Markdown narrow window keeps toolbar and outline usable',
+      `[...document.querySelectorAll(${withinTransferred('.text-tools button')})].every(b=>b.getBoundingClientRect().right<=innerWidth)&&document.querySelector(${withinTransferred('.text-scroll')}).clientWidth>300`);
     assert.deepEqual(readFileSync(file),before);c.pass('Markdown enhancement source remains unchanged');
   }finally{clipboard.writeText=realCopy;dialog.showMessageBox=realDialog;if(receiver&&!receiver.isDestroyed())c.close(receiver);c.close(win);await c.evaluate(c.home,`window.localPreview.setSettings(${JSON.stringify({multiFileMode:settings.multiFileMode,theme:settings.theme})})`);}
 };

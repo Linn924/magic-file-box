@@ -25,7 +25,7 @@ npm run test:fixtures
 
 
 
-core 检查预览窗口 show 先于 ready-to-show，并最终进入可读状态。startupTheme 覆盖浅色、深色和跟随浅色/深色系统，核对软件配色写入 nativeTheme 后首帧文档背景、卡片式加载提示、圆形加载图标、加载层和原生窗口颜色一致，首屏完成后加载层移除，并保存截图。首次显示计时使用独立配置和本地小 TXT，分别记录窗口显示、首页打开按钮可操作、预览正文可见。模拟文件选择时从返回选中文件开始计时。
+core 检查预览窗口 show 先于 ready-to-show 并进入可读状态。startupTheme 覆盖浅色、深色和跟随浅色/深色系统，暂缓首页配置返回，检查文档加载时主题背景和首页卡片可见，转圈同步出现，并保存截图。配置交付后检查首页可操作且卡片已移除。预览检查文档背景和窗口颜色一致、没有首页卡片，并在正文就绪后保存截图。性能对照分别记录窗口可见、卡片首次可见和内容可用，区分首页、文件直开、安装或更新后的首次运行及热启动。
 
 默认 build 含类型检查。需要仅编译运行资源时，可分别执行以下命令，再按实际影响选择专项；示例套件不是每次必跑清单：
 
@@ -37,31 +37,6 @@ npm test -- --skip-build --suite pdfspread,pdf,pdfenhancements,pdfchain,printing
 ```
 
 上述为运行时编译和真实行为测试，不生成安装包。产品源码改变后重新编译相应资源；仅测试文件改变可继续 skip-build。
-
-
-### Windows 无图片加载原型
-
-`scripts/prototypes/native-loading.cs` 是独立 Windows Forms 绘制验证，使用 GDI+ 实时绘制卡片、文字和转圈。它不读取 HTML 或动画图片，使用系统 .NET Framework，不加入正式产品启动流程。manifest 声明 PerMonitorV2，绘制按 Graphics.DpiX 缩放，窗口改变尺寸时重新居中。原生文字抗锯齿、阴影与网页可能不同，当前只验证独立窗口，不能视为已完成与 Electron 的嵌入及交接。
-
-使用 Windows 自带的 .NET Framework C# 编译器构建，所有路径使用绝对路径：
-
-```powershell
-$sourceFile = Join-Path $PWD 'scripts/prototypes/native-loading.cs'
-$manifestFile = Join-Path $PWD 'scripts/prototypes/native-loading.manifest'
-$outputFile = Join-Path $PWD 'electron-dist/native-loading-proof.exe'
-& 'C:/Windows/Microsoft.NET/Framework64/v4.0.30319/csc.exe' /nologo /target:winexe ("/out:" + $outputFile) /reference:System.Drawing.dll /reference:System.Windows.Forms.dll ("/win32manifest:" + $manifestFile) $sourceFile
-Start-Process $outputFile -ArgumentList dark
-```
-
-追加第二个参数作为截图路径时，原型会自动截图、改变窗口尺寸并在三秒后关闭。普通启动由用户关闭。截图和 EXE 保留在忽略的产物目录。
-
-### 无图片原生启动层验证
-
-scripts/build-electron.ts 会先编译 Windows Forms/GDI+ 辅助程序。验证前重建前端与主进程资源；正式启动不依赖图片帧生成。发布校验检查 resources/native-loading.exe，并拒绝携带旧 dist/native-loading 帧目录的应用归档。
-
-tests/nativeStartup.entry.ts 支持 --dpi=1、--dpi=1.25、--dpi=1.5、--dpi=2，使用独立配置暂缓首页配置或文件读取，等待辅助程序实际绘制。验证窗口在截取目标卡片前临时置于前台，截图仅限卡片屏幕区域；检测主题转圈的颜色像素，避免把“对象存在”误当作“用户可见”。屏幕取样需串行执行，避免其他界面专项切换前台窗口干扰结果。覆盖首页及每个首次预览、明暗主题、720×520/960×680 居中、加载中关闭、重新打开、就绪交接和进程清理。结果存 outputs/verification/native-home-* 和 native-visible-*。跨物理显示器拖动仍需硬件验收。
-
-core 覆盖主题跟随、刷新与原有窗口操作；loading 检查首次等待保持原生卡片、原生界面无重复 HTML loading、失败后的 HTML 重试；pdfchain、sourcelifecycle 和 printing 按实际影响验证密码、资源释放和模拟打印。
 
 
 ## 影响矩阵
@@ -180,7 +155,7 @@ npm test -- --suite exitresources
 
 ### loading：统一加载、关闭与重试
 
-文件：	ests/suites/previewLoading.ts、	ests/previewLoadDriver.ts。执行器暂缓读取响应，检查首次加载只保留原生卡片，超过 10 秒仍然等待；各格式从读取到解析、渲染就绪后撤下卡片。覆盖加载中直接关闭、窗口缩放居中、迟到响应隔离、后台标签继续完成、密码等待与错误界面。首次失败后的重试使用 HTML 提示，覆盖计时、重新加载和清理。结束时检查原生层、动画计时器和任务登记已释放。
+文件为 `tests/suites/previewLoading.ts` 和 `tests/previewLoadDriver.ts`。分别暂缓文件交付与读取响应，验证同一个卡片节点连续覆盖等待、读取、解析与渲染。交付前只显示耗时，交付后保留累计时间并在达到 10 秒时提供重新加载，重试后重新计时。覆盖加载中关闭、窗口缩放居中、迟到响应隔离、后台标签继续完成、队列取消及失败重试，检查就绪后撤下卡片且任务登记归零。密码界面由 pdfchain 检查。
 
 仅修改加载提示文案/布局时运行 loading；记录分段的耗时和关闭操作由 sources 验证（暂缓 source:page 已完成响应，检查关闭立即可用、持续等待仍只有关闭、取消释放读取会话、当前内容保留及迟到查询隔离）。涉及关闭加载中的标签时，按影响选择  excelbackground、pdfchain、sourcelifecycle，分别验证在途 Worker、密码及大图片通过关闭标签释放并可重开。加载状态机、读取和模块生命周期实际改变时，再按影响补充上方 core 所述的格式与输出专项。
 

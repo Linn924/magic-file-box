@@ -4,11 +4,14 @@ import type { DesktopBridge, Settings } from "@shared/contracts";
 // Apply the saved theme before the document's first paint.
 // The main process returns only its current in-memory theme, including on reload.
 const startupTheme=ipcRenderer.sendSync('window:theme');
-const startupToken=ipcRenderer.sendSync('startup:token');
+const windowParams = new URLSearchParams(location.search);
+const homeWindow = !['preview', 'print', 'print-panel'].some(mode => {
+  return windowParams.has(mode);
+});
 function applyStartupTheme(){
   if(!document.documentElement)return false;
   document.documentElement.dataset.theme=startupTheme==='dark'?'dark':'light';
-  document.documentElement.dataset.nativeStartup='true';
+  if (homeWindow) document.documentElement.dataset.homeStartup = '';
   return true;
 }
 if(!applyStartupTheme()){
@@ -22,13 +25,6 @@ const rememberOpenSettings = () => { pendingOpenSettings = true; };
 ipcRenderer.on('settings:open', rememberOpenSettings);
 
 const bridge: DesktopBridge = {
-  finishStartup:()=>ipcRenderer.invoke('startup:ready',startupToken),
-  isStartupActive:()=>ipcRenderer.invoke('startup:active',startupToken),
-  onStartupUnavailable:handler=>{
-    const listener=()=>handler();
-    ipcRenderer.on('startup:unavailable',listener);
-    return ()=>ipcRenderer.removeListener('startup:unavailable',listener);
-  },
   getExclusiveState:()=>ipcRenderer.invoke('exclusive:get'),
   activateExclusiveKey:key=>ipcRenderer.invoke('exclusive:activate',key),
   clearExclusiveKey:()=>ipcRenderer.invoke('exclusive:clear'),

@@ -1,21 +1,43 @@
 import type { Suite } from '../context';
-import { holdPreviewResponses, releasePreviewResponses } from '../previewLoadDriver';
+import { holdPreviewResponses, holdStartupResponse, releasePreviewResponses } from '../previewLoadDriver';
 import {fixtureInScope} from '../scope';
 
 const suite: Suite = async c => {
+  if (fixtureInScope(c,'text.txt')) {
+    const releaseFiles = holdStartupResponse('preview:consume');
+    holdPreviewResponses();
+    try {
+      const opening = await c.program.openPath(c.fixture('text.txt'));
+      try {
+        await c.check(opening,'a single preview card appears while waiting for file delivery',
+          "document.querySelectorAll('.loading').length===1&&!document.querySelector('#startup-status,.preview-tab')");
+        await c.evaluate(opening,"window.__openingCard=document.querySelector('.preview-file-loading')");
+        await c.check(opening,'file delivery shows elapsed time without an unavailable retry',
+          "Number(document.querySelector('.loading small')?.textContent.match(/(\\d+) 秒/)?.[1])>=10&&!document.querySelector('.loading button')");
+        releaseFiles();
+        await c.check(opening,'reading retains the same card, elapsed time and enables retry',
+          "document.querySelector('.preview-body')?.dataset.loadPhase==='reading'&&document.querySelector('.preview-file-loading')===window.__openingCard&&document.querySelectorAll('.loading').length===1&&Number(window.__openingCard.querySelector('small')?.textContent.match(/(\\d+) 秒/)?.[1])>=10&&!!window.__openingCard.querySelector('button')");
+        await c.click(opening,'.loading .preview-retry');
+        await c.check(opening,'retry starts a fresh clock on the same card',
+          "document.querySelector('.preview-file-loading')===window.__openingCard&&!document.querySelector('.loading small,.loading button')");
+        releasePreviewResponses();
+        await c.check(opening,'ready content replaces the opening card',
+          "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'&&!window.__openingCard.isConnected");
+      } finally {
+        c.close(opening);
+      }
+    } finally {
+      releaseFiles();
+      releasePreviewResponses();
+    }
+  }
   for (const name of ['text.txt', 'data.json', 'document.docx', 'styled.xlsx', 'presentation.pptx', 'document.pdf', 'vector.svg'].filter(name=>fixtureInScope(c,name))) {
     holdPreviewResponses();
     let win = await c.program.openPath(c.fixture(name));
     try {
       await c.check(win, name + ' reports reading', "document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
-      if(!c.program.startupLoadingStats(win.webContents.id).bounds)throw Error('Initial native loading missing');
-      await c.check(win,'initial loading has no duplicate HTML card',"!document.querySelector('.loading')");
-      if(name==='text.txt'){
-        win.unmaximize();win.setContentSize(720,520);
-        await c.pause(10200);
-        if(!c.program.startupLoadingStats(win.webContents.id).bounds)throw Error('Native loading must not time out into HTML');
-        await c.check(win,'long initial loading stays native',"!document.querySelector('.loading,.preview-retry')");
-      }else{
+      await c.check(win,'initial reading displays one card',"document.querySelectorAll('.loading').length===1&&!document.querySelector('#startup-status')");
+      if(name!=='text.txt'){
         await c.click(win,'.tab-close');
         await c.pause(150);
         if(!win.isDestroyed())throw Error('Closing the last loading tab did not close its window');
@@ -23,11 +45,11 @@ const suite: Suite = async c => {
         win=await c.program.openPath(c.fixture(name));
         await c.check(win,name+' reopens with a fresh loading attempt',"document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
       }
-      await c.evaluate(win, `(()=>{window.__loadPhases=[];window.__loadLabels=[];const body=document.querySelector('.preview-body');window.__loadObserver=new MutationObserver(()=>{window.__loadPhases.push(body.dataset.loadPhase);const text=body.querySelector('.loading > span:not(.loading-spinner)')?.textContent;if(text)window.__loadLabels.push(text);});window.__loadObserver.observe(body,{attributes:true,attributeFilter:['data-load-phase'],subtree:true,childList:true,characterData:true});})()`);
+      await c.evaluate(win, `(()=>{window.__loadPhases=[];window.__loadCards=[];const body=document.querySelector('.preview-body');const card=body.querySelector('.preview-file-loading');window.__loadObserver=new MutationObserver(()=>{window.__loadPhases.push(body.dataset.loadPhase);if(body.querySelector('.preview-file-loading')===card&&document.querySelectorAll('.loading').length===1)window.__loadCards.push(body.dataset.loadPhase);});window.__loadObserver.observe(body,{attributes:true,attributeFilter:['data-load-phase']});})()`);
       releasePreviewResponses();
       await c.check(win, name + ' retry reaches ready', "document.querySelector('.preview-body')?.dataset.loadPhase==='ready'&&!document.querySelector('.loading,.error,.preview-content-pending')");
       await c.check(win, name + ' reports parsing and rendering', "window.__loadPhases.includes('parsing')&&window.__loadPhases.includes('rendering')");
-      await c.check(win, name + ' uses native loading through initial parsing and display', "window.__loadLabels.length===0");
+      await c.check(win, name + ' keeps the same card during parsing and rendering', "window.__loadCards.includes('parsing')&&window.__loadCards.includes('rendering')");
       await c.evaluate(win, 'window.__loadObserver.disconnect()');
     } finally { releasePreviewResponses(); c.close(win); }
   }
@@ -51,19 +73,12 @@ const suite: Suite = async c => {
   holdPreviewResponses();
   const closing=await c.program.openPath(c.fixture('text.txt'));
   await c.check(closing,'close during reading starts with a task',"document.querySelector('.preview-body')?.dataset.loadPhase==='reading'");
-  const closingId=closing.webContents.id;
   for(const [width,height] of [[720,520],[960,680]]){
     closing.unmaximize();
     closing.setContentSize(width,height);
-    await c.pause(80);
-    const bounds=c.program.startupLoadingStats(closingId).bounds;
-    if(!bounds||Math.abs(bounds.x+bounds.width/2-width/2)>1||Math.abs(bounds.y+bounds.height/2-height/2)>1){
-      throw Error('Native loading must stay centered while the first file is loading');
-    }
+    await c.check(closing,'loading remains centered after resizing', `(()=>{const card=document.querySelector('.preview-file-loading')?.getBoundingClientRect();return innerWidth===${width}&&innerHeight===${height}&&!!card&&Math.abs(card.x+card.width/2-innerWidth/2)<=1&&Math.abs(card.y+card.height/2-innerHeight/2)<=1})()`);
   }
   c.close(closing);releasePreviewResponses();
-  for(let i=0;i<100&&c.program.startupLoadingStats(closingId).bounds;i++)await c.pause(20);
-  if(c.program.startupLoadingStats(closingId).bounds)throw Error('Closed window retained native loading');
   const broken = await c.open('broken.docx');
   holdPreviewResponses();
   await c.click(broken, '.preview-retry');
@@ -84,7 +99,7 @@ const suite: Suite = async c => {
   const queuedFile='styled.xlsx';
   let queued = await c.program.openPath(c.fixture(queuedFile));
   await c.check(queued, 'global parser slot queues another window', "document.querySelector('.preview-body')?.dataset.loadPhase==='queued'");
-  await c.check(queued, 'queued work has no duplicate HTML card', "!document.querySelector('.loading')");
+  await c.check(queued, 'queued work displays one card', "document.querySelectorAll('.loading').length===1&&!document.querySelector('#startup-status')");
   await c.click(queued, '.tab-close');
   await c.pause(150);
   if(c.program.previewResourceStats().parsers!==1)throw Error('Closed queued tab retained its parser registration');

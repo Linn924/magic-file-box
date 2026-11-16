@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog } from "electron";
+import { once } from "node:events";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import type { Suite } from "../context";
@@ -9,8 +10,10 @@ import {checkStartupTheme} from '../startupTheme';
 const suite: Suite = async (c) => {
   const cleanHome = "document.documentElement.dataset.exclusive==='false'&&!document.querySelector('.home-credit,.home-intro,.home-intro-title,.home-intro-canvas')";
   await c.check(c.home, "main home uses the standard entry", cleanHome);
+  const reloaded = once(c.home.webContents, 'did-finish-load');
   c.home.webContents.reload();
-  await c.check(c.home, "home reload is ready", "!!document.querySelector('.dropzone')");
+  await reloaded;
+  await c.check(c.home, "home reload is ready", "!!document.querySelector('.dropzone')&&!document.querySelector('#startup-status')");
   await c.check(c.home, "home reload preserves the standard entry", cleanHome);
   await c.check(
     c.home,

@@ -3,12 +3,15 @@ import {useImmersive} from './useImmersive';
 import {useUpdateRestart} from './useUpdateRestart';
 import {useAppSettings} from './useAppSettings';
 import {waitForFileEdits} from '@/services/pendingEdits';
-import {finishStartup} from '@/services/startup';
+import {removeHomeStartup} from '@/services/startup';
 import type {PreviewFile} from '@shared/files';
 import type {TabStripHandle} from '@/components/app/types';
 
 export function useApplication() {
   const isPreview = new URLSearchParams(location.search).has("preview");
+  const previewOpenedAt = performance.now();
+  const waitingForFiles = ref(isPreview);
+  const openingFileId = ref("");
   const immersive = useImmersive(isPreview);
   const files = shallowRef<PreviewFile[]>([]);
   const updateLocked=useUpdateRestart(files);
@@ -232,12 +235,20 @@ export function useApplication() {
       }),
     );
     if (isPreview) {
-      files.value = await window.localPreview.consume();
-      active.value = files.value[0]?.id || "";
-      void alignActiveTab("nearest");
-      if (!files.value.length) error.value = "预览已释放，请重新打开文件。";
+      try {
+        files.value = await window.localPreview.consume();
+        openingFileId.value = active.value = files.value[0]?.id || "";
+        void alignActiveTab("nearest");
+        if (!files.value.length) error.value = "预览已释放，请重新打开文件。";
+      } catch {
+        error.value = "无法打开预览，请重新打开文件。";
+      } finally {
+        waitingForFiles.value = false;
+      }
+    } else {
+      await nextTick();
+      removeHomeStartup();
     }
-    if(!isPreview||!files.value.length)void finishStartup();
   });
   onBeforeUnmount(() => {
     window.removeEventListener("keydown", key);
@@ -245,6 +256,6 @@ export function useApplication() {
   });
 
   function endDrag() { draggedTab = ""; }
-  return {isPreview, immersive, files, active, updateLocked, settings, showSettings, error, dragging, tabStrip, select, openFiles, enter, leave, drop, startDrag, endDrag, dropTab, closeTab, selectTab, onTabsWheel, save};
+  return {isPreview, waitingForFiles, openingFileId, previewOpenedAt, immersive, files, active, updateLocked, settings, showSettings, error, dragging, tabStrip, select, openFiles, enter, leave, drop, startDrag, endDrag, dropTab, closeTab, selectTab, onTabsWheel, save};
 
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, nextTick, watch, computed, provide, onBeforeUnmount } from "vue";
+import { ref, nextTick, watch, computed, provide, onMounted, onBeforeUnmount } from "vue";
 import { getPreviewModule } from "@/modules";
 import FitControl from "./FitControl.vue";
 import type { FitMode } from "@/utils/fit";
@@ -12,14 +12,17 @@ import { usePreviewLoad } from '@/composables/usePreviewLoad';
 import {usePreviewNoticeHost} from '@/composables/usePreviewNotice';
 import PreviewNotices from './PreviewNotices.vue';
 import PopupTransition from '@/components/ui/PopupTransition.vue';
-import {startupPending} from '@/services/startup';
+import type {PreviewLoadingState} from './loadingCard';
 const props = defineProps<{
   file: PreviewFile;
+  openedAt?: number;
   initialZoom: number;
   immersive?: boolean;
   /** Whether this tab is the active tab (for memory cache). */
   active?: boolean;
 }>();
+const emit = defineEmits<{registerLoading: [state: PreviewLoadingState | null]}>();
+const previewBody = ref<HTMLElement>();
 const {messages:notices,dismiss:dismissNotices}=usePreviewNoticeHost(props.file);
 function dismissNotice(){
   const restore=document.activeElement?.closest('.preview-notice');
@@ -45,9 +48,13 @@ function saveViewState() {
   }));
 }
 
-const { preview, phase, error, busy, label, elapsed, retry } = usePreviewLoad(props, loaded,()=>module.value?.closeFile?.(props.file.id));
+const { preview, phase, error, busy, loadingSince, retry } = usePreviewLoad(props, loaded,()=>module.value?.closeFile?.(props.file.id));
+onMounted(() => {
+  if (previewBody.value) emit('registerLoading', {target: previewBody.value, since: loadingSince, retry});
+});
 watch(() => props.active, active => { if (!active && preview.value) saveViewState(); }, { flush: 'sync' });
 onBeforeUnmount(()=>{
+ emit('registerLoading', null);
  saveViewState();
  void module.value?.closeFile?.(props.file.id);
 });
@@ -141,17 +148,11 @@ async function loaded() {
     </div>
     <div class="floating-tools"></div>
     <Teleport to="#preview-notice-target" defer><PopupTransition notice><PreviewNotices v-if="active && phase==='ready' && !error && notices.length" :file-name="file.name" :messages="notices" @dismiss="dismissNotice"/></PopupTransition></Teleport>
-    <div class="preview-body" tabindex="-1" :aria-busy="busy && phase !== 'password'" :data-load-phase="phase">
+    <div ref="previewBody" class="preview-body" tabindex="-1" :aria-busy="busy && phase !== 'password'" :data-load-phase="phase">
       <div v-if="error" class="error" role="alert">
         <strong>暂时无法预览</strong>
         <p>{{ error }}</p>
         <button v-if="!file.error" class="preview-retry" @click="retry">重新加载</button>
-      </div>
-      <div v-if="active && busy && !startupPending" class="loading" :class="{ 'loading-password': phase === 'password' }" role="status" aria-live="polite">
-        <span v-if="phase !== 'password'" class="loading-spinner" aria-hidden="true"></span>
-        <span>{{ label }}</span>
-        <small v-if="elapsed >= 3 && phase !== 'password'" aria-live="off">已用 {{ elapsed }} 秒</small>
-        <button v-if="elapsed >= 10 && phase !== 'password'" class="preview-retry" @click="retry">重新加载</button>
       </div>
       <component
         v-if="preview"

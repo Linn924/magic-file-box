@@ -24,6 +24,7 @@
 }
 
 .loading small { color: var(--muted); font-size: 12px; font-weight: 400; }
+.preview-file-loading { position: fixed; }
 .preview-retry {
   display: inline-flex;
   align-items: center;
@@ -33,18 +34,6 @@
   padding: 6px 16px;
   min-height: 30px;
 }
-.loading.loading-password {
-  top: 12px;
-  right: 12px;
-  left: auto;
-  transform: none;
-  flex-direction: row;
-  flex-wrap: wrap;
-  padding: 8px 12px;
-  gap: 10px;
-  font-size: 12px;
-}
-
 .loading-spinner {
   width: 32px;
   height: 32px;

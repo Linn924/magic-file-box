@@ -1,2 +1,41 @@
 <!doctype html>
-<html lang="zh-CN"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' blob: data:; media-src 'none'; frame-src 'none'; object-src 'none'; connect-src 'self' blob:; base-uri 'none'; form-action 'none'"><title>魔法文件匣</title><style>:root{--bg:#f3f5f8;--panel:#ffffff;--text:#20262e;--line:#c9d1db;--accent:#0f6cbd;color-scheme:light}html[data-theme="dark"]{--bg:#1b1f27;--panel:#252a32;--text:#e8ecf2;--line:#3a4452;--accent:#60a5fa;color-scheme:dark}html,body{margin:0;background:var(--bg);color:var(--text)}</style></head><body><div id="app"></div><script type="module" src="/src/main.ts"></script></body></html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data:; font-src 'self' blob: data:; media-src 'none'; frame-src 'none'; object-src 'none'; connect-src 'self' blob:; base-uri 'none'; form-action 'none'">
+  <title>魔法文件匣</title>
+  <style>
+    :root{--bg:#f3f5f8;--panel:#ffffff;--text:#20262e;--line:#c9d1db;--accent:#0f6cbd;color-scheme:light}
+    html[data-theme="dark"]{--bg:#1b1f27;--panel:#252a32;--text:#e8ecf2;--line:#3a4452;--accent:#60a5fa;color-scheme:dark}
+    html,body{margin:0;background:var(--bg);color:var(--text)}
+    #startup-status{display:none}
+    html[data-home-startup] #app{visibility:hidden}
+    html[data-home-startup] #startup-status{
+      position:fixed;inset:0;display:grid;place-items:center;background:var(--bg);
+      font:500 14px system-ui,sans-serif;
+    }
+    .startup-card{
+      display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px 32px;
+      border:1px solid var(--line);border-radius:12px;background:var(--panel);
+      box-shadow:0 8px 28px rgb(0 0 0 / 16%);
+    }
+    .startup-spinner{
+      box-sizing:border-box;width:32px;height:32px;border:3px solid var(--line);
+      border-top-color:var(--accent);border-radius:50%;animation:startup-spin .8s linear infinite;
+    }
+    @keyframes startup-spin{to{transform:rotate(360deg)}}
+    @media (prefers-reduced-motion:reduce){.startup-spinner{animation:none}}
+  </style>
+</head>
+<body>
+  <div id="startup-status" role="status">
+    <div class="startup-card">
+      <span class="startup-spinner" aria-hidden="true"></span>
+      <span>正在加载资源…</span>
+    </div>
+  </div>
+  <div id="app"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

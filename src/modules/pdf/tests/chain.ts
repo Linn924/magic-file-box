@@ -12,7 +12,7 @@ const suite:Suite=async c=>{
     const name=permitted?'encrypted-allowed.pdf':'encrypted-restricted.pdf';encryptedFixture(c.fixture(name),permitted);
     let win=await c.program.openPath(c.fixture(name));
     await c.check(win,'encrypted PDF asks for password','!!document.querySelector(".pdf-password")');
-    await c.check(win,'password stage leaves input usable without loading actions',"(()=>{const input=document.querySelector('.pdf-password input'),b=input.getBoundingClientRect();return document.querySelector('.preview-body').dataset.loadPhase==='password'&&document.elementFromPoint(b.left+b.width/2,b.top+b.height/2)===input&&!document.querySelector('.loading button')})()");
+    await c.check(win,'password input replaces the loading card and is usable',"(()=>{const input=document.querySelector('.pdf-password input'),b=input.getBoundingClientRect();return document.querySelector('.preview-body').dataset.loadPhase==='password'&&document.elementFromPoint(b.left+b.width/2,b.top+b.height/2)===input&&!document.querySelector('.preview-file-loading')})()");
     await c.click(win,'.tab-close');await c.pause(150);
     if(!win.isDestroyed())throw Error('Password tab did not close');
     if(c.program.previewResourceStats().pdfWindows)throw Error('Closed password tab retained PDF budget client');
