@@ -22,6 +22,9 @@ const child = spawn(
   exe,
   [
     "--remote-debugging-port=19387",
+    // Keep animation frames available while another window covers the test app.
+    "--disable-backgrounding-occluded-windows",
+    "--disable-features=CalculateNativeWinOcclusion",
     "--user-data-dir=" + profile,
     resolve("work/fixtures/document.pdf"),
   ],
